@@ -444,6 +444,9 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
             ts_ms = max(last_ts_ms + 1, int((t - start_time) * 1000))
             last_ts_ms = ts_ms
 
+            if emitter is not None:
+                emitter.set_preview(frame)
+
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             result = landmarker.detect_for_video(mp_image, ts_ms)
