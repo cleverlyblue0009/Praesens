@@ -344,6 +344,71 @@ def probe_display_redraw(seconds: float) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Multi-camera enumeration -- lets you positively identify which index is
+# which physical/virtual device (e.g. OBS Virtual Camera) BEFORE relying on
+# it in demo/attack.py. cv2.VideoCapture has no cross-backend way to read a
+# device's friendly name back from an open capture, so on Windows this uses
+# pygrabber to query DirectShow's own device list directly -- the same
+# enumerator CAP_DSHOW uses, so the name order matches the index order.
+# ---------------------------------------------------------------------------
+
+def _dshow_device_names() -> list:
+    """Friendly DirectShow device names in enumeration order (index i here
+    corresponds to cv2.VideoCapture(i, cv2.CAP_DSHOW)), or [] if pygrabber
+    isn't installed / not on Windows / the query fails for any reason --
+    enumeration should degrade to index-only listing, never crash."""
+    if platform.system() != "Windows":
+        return []
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        return FilterGraph().get_input_devices()
+    except Exception as e:
+        print(f"NOTE: could not query DirectShow device names ({e}). "
+              f"Install pygrabber for named enumeration: pip install pygrabber")
+        return []
+
+
+def enumerate_cameras(max_index: int) -> list:
+    """Probes indices 0..max_index-1, pairing each with its DirectShow name
+    (if available) and reporting resolution + which backend actually
+    delivered a frame. This is the positive-identification step: run it,
+    read the name column, and that's the index to hand to
+    demo/attack.py / praesens/session.py --camera-index."""
+    names = _dshow_device_names()
+    results = []
+    for idx in range(max_index):
+        cap, backend = open_capture(idx)
+        if cap is None:
+            results.append({"index": idx, "opened": False, "name": None,
+                             "backend": None, "width": None, "height": None})
+            continue
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        name = names[idx] if idx < len(names) else None
+        results.append({"index": idx, "opened": True, "name": name,
+                         "backend": backend_name(backend), "width": w, "height": h})
+    return results
+
+
+def print_camera_list(results: list) -> None:
+    print("\n" + "=" * 70)
+    print("CAMERA ENUMERATION")
+    print("=" * 70)
+    any_named = any(r["name"] for r in results)
+    if not any_named:
+        print("(no DirectShow names available -- pip install pygrabber for named "
+              "enumeration on Windows; showing index-only results)")
+    for r in results:
+        if not r["opened"]:
+            print(f"  [{r['index']}] -- (could not open / no device)")
+            continue
+        name = r["name"] or "(name unavailable)"
+        print(f"  [{r['index']}] {name:35s} {r['width']}x{r['height']}  backend={r['backend']}")
+    print("=" * 70)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -407,9 +472,22 @@ def main():
                          help="skip the fullscreen redraw test (e.g. headless run)")
     parser.add_argument("--output", type=str, default=None,
                          help="output JSON path (default: logs/probe_<timestamp>.json)")
+    parser.add_argument("--list-cameras", action="store_true",
+                         help="enumerate all camera indices with DirectShow names (if available) and exit "
+                              "-- use this to positively identify which index is OBS Virtual Camera")
+    parser.add_argument("--max-camera-index", type=int, default=None,
+                         help="override config.yaml probe.max_camera_index for --list-cameras")
     args = parser.parse_args()
 
     cfg = load_config()
+
+    if args.list_cameras:
+        max_index = args.max_camera_index if args.max_camera_index is not None else cfg["max_camera_index"]
+        print(f"Probing camera indices 0-{max_index - 1} ...")
+        results = enumerate_cameras(max_index)
+        print_camera_list(results)
+        return
+
     camera_index = args.camera_index if args.camera_index is not None else cfg["camera_index"]
 
     print(f"Opening camera index {camera_index} ...")

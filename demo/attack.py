@@ -51,9 +51,9 @@ def probe_camera(index: int, oconfig, warn_prefix: str = "") -> cv2.VideoCapture
 class AttackDashboard(LiveDashboard):
     def __init__(self, raw_config: dict, max_camera_probe: int = 6):
         super().__init__(raw_config)  # opens+locks the configured primary camera as self.cap
-
+        self._captures: dict[int, cv2.VideoCapture] = {}
         primary_index = self.oconfig.camera_index
-        self._captures: dict[int, cv2.VideoCapture] = {primary_index: self.cap}
+        self._captures[primary_index] = self.cap
 
         print(f"Probing camera indices 0-{max_camera_probe - 1} for additional sources "
               f"(e.g. OBS Virtual Camera)...")
@@ -71,22 +71,56 @@ class AttackDashboard(LiveDashboard):
             marker = " (current)" if idx == primary_index else ""
             print(f"  [{i}] camera index {idx}{marker}")
 
+    @property
+    def _camera_name(self) -> str:
+        """Read back live from self.cap's identity against the known pool
+        every time it's displayed -- not a cached label -- so a bug
+        elsewhere that reassigns self.cap without going through
+        switch_camera() can't silently leave a stale name on screen. This
+        was the actual bug: switch_camera() used to no-op silently (see
+        below), so the status bar kept showing the OLD label because
+        nothing had actually switched -- a live-derived label would have
+        made that failure visible immediately instead of looking plausible."""
+        if self.dconfig.camera_display_name:
+            return self.dconfig.camera_display_name
+        for idx, cap in self._captures.items():
+            if cap is self.cap:
+                return f"camera #{idx}"
+        return f"camera #{self.oconfig.camera_index} (WARNING: cap identity not found in pool)"
+
+    @_camera_name.setter
+    def _camera_name(self, value) -> None:
+        pass  # display is always derived live by the getter above; see its docstring
+
     def switch_camera(self, new_index: int) -> None:
-        if new_index not in self._captures or new_index == self.oconfig.camera_index:
+        if new_index == self.oconfig.camera_index:
+            print(f"WARNING: requested camera index {new_index} is already the active source "
+                  f"-- no switch performed")
+            return
+        if new_index not in self._captures:
+            print(f"WARNING: camera index {new_index} was never opened (not found during "
+                  f"startup probing of indices 0-{max(self._captures, default=0)}; available: "
+                  f"{sorted(self._captures.keys())}). Switch NOT performed -- still on index "
+                  f"{self.oconfig.camera_index}. If this is meant to be OBS Virtual Camera, run "
+                  f"'python scripts/probe.py --list-cameras' to find its real index and confirm "
+                  f"it's running before relaunching.")
             return
         self.cap = self._captures[new_index]
         self.oconfig.camera_index = new_index
-        self._camera_name = self.dconfig.camera_display_name or f"camera #{new_index}"
         self.last_ts_ms = -1  # each capture's frame clock restarts; keep grab timestamps monotonic per-source
         print(f"-> switched to camera index {new_index} (instant; rolling history preserved)")
         # Deliberately NOT calling self.reset(): the score collapsing in the
         # SAME rolling window is the point of the demo.
 
     def _handle_key(self, key: int, frame) -> bool:
-        for i, idx in enumerate(self.camera_slots):
-            if key == ord(str(i)) and i < 10:
-                self.switch_camera(idx)
-                return True
+        if ord('0') <= key <= ord('9'):
+            i = key - ord('0')
+            if i < len(self.camera_slots):
+                self.switch_camera(self.camera_slots[i])
+            else:
+                print(f"WARNING: no camera source mapped to slot [{i}] -- only "
+                      f"{len(self.camera_slots)} source(s) available: {self.camera_slots}")
+            return True
         return super()._handle_key(key, frame)
 
     def run(self, max_seconds: float | None = None) -> None:

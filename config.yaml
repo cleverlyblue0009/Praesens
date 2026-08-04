@@ -2,6 +2,7 @@
 
 probe:
   camera_index: 0
+  max_camera_index: 8   # how many indices --list-cameras probes
   n_frames: 200
   luminance_change_threshold: 2.0   # gray-levels; above this counts as "visible change"
   exposure_test_value: -6            # log2 seconds, typical UVC manual exposure range -13..-1

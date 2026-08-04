@@ -4,3 +4,4 @@ scipy
 matplotlib
 mediapipe
 pyyaml
+pygrabber; sys_platform == "win32"   # DirectShow device names for scripts/probe.py --list-cameras
