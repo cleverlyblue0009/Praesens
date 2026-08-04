@@ -57,3 +57,5 @@ demo:
   min_fps: 15.0
   screenshot_dir: demo/screenshots
   camera_display_name: null    # optional override; falls back to "camera #<index>"
+  panel_rolling_window_s: 1.5  # shorter than rolling_window_s -- panel mode trades statistical
+                                # power for a fast, visible collapse (REJECT within ~1s of switching)
