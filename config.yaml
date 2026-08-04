@@ -39,3 +39,9 @@ optical:
   snr_floor_db: 3.0
   adaptive_window_s: 3.0          # how much of the session to judge early SNR on before boosting depth
   min_face_confidence: 0.5
+
+eval:
+  logs_dir: logs
+  figures_dir: eval/figures
+  figure_dpi: 300
+  attack_conditions: [replay, swap]   # emitter_off is a control, not an attack -- excluded from ROC/EER
