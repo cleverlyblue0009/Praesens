@@ -319,12 +319,38 @@ def resample_emitted(emitter_log: list, query_timestamps: np.ndarray, lag_s: flo
     return log_val[idx]
 
 
+def _lag_sweep(m_centered: np.ndarray, m_std: float, ts: np.ndarray, emitter_log: list,
+                lag_max_ms: float, lag_step_ms: float):
+    """Shared core: normalised (Pearson) correlation at every lag on the
+    grid, because frame timestamps are non-uniform -- rather than shifting
+    sample indices, the emitted signal is re-resampled at (t - lag) for
+    each lag hypothesis. Returns (lags_ms, scores, emitted_per_lag) so
+    callers can either take the argmax (cross_correlate_lag_search) or
+    inspect the whole curve (compute_correlation_curve, FIX 3's diagnostic:
+    a flat curve with no discernible peak is a different, worse problem
+    than a peak simply landing at an unexpected lag)."""
+    lags_ms = np.arange(0, lag_max_ms + 1e-9, lag_step_ms)
+    scores = np.empty(len(lags_ms))
+    emitted_per_lag = []
+
+    for i, lag_ms in enumerate(lags_ms):
+        emitted = resample_emitted(emitter_log, ts, lag_s=lag_ms / 1000.0)
+        e_centered = emitted - emitted.mean()
+        e_std = np.std(e_centered)
+        if e_std < 1e-9:
+            scores[i] = 0.0
+        else:
+            scores[i] = float(np.mean(m_centered * e_centered) / (m_std * e_std))
+        emitted_per_lag.append(emitted)
+
+    return lags_ms, scores, emitted_per_lag
+
+
 def cross_correlate_lag_search(measured_detrended: np.ndarray, frame_timestamps: np.ndarray,
                                 emitter_log: list, lag_max_ms: float, lag_step_ms: float):
-    """Normalised (Pearson) cross-correlation over a lag grid, because frame
-    timestamps are non-uniform: rather than shifting sample indices, we
-    re-resample the emitted signal at (t - lag) for each lag hypothesis.
-    Returns (score, lag_ms, emitted_at_best_lag, valid_timestamps, valid_measured)."""
+    """Peak of the lag sweep. Returns (score, lag_ms, emitted_at_best_lag,
+    valid_timestamps, valid_measured). See compute_correlation_curve() for
+    the full curve instead of just the peak."""
     valid = ~np.isnan(measured_detrended)
     ts = np.asarray(frame_timestamps)[valid]
     m = np.asarray(measured_detrended)[valid]
@@ -335,21 +361,32 @@ def cross_correlate_lag_search(measured_detrended: np.ndarray, frame_timestamps:
     m_centered = m - m.mean()
     m_std = np.std(m_centered)
 
-    lags_ms = np.arange(0, lag_max_ms + 1e-9, lag_step_ms)
-    best_score, best_lag, best_emitted = -np.inf, 0.0, np.zeros_like(m)
+    lags_ms, scores, emitted_per_lag = _lag_sweep(m_centered, m_std, ts, emitter_log, lag_max_ms, lag_step_ms)
+    best_idx = int(np.argmax(scores))
+    return float(scores[best_idx]), float(lags_ms[best_idx]), emitted_per_lag[best_idx], ts, m
 
-    for lag_ms in lags_ms:
-        emitted = resample_emitted(emitter_log, ts, lag_s=lag_ms / 1000.0)
-        e_centered = emitted - emitted.mean()
-        e_std = np.std(e_centered)
-        if e_std < 1e-9:
-            corr = 0.0
-        else:
-            corr = float(np.mean(m_centered * e_centered) / (m_std * e_std))
-        if corr > best_score:
-            best_score, best_lag, best_emitted = corr, float(lag_ms), emitted
 
-    return best_score, best_lag, best_emitted, ts, m
+def compute_correlation_curve(measured_detrended: np.ndarray, frame_timestamps: np.ndarray,
+                               emitter_log: list, lag_max_ms: float, lag_step_ms: float):
+    """FIX 3 diagnostic: the FULL correlation-vs-lag curve, not just the
+    peak. A sharp, isolated peak at a plausible camera latency (tens of ms)
+    is what a real physical reflection looks like; a flat curve near zero
+    everywhere means there is no detectable coupling to find a peak IN --
+    that's a signal problem (see FIX 2), not a clock/alignment bug, and the
+    two look identical if you only ever print the argmax. Returns
+    (lags_ms, scores)."""
+    valid = ~np.isnan(measured_detrended)
+    ts = np.asarray(frame_timestamps)[valid]
+    m = np.asarray(measured_detrended)[valid]
+
+    if len(m) < 5 or np.std(m) < 1e-9:
+        lags_ms = np.arange(0, lag_max_ms + 1e-9, lag_step_ms)
+        return lags_ms, np.zeros(len(lags_ms))
+
+    m_centered = m - m.mean()
+    m_std = np.std(m_centered)
+    lags_ms, scores, _ = _lag_sweep(m_centered, m_std, ts, emitter_log, lag_max_ms, lag_step_ms)
+    return lags_ms, scores
 
 
 def estimate_snr_db(timestamps: np.ndarray, detrended_values: np.ndarray, chip_rate_hz: float,
