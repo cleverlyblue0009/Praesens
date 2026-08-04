@@ -20,3 +20,22 @@ emitter:
   border_fraction: 0.25       # fraction of width/height each border edge occupies
   fallback_window_width: 1920
   fallback_window_height: 1080
+
+optical:
+  camera_index: 0
+  model_path: models/face_landmarker.task
+  exposure_value: -6              # log2 seconds; whatever Milestone 0 found sticks on this machine
+  disable_auto_wb: true
+  lock_verification_frames: 15
+  lock_verification_max_std: 3.0  # luminance std (gray levels) over verification frames; above -> warn loudly
+  roi_margin_frac: 0.06           # fraction of face height, keeps ROIs off eyes/brows/nose/lip boundaries
+  detrend_window_s: 1.5
+  lag_search_max_ms: 300
+  lag_step_ms: 5
+  snr_low_cut_hz: 0.3             # signal band is [snr_low_cut_hz, chip_rate_hz] -- an m-sequence's
+                                   # power spectrum runs from DC up to the chip rate (sinc^2 main lobe,
+                                   # first null at chip_rate_hz), it is not a tone at chip_rate_hz
+  snr_resample_rate_hz: 60.0      # uniform grid rate for bandpass filtering (frames aren't evenly spaced)
+  snr_floor_db: 3.0
+  adaptive_window_s: 3.0          # how much of the session to judge early SNR on before boosting depth
+  min_face_confidence: 0.5
