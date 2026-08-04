@@ -169,6 +169,26 @@ class Emitter:
         if self._thread is not None:
             self._thread.join(timeout=2.0)
 
+    def log_redraw(self, chip_value: int, luminance: float, enabled: bool) -> None:
+        """Records one actual redraw. Call this immediately after the frame
+        from render_frame() has actually been pushed to the screen (i.e.
+        right after cv2.imshow()+waitKey()), so the logged timestamp is the
+        true display moment, not when it was computed -- callers driving
+        their own single-threaded display loop (e.g. the live dashboard,
+        which also needs waitKey() for keyboard shortcuts and can't safely
+        share OpenCV's GUI loop across threads with this class's own _run())
+        use this directly instead of start()/_run()."""
+        actual_t = time.perf_counter()
+        with self._lock:
+            start_time = self._start_time
+        self._log.append({
+            "t": actual_t,
+            "elapsed_s": actual_t - start_time if start_time is not None else 0.0,
+            "chip_value": chip_value,
+            "luminance": luminance,
+            "enabled": enabled,
+        })
+
     def _run(self, duration_s: float) -> None:
         cv2.namedWindow(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty(
@@ -182,20 +202,20 @@ class Emitter:
                 frame, chip_value, luminance, enabled = self.render_frame(elapsed)
                 cv2.imshow(self.WINDOW_NAME, frame)
                 cv2.waitKey(1)
-                actual_t = time.perf_counter()  # the ACTUAL redraw moment
-                self._log.append({
-                    "t": actual_t,
-                    "elapsed_s": actual_t - self._start_time,
-                    "chip_value": chip_value,
-                    "luminance": luminance,
-                    "enabled": enabled,
-                })
+                self.log_redraw(chip_value, luminance, enabled)
         finally:
             cv2.destroyWindow(self.WINDOW_NAME)
             cv2.waitKey(1)
 
     def get_log(self) -> list[dict]:
         return list(self._log)
+
+    def begin_manual_drive(self, start_time: float) -> None:
+        """Sets up shared session-start time for a caller that will call
+        render_frame()/log_redraw() itself from its own display loop,
+        without start()/_run()'s background thread."""
+        self._start_time = start_time
+        self._log = []
 
 
 if __name__ == "__main__":

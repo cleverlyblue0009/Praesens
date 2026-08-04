@@ -5,4 +5,5 @@ logs/*.json
 logs/*.png
 eval/figures/
 models/*.task
+demo/screenshots/
 .DS_Store

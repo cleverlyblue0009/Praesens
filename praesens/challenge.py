@@ -108,6 +108,8 @@ class Challenge:
     order: int = field(default=None)  # type: ignore[assignment]
     seed: int = field(default=None)   # type: ignore[assignment]
     chips: np.ndarray = field(default=None, repr=False)  # type: ignore[assignment]
+    loop: bool = False  # if True, value_at() wraps past duration_s instead of clamping
+                         # (the live demo runs indefinitely, unlike a fixed 20s scored session)
 
     def __post_init__(self):
         n_chips = round(self.duration_s * self.chip_rate_hz)
@@ -144,7 +146,10 @@ class Challenge:
         Times outside [0, duration_s) clamp to the nearest edge chip."""
         t = np.asarray(t, dtype=np.float64)
         idx = np.floor(t * self.chip_rate_hz).astype(np.int64)
-        idx = np.clip(idx, 0, self.n_chips - 1)
+        if self.loop:
+            idx = np.mod(idx, self.n_chips)
+        else:
+            idx = np.clip(idx, 0, self.n_chips - 1)
         return self.chips[idx]
 
     def to_dict(self) -> dict:

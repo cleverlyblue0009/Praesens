@@ -45,3 +45,15 @@ eval:
   figures_dir: eval/figures
   figure_dpi: 300
   attack_conditions: [replay, swap]   # emitter_off is a control, not an attack -- excluded from ROC/EER
+
+demo:
+  rolling_window_s: 6.0        # how much history the live score is computed over
+  score_history_s: 30.0        # how much history the score strip shows
+  score_threshold: 0.5         # placeholder until eval/summary.json's EER threshold exists from real data
+  min_valid_samples: 8         # below this many valid (face-detected) samples in the window, show NO FACE DETECTED
+  dashboard_width: 1280        # internal render resolution; scaled to fit the emitter's centre preview slot
+  dashboard_height: 800
+  border_fraction: 0.14        # thinner than the base emitter default -- more room for a readable dashboard
+  min_fps: 15.0
+  screenshot_dir: demo/screenshots
+  camera_display_name: null    # optional override; falls back to "camera #<index>"
