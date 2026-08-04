@@ -1,0 +1,9 @@
+# PRAESENS configuration. Every tunable lives here, not hardcoded in modules.
+
+probe:
+  camera_index: 0
+  n_frames: 200
+  luminance_change_threshold: 2.0   # gray-levels; above this counts as "visible change"
+  exposure_test_value: -6            # log2 seconds, typical UVC manual exposure range -13..-1
+  display_test_seconds: 3.0
+  min_acceptable_fps: 30.0
