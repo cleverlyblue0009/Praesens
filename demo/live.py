@@ -316,6 +316,20 @@ class LiveDashboard:
         cv2.imwrite(str(path), frame)
         print(f"saved {path}")
 
+    def _handle_key(self, key: int, frame) -> bool:
+        """Returns False to stop the run loop. Subclasses (attack.py,
+        panel.py) override this to add hotkeys while keeping [E]/[R]/[S]/[Q]
+        by calling super()."""
+        if key == ord('q'):
+            return False
+        elif key == ord('e'):
+            self.emitter.set_enabled(not self.emitter.is_enabled())
+        elif key == ord('r'):
+            self.reset()
+        elif key == ord('s'):
+            self.screenshot(frame)
+        return True
+
     # -- main loop -----------------------------------------------------------
 
     def run(self, max_seconds: float | None = None) -> None:
@@ -346,14 +360,8 @@ class LiveDashboard:
                 self.emitter.log_redraw(chip_value, luminance, enabled)
                 self.frame_times.append(time.perf_counter())
 
-                if key == ord('q'):
+                if not self._handle_key(key, frame):
                     break
-                elif key == ord('e'):
-                    self.emitter.set_enabled(not self.emitter.is_enabled())
-                elif key == ord('r'):
-                    self.reset()
-                elif key == ord('s'):
-                    self.screenshot(frame)
         finally:
             self.cap.release()
             self.landmarker.close()
