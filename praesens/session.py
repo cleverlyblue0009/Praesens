@@ -23,9 +23,9 @@ from pathlib import Path
 import cv2
 import yaml
 
-from praesens.challenge import Challenge
+from praesens.challenge import Challenge, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
-from praesens.optical import OpticalConfig, run_session
+from praesens.optical import OpticalConfig, run_session, measure_capture_fps
 
 VALID_CONDITIONS = {"bonafide", "replay", "swap", "emitter_off"}
 
@@ -53,21 +53,41 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     if raw_config is None:
         raw_config = load_config()
 
-    challenge = Challenge(**raw_config["challenge"])
-
-    econfig = EmitterConfig.from_dict(raw_config["emitter"])
-    if condition == "emitter_off":
-        econfig.emitter_enabled = False
-
     oconfig = OpticalConfig.from_dict(raw_config["optical"])
     model_path = Path(oconfig.model_path)
     oconfig.model_path = str(model_path if model_path.is_absolute() else REPO_ROOT / model_path)
     if camera_index_override is not None:
         oconfig.camera_index = camera_index_override
 
+    # Camera must be open BEFORE the challenge/emitter are built when
+    # auto_chip_rate is on, since the chip rate depends on a quick FPS
+    # measurement of this specific camera -- deciding it from a fixed
+    # config value first (the old order) would defeat the point of FIX 2c.
     cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
+
+    challenge_cfg = dict(raw_config["challenge"])
+    auto_chip_rate_used = bool(raw_config["optical"].get("auto_chip_rate", False))
+    if auto_chip_rate_used:
+        preflight_fps = measure_capture_fps(cap)
+        chip_rate_hz, duration_s = pick_auto_chip_rate(
+            preflight_fps,
+            divisor=raw_config["optical"].get("auto_chip_rate_divisor", 6.0),
+            min_hz=0.5, max_hz=5.0,
+            min_chips=raw_config["optical"].get("auto_chip_rate_min_chips", 60),
+            base_duration_s=challenge_cfg.get("duration_s", 20.0),
+        )
+        print(f"auto_chip_rate: measured preflight FPS={preflight_fps:.1f} -> "
+              f"chip_rate_hz={chip_rate_hz:.2f}, duration_s={duration_s:.1f}")
+        challenge_cfg["chip_rate_hz"] = chip_rate_hz
+        challenge_cfg["duration_s"] = duration_s
+
+    challenge = Challenge(**challenge_cfg)
+
+    econfig = EmitterConfig.from_dict(raw_config["emitter"])
+    if condition == "emitter_off":
+        econfig.emitter_enabled = False
 
     emitter = Emitter(challenge, econfig)
     session_id = generate_session_id()
@@ -86,6 +106,9 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         "score": result.score,
         "lag_ms": result.lag_ms,
         "seed": challenge.seed,
+        "chip_rate_hz": challenge.chip_rate_hz,
+        "duration_s": challenge.duration_s,
+        "auto_chip_rate_used": auto_chip_rate_used,
         "emitter_enabled": econfig.emitter_enabled,
         "snr_db": result.snr_db,
         "insufficient_signal": result.insufficient_signal,
@@ -93,6 +116,7 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         "exposure_locked": result.exposure_locked,
         "n_frames": result.n_frames,
         "n_face_detected": result.n_face_detected,
+        "measured_fps": result.measured_fps,
         "warnings": result.warnings,
         "meta": meta,
         "trace_emitted": result.trace_emitted,
@@ -143,6 +167,7 @@ if __name__ == "__main__":
     print(f"score={record['score']:.3f} lag_ms={record['lag_ms']:.1f} "
           f"snr_db={record['snr_db']:.2f} insufficient_signal={record['insufficient_signal']}")
     print(f"n_frames={record['n_frames']} n_face_detected={record['n_face_detected']} "
+          f"measured_fps={record['measured_fps']:.1f} "
           f"exposure_locked={record['exposure_locked']} adaptive_boost={record['adaptive_boost_applied']}")
     for w in record["warnings"]:
         print(f"  warning: {w}")

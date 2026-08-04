@@ -182,6 +182,25 @@ class Challenge:
             return cls.from_dict(json.load(f))
 
 
+def pick_auto_chip_rate(measured_fps: float, divisor: float = 6.0, min_hz: float = 0.5,
+                         max_hz: float = 5.0, min_chips: int = 60,
+                         base_duration_s: float = 20.0) -> tuple[float, float]:
+    """FIX 2c: picks a chip rate the camera can actually sample (measured_fps
+    / divisor, clamped to [min_hz, max_hz]) instead of a fixed rate that may
+    undersample a slower pipeline, then lengthens the session if needed so
+    at least min_chips chips are still emitted -- a lower chip rate at the
+    same base duration means fewer chips, which weakens the m-sequence's
+    autocorrelation advantage (Milestone 1) if the session gets too short.
+    Returns (chip_rate_hz, duration_s)."""
+    if np.isnan(measured_fps) or measured_fps <= 0:
+        chip_rate_hz = min_hz
+    else:
+        chip_rate_hz = float(np.clip(measured_fps / divisor, min_hz, max_hz))
+    min_duration_for_chips = min_chips / chip_rate_hz
+    duration_s = float(max(base_duration_s, min_duration_for_chips))
+    return chip_rate_hz, duration_s
+
+
 def autocorrelation(chips: np.ndarray) -> np.ndarray:
     """Normalised circular autocorrelation, lag 0..len-1. For a true
     m-sequence this is 1.0 at lag 0 and approx -1/N elsewhere -- the

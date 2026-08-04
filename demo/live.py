@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
-import mediapipe as mp
 import numpy as np
 import yaml
 from mediapipe.tasks.python import vision as mp_vision
@@ -36,7 +35,7 @@ from mediapipe.tasks.python import vision as mp_vision
 from praesens.challenge import Challenge
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import (
-    OpticalConfig, create_landmarker, lock_camera, roi_luminance,
+    OpticalConfig, create_landmarker, lock_camera, CadenceDetector,
     moving_average_detrend, cross_correlate_lag_search, estimate_snr_db,
     resample_emitted, _zscore,
 )
@@ -118,6 +117,8 @@ class LiveDashboard:
 
         self.landmarker = create_landmarker(self.oconfig.model_path, mp_vision.RunningMode.VIDEO,
                                              self.oconfig.min_face_confidence)
+        self.detector = CadenceDetector(self.landmarker, self.oconfig.detect_every_n_frames,
+                                         self.oconfig.detect_downscale_width)
 
         self.warn_list: list = []
         self.exposure_locked = lock_camera(self.cap, self.oconfig, self.warn_list)
@@ -167,10 +168,7 @@ class LiveDashboard:
         ts_ms = max(self.last_ts_ms + 1, int(elapsed * 1000))
         self.last_ts_ms = ts_ms
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-        result = self.landmarker.detect_for_video(mp_image, ts_ms)
-        lum, face_ok = roi_luminance(frame, result, self.oconfig.roi_margin_frac)
+        lum, face_ok = self.detector.process(frame, ts_ms, self.oconfig.roi_margin_frac)
 
         self.timestamps.append(t)
         self.luminances.append(lum)

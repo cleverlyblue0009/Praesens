@@ -40,6 +40,15 @@ optical:
   snr_floor_db: 3.0
   adaptive_window_s: 3.0          # how much of the session to judge early SNR on before boosting depth
   min_face_confidence: 0.5
+  detect_every_n_frames: 2        # run MediaPipe landmark detection every Nth frame; ROI luminance is
+                                   # still sampled EVERY frame using the last known box (cheap, must not skip)
+  detect_downscale_width: 480     # resize to this width before detection only (0 = disabled); ROI boxes
+                                   # still map correctly onto the full-res frame -- landmarks are normalised [0,1]
+  min_fps_multiple_of_chip_rate: 6.0  # Nyquist needs >=2x chip_rate_hz; this is a safety margin above that
+  auto_chip_rate: false           # if true, pick chip_rate_hz from a pre-flight FPS measurement instead
+                                   # of the value above (see praesens/challenge.py pick_auto_chip_rate)
+  auto_chip_rate_divisor: 6.0     # chosen chip_rate_hz = measured_fps / this, clamped to [0.5, 5.0] Hz
+  auto_chip_rate_min_chips: 60    # session duration is lengthened so at least this many chips are emitted
 
 eval:
   logs_dir: logs

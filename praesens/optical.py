@@ -144,6 +144,79 @@ def roi_luminance(frame, detection_result, margin_frac: float):
     return float(gray[mask].mean()), True
 
 
+class CadenceDetector:
+    """Wraps a FaceLandmarker so the expensive landmark-detection step runs
+    only every `detect_every_n` frames (reusing the last known ROI boxes on
+    skipped frames), optionally on a downscaled copy of the frame.
+
+    This exists because landmark detection WITH a face present is a
+    two-stage pipeline (a lightweight detector, then a heavier landmark
+    refinement network that only runs once a face region exists) -- the
+    refinement stage is the dominant per-frame cost and is exactly what a
+    face-absent profiling run cannot measure, since it never runs without a
+    face to refine. Downscaling and throttling both target that stage
+    specifically.
+
+    ROI luminance itself is always recomputed on the FULL-resolution frame
+    on EVERY frame, never skipped or reused stale -- that measurement is
+    cheap (a masked mean over pixels already in memory) and IS the actual
+    signal being sampled at the chip rate; only the (expensive) box-finding
+    step is throttled, not the (cheap) brightness measurement the whole
+    correlation depends on.
+
+    MediaPipe landmark coordinates are normalised to [0,1], independent of
+    whatever resolution they were detected at -- so a box computed from
+    landmarks found on a downscaled frame, then multiplied by the
+    FULL-resolution frame's width/height (via compute_roi_boxes(frame.shape,
+    ...)), lands in the correct full-res pixel coordinates with no separate
+    remapping step needed.
+    """
+
+    def __init__(self, landmarker, detect_every_n: int = 1, detect_downscale_width: int = 0):
+        self.landmarker = landmarker
+        self.detect_every_n = max(1, int(detect_every_n))
+        self.detect_downscale_width = detect_downscale_width
+        self._frame_i = 0
+        self._last_boxes: list = []
+        self._last_face_ok = False
+
+    def process(self, frame, ts_ms: int, margin_frac: float):
+        do_detect = (self._frame_i % self.detect_every_n) == 0
+        self._frame_i += 1
+
+        if do_detect:
+            detect_frame = frame
+            if self.detect_downscale_width and frame.shape[1] > self.detect_downscale_width:
+                scale = self.detect_downscale_width / frame.shape[1]
+                new_h = max(1, int(round(frame.shape[0] * scale)))
+                detect_frame = cv2.resize(frame, (self.detect_downscale_width, new_h))
+
+            rgb = cv2.cvtColor(detect_frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            result = self.landmarker.detect_for_video(mp_image, ts_ms)
+
+            if result.face_landmarks:
+                landmarks = result.face_landmarks[0]
+                self._last_boxes = compute_roi_boxes(frame.shape, landmarks, margin_frac)
+                self._last_face_ok = True
+            else:
+                self._last_boxes = []
+                self._last_face_ok = False
+
+        if not self._last_boxes:
+            return float("nan"), False
+        mask = boxes_to_mask(frame.shape, self._last_boxes)
+        if not mask.any():
+            return float("nan"), False
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        return float(gray[mask].mean()), self._last_face_ok
+
+    def reset(self) -> None:
+        self._frame_i = 0
+        self._last_boxes = []
+        self._last_face_ok = False
+
+
 def draw_roi_debug(frame, detection_result, margin_frac: float):
     """Annotated copy of frame with ROI boxes drawn -- for visually
     confirming the boxes land on forehead/cheeks (scripts/optical.py can be
@@ -387,6 +460,9 @@ class OpticalConfig:
     snr_floor_db: float = 3.0
     adaptive_window_s: float = 3.0
     min_face_confidence: float = 0.5
+    detect_every_n_frames: int = 1     # run landmark detection every Nth frame; luminance still sampled every frame
+    detect_downscale_width: int = 0    # resize to this width before detection (0 = no downscale); 0-width ROI boxes still map to full-res
+    min_fps_multiple_of_chip_rate: float = 6.0  # Nyquist needs >=2x chip_rate_hz; warn well above that floor
 
     @classmethod
     def from_dict(cls, d: dict) -> "OpticalConfig":
@@ -406,7 +482,65 @@ class OpticalResult:
     timestamps: list
     n_frames: int
     n_face_detected: int
+    measured_fps: float = float("nan")
     warnings: list = field(default_factory=list)
+
+
+def measure_capture_fps(cap, n_frames: int = 10) -> float:
+    """Quick pre-flight burst -- grabs n_frames as fast as possible and
+    reports the achieved rate. This is an OPTIMISTIC estimate: with nobody
+    in frame yet, MediaPipe's expensive landmark-refinement stage doesn't
+    run at all, so this only measures grab/decode overhead, not the full
+    per-frame cost once a face is actually present. It still catches a
+    camera/backend too slow to work at all before a full session is spent
+    on undersampled data; the authoritative check is the ACHIEVED fps
+    computed from the real session's own frame timestamps at the end.
+
+    Kept short (n_frames=10, ~0.3s at 30fps) deliberately: this runs AFTER
+    start_time is already fixed by the caller (session.py sets start_time
+    and starts the emitter thread BEFORE calling run_session, so the
+    session clock and the emitter are already ticking by the time this
+    function runs) -- every second spent here is a second of the scored
+    duration_s window the main loop below won't get to capture in. This
+    pre-existing warm-up cost (lock_camera() above has the same property)
+    is why the "ACHIEVED" check at the end of the session, computed from
+    frames actually captured, is the one that matters -- this pre-flight
+    check is a fast fail-early net, not the authoritative measurement.
+
+    Calls grab() immediately followed by retrieve() each iteration, not
+    grab() alone: on this DSHOW driver, grab() without a paired retrieve()
+    doesn't block for a new frame at all -- 40 consecutive bare grab()
+    calls on a fresh capture measured ~0.00ms apart, never settling to the
+    sensor's real ~33ms cadence, which is what produced nonsense readings
+    in the hundreds of thousands of fps. Every other capture loop in this
+    codebase already pairs grab()+retrieve(); this was the one place that
+    didn't, caught by inspecting the raw inter-call intervals directly
+    rather than assuming grab() alone behaves like a real frame wait."""
+    timestamps = []
+    for _ in range(n_frames):
+        if cap.grab():
+            cap.retrieve()
+            timestamps.append(time.perf_counter())
+    if len(timestamps) < 2:
+        return float("nan")
+    return float((len(timestamps) - 1) / (timestamps[-1] - timestamps[0]))
+
+
+def check_nyquist(fps: float, chip_rate_hz: float, min_multiple: float) -> str | None:
+    """None if fps comfortably samples the chip rate, else a warning
+    string. Nyquist alone only requires >=2x chip_rate_hz; min_multiple
+    (default 6x) is a safety margin, since a signal only just above the
+    bare Nyquist limit is effectively aliased in practice -- too few
+    samples per chip to see a clean transition, not just in theory."""
+    required = chip_rate_hz * min_multiple
+    if np.isnan(fps) or fps >= required:
+        return None
+    return (f"measured FPS ({fps:.1f}) is below {min_multiple}x the chip rate "
+            f"({chip_rate_hz} Hz -> {required:.1f} Hz floor) -- the pattern is "
+            f"undersampled (~{fps / chip_rate_hz:.1f} samples/chip). Raise FPS "
+            f"(detect_every_n_frames / detect_downscale_width) or lower "
+            f"chip_rate_hz (auto_chip_rate) before trusting this session's "
+            f"correlation.")
 
 
 def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: float,
@@ -422,6 +556,16 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
     if own_landmarker:
         landmarker = create_landmarker(config.model_path, mp_vision.RunningMode.VIDEO,
                                         config.min_face_confidence)
+    detector = CadenceDetector(landmarker, config.detect_every_n_frames, config.detect_downscale_width)
+
+    preflight_fps = measure_capture_fps(cap)
+    preflight_warning = check_nyquist(preflight_fps, challenge.chip_rate_hz, config.min_fps_multiple_of_chip_rate)
+    if preflight_warning:
+        msg = f"PRE-FLIGHT (optimistic, no face required to trigger this): {preflight_warning}"
+        print("!" * 70)
+        print(f"WARNING: {msg}")
+        print("!" * 70)
+        warn_list.append(msg)
 
     timestamps, luminances, face_flags = [], [], []
     adaptive_triggered = False
@@ -447,10 +591,7 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
             if emitter is not None:
                 emitter.set_preview(frame)
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            result = landmarker.detect_for_video(mp_image, ts_ms)
-            lum, face_ok = roi_luminance(frame, result, config.roi_margin_frac)
+            lum, face_ok = detector.process(frame, ts_ms, config.roi_margin_frac)
 
             timestamps.append(t)
             luminances.append(lum)
@@ -483,12 +624,21 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
     lum_arr = np.array(luminances)
     n_face = int(np.sum(face_flags))
 
+    achieved_fps = float((len(ts_arr) - 1) / (ts_arr[-1] - ts_arr[0])) if len(ts_arr) >= 2 else float("nan")
+    achieved_warning = check_nyquist(achieved_fps, challenge.chip_rate_hz, config.min_fps_multiple_of_chip_rate)
+    if achieved_warning:
+        msg = f"ACHIEVED (this session's real frame rate): {achieved_warning}"
+        print("!" * 70)
+        print(f"WARNING: {msg}")
+        print("!" * 70)
+        warn_list.append(msg)
+
     if len(ts_arr) == 0:
         return OpticalResult(
             score=0.0, lag_ms=0.0, snr_db=float("nan"), insufficient_signal=True,
             adaptive_boost_applied=(emitter.adaptive_boost_applied() if emitter else False),
             exposure_locked=exposure_locked, trace_emitted=[], trace_measured=[],
-            timestamps=[], n_frames=0, n_face_detected=0,
+            timestamps=[], n_frames=0, n_face_detected=0, measured_fps=achieved_fps,
             warnings=warn_list + ["no frames captured"],
         )
 
@@ -516,6 +666,7 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
         timestamps=valid_ts.tolist(),
         n_frames=len(ts_arr),
         n_face_detected=n_face,
+        measured_fps=achieved_fps,
         warnings=warn_list,
     )
 
