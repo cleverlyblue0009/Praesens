@@ -7,3 +7,16 @@ probe:
   exposure_test_value: -6            # log2 seconds, typical UVC manual exposure range -13..-1
   display_test_seconds: 3.0
   min_acceptable_fps: 30.0
+
+challenge:
+  chip_rate_hz: 5.0
+  duration_s: 20.0
+
+emitter:
+  emitter_enabled: true       # scientific control switch -- false emits constant mid-grey
+  base_luminance: 127         # mid-grey, 0-255
+  modulation_depth: 60        # +/- swing around base_luminance, 0-255
+  max_modulation_depth: 110   # ceiling for adaptive depth (Milestone 3), must keep base+/-depth in [0,255]
+  border_fraction: 0.25       # fraction of width/height each border edge occupies
+  fallback_window_width: 1920
+  fallback_window_height: 1080
