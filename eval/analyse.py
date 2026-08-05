@@ -27,6 +27,14 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# np.trapz was removed in numpy 2.x (deprecated since 2.0); np.trapezoid is
+# its replacement but doesn't exist on older numpy. Try the new name first,
+# fall back to the old one, so this runs on either.
+try:
+    _trapezoid = np.trapezoid
+except AttributeError:
+    _trapezoid = np.trapz
+
 
 # ---------------------------------------------------------------------------
 # Loading
@@ -89,7 +97,7 @@ def compute_roc(bonafide_scores: np.ndarray, attack_scores: np.ndarray):
     tpr, fpr = np.array(tpr), np.array(fpr)
 
     order = np.argsort(fpr)
-    auc = float(np.trapezoid(tpr[order], fpr[order]))
+    auc = float(_trapezoid(tpr[order], fpr[order]))
     return fpr, tpr, thresholds, auc
 
 

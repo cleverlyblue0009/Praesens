@@ -56,6 +56,12 @@ eval:
   figure_dpi: 300
   attack_conditions: [replay, swap]   # emitter_off is a control, not an attack -- excluded from ROC/EER
 
+cross_session:
+  synthetic_emitter_sample_rate_hz: 100.0  # matches typical measured real emitter redraw rate (~90-130Hz);
+                                            # no real redraw log is persisted in session JSON, so the
+                                            # challenge is reconstructed as an idealised schedule at this rate
+  output_json: eval/cross_session.json
+
 demo:
   rolling_window_s: 6.0        # how much history the live score is computed over
   score_history_s: 30.0        # how much history the score strip shows
