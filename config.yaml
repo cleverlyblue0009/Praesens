@@ -25,7 +25,17 @@ emitter:
 optical:
   camera_index: 0
   model_path: models/face_landmarker.task
-  exposure_value: -6              # log2 seconds; whatever Milestone 0 found sticks on this machine
+  exposure_value: -3              # log2 seconds. -6 (M0's original) was too dark for MediaPipe to find a
+                                   # face at all in this room's actual ambient light (mean luminance ~24/255,
+                                   # confirmed via a clean fresh-capture-per-value sweep on 2026-08-06); -3 is
+                                   # the darkest/fastest setting in that sweep where a face is reliably found.
+                                   # Exposure time directly caps achievable FPS on this camera
+                                   # (fps ~= 1/2^exposure_value), so brighter came at a steep frame-rate cost:
+                                   # -6..-4.5 ~30fps but no face; -4/-3.5 ~16fps still no face; -3 ~8fps WITH
+                                   # a face. If you can add more physical light near the face, retest with
+                                   # scripts/probe.py-style exposure sweeps and prefer a less-negative-is-
+                                   # unnecessary (faster) value once brightness allows it -- auto_chip_rate
+                                   # below exists specifically to keep this from being a hard requirement.
   disable_auto_wb: true
   lock_verification_frames: 15
   lock_verification_max_std: 3.0  # luminance std (gray levels) over verification frames; above -> warn loudly
@@ -45,8 +55,12 @@ optical:
   detect_downscale_width: 480     # resize to this width before detection only (0 = disabled); ROI boxes
                                    # still map correctly onto the full-res frame -- landmarks are normalised [0,1]
   min_fps_multiple_of_chip_rate: 6.0  # Nyquist needs >=2x chip_rate_hz; this is a safety margin above that
-  auto_chip_rate: false           # if true, pick chip_rate_hz from a pre-flight FPS measurement instead
-                                   # of the value above (see praesens/challenge.py pick_auto_chip_rate)
+  auto_chip_rate: true            # turned on 2026-08-06: exposure=-3 (needed for face detection in this
+                                   # room) only achieves ~8fps, badly undersampling a fixed 5Hz chip rate
+                                   # (~1.6 samples/chip). This picks chip_rate_hz from a pre-flight FPS
+                                   # measurement instead of the fixed value above (see
+                                   # praesens/challenge.py pick_auto_chip_rate) and lengthens sessions
+                                   # accordingly -- turn back off once lighting lets exposure go faster.
   auto_chip_rate_divisor: 6.0     # chosen chip_rate_hz = measured_fps / this, clamped to [0.5, 5.0] Hz
   auto_chip_rate_min_chips: 60    # session duration is lengthened so at least this many chips are emitted
 
