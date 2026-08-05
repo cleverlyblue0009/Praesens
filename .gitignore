@@ -1,7 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
-logs/*.json
 logs/*.png
 eval/figures/
 models/*.task

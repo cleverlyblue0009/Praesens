@@ -1,0 +1,137 @@
+{
+  "timestamp": 1785825264.076427,
+  "platform": "Windows-10-10.0.26200-SP0",
+  "camera_index": 0,
+  "camera": {
+    "backend": "DSHOW",
+    "fps": {
+      "width": 640,
+      "height": 480,
+      "reported_fps": -1.0,
+      "measured_fps": 29.96646045324644,
+      "jitter_std_ms": 4.514451394211669,
+      "max_frame_gap_ms": 49.21990000002552,
+      "n_frames_captured": 200,
+      "n_frames_requested": 200
+    },
+    "controls": {
+      "auto_exposure": {
+        "property": "CAP_PROP_AUTO_EXPOSURE",
+        "original_value": -1.0,
+        "metric": "luminance",
+        "attempts": [
+          {
+            "tried_value": 0.25,
+            "set_call_returned_true": true,
+            "readback_value": -1.0,
+            "readback_unsupported_sentinel": true,
+            "value_stuck": false,
+            "luminance_after": 19.55359375,
+            "luminance_delta_from_baseline": -0.0056119791666660035,
+            "color_ratio_delta_from_baseline": 0.002460238315859953,
+            "visible_change": false
+          },
+          {
+            "tried_value": 1,
+            "set_call_returned_true": true,
+            "readback_value": -1.0,
+            "readback_unsupported_sentinel": true,
+            "value_stuck": false,
+            "luminance_after": 121.47857096354167,
+            "luminance_delta_from_baseline": 101.92497721354167,
+            "color_ratio_delta_from_baseline": 0.26439347834559357,
+            "visible_change": true
+          },
+          {
+            "tried_value": 0,
+            "set_call_returned_true": true,
+            "readback_value": -1.0,
+            "readback_unsupported_sentinel": true,
+            "value_stuck": false,
+            "luminance_after": 21.832815755208333,
+            "luminance_delta_from_baseline": -99.64575520833334,
+            "color_ratio_delta_from_baseline": 0.2476687132066957,
+            "visible_change": true
+          }
+        ],
+        "any_value_stuck": false,
+        "any_readback_unsupported_sentinel": true,
+        "any_visible_change": true,
+        "usable": true
+      },
+      "exposure": {
+        "property": "CAP_PROP_EXPOSURE",
+        "original_value": -6.0,
+        "metric": "luminance",
+        "attempts": [
+          {
+            "tried_value": -6,
+            "set_call_returned_true": true,
+            "readback_value": -6.0,
+            "readback_unsupported_sentinel": false,
+            "value_stuck": true,
+            "luminance_after": 27.946591796875,
+            "luminance_delta_from_baseline": -105.92721354166667,
+            "color_ratio_delta_from_baseline": 0.15342890338945236,
+            "visible_change": true
+          },
+          {
+            "tried_value": -9,
+            "set_call_returned_true": true,
+            "readback_value": -8.0,
+            "readback_unsupported_sentinel": false,
+            "value_stuck": false,
+            "luminance_after": 24.85232096354167,
+            "luminance_delta_from_baseline": -3.094270833333333,
+            "color_ratio_delta_from_baseline": 0.10760727434841211,
+            "visible_change": true
+          }
+        ],
+        "any_value_stuck": true,
+        "any_readback_unsupported_sentinel": false,
+        "any_visible_change": true,
+        "usable": true
+      },
+      "auto_wb": {
+        "property": "CAP_PROP_AUTO_WB",
+        "original_value": 1.0,
+        "metric": "color_ratio",
+        "attempts": [
+          {
+            "tried_value": 0,
+            "set_call_returned_true": true,
+            "readback_value": 0.0,
+            "readback_unsupported_sentinel": false,
+            "value_stuck": true,
+            "luminance_after": 27.936656901041665,
+            "luminance_delta_from_baseline": -0.09481119791666615,
+            "color_ratio_delta_from_baseline": 0.020759875593093113,
+            "visible_change": true
+          },
+          {
+            "tried_value": 1,
+            "set_call_returned_true": true,
+            "readback_value": 1.0,
+            "readback_unsupported_sentinel": false,
+            "value_stuck": true,
+            "luminance_after": 27.989547526041665,
+            "luminance_delta_from_baseline": 0.05289062499999986,
+            "color_ratio_delta_from_baseline": 0.01825035677386777,
+            "visible_change": false
+          }
+        ],
+        "any_value_stuck": true,
+        "any_readback_unsupported_sentinel": false,
+        "any_visible_change": true,
+        "usable": true
+      }
+    }
+  },
+  "display": {
+    "os_reported_refresh_hz": 144.0,
+    "measured_redraw_fps": 91.65961193189203,
+    "redraw_jitter_std_ms": 5.933648065143356,
+    "n_redraws": 276,
+    "seconds_run": 3.0
+  }
+}
