@@ -16,7 +16,14 @@ challenge:
 emitter:
   emitter_enabled: true       # scientific control switch -- false emits constant mid-grey
   base_luminance: 127         # mid-grey, 0-255
-  modulation_depth: 60        # +/- swing around base_luminance, 0-255
+  modulation_depth: 100       # +/- swing around base_luminance, 0-255. Raised from 60 on 2026-08-06:
+                               # a real gate run scored bonafide=0.692 (need >=0.7) with emitter_off=0.000
+                               # (control collapsed correctly) -- the control passing cleanly means the
+                               # fix is real, the bonafide score was just short of margin. insufficient_signal
+                               # was False (snr_db=5.53, above the 3dB floor) so the adaptive boost never
+                               # triggered -- still running at the OLD default depth, not the ceiling below.
+                               # Strengthening the base signal, not lowering the 0.7 bar, since that bar is
+                               # what the paper's separation claim rests on.
   max_modulation_depth: 110   # ceiling for adaptive depth (Milestone 3), must keep base+/-depth in [0,255]
   border_fraction: 0.25       # fraction of width/height each border edge occupies
   fallback_window_width: 1920
