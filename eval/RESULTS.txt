@@ -1,0 +1,46 @@
+Loaded 19 session logs from C:\Users\UPASANA\Praesens\logs
+  bonafide=14  emitter_off=5
+
+Built 200 trials (bonafide=14, xsession=182, emitter_off=4)
+
+Reconciliation check (offline-recomputed vs. online-logged bonafide score): mean|diff|=0.002, max|diff|=0.009
+
+TABLE I -- score distribution per condition
+condition        n     mean       SD      min      max   median
+bonafide        14    0.635    0.257    0.000    0.833    0.727
+xsession       182    0.044    0.114   -0.456    0.755    0.039
+emitter_off      4    0.009    0.021   -0.024    0.029    0.015
+
+TABLE II -- ROC: bonafide (positive) vs xsession+emitter_off (negative)
+  n_positive(bonafide)=14  n_negative(xsession+emitter_off)=186
+  AUC    = 0.9046
+  EER    = 0.1413  @ threshold=0.1020
+  APCER  = 0.1398
+  BPCER  = 0.1429
+  ACER   = 0.1413
+
+TABLE III -- genuine (bonafide) score by meta field
+  by lighting:
+    dim                  n=  2  score=0.775 +/- 0.058
+    normal               n= 12  score=0.612 +/- 0.269
+  by distance_cm:
+    40.0                 n=  1  score=0.778 +/- 0.000
+    60.0                 n= 12  score=0.674 +/- 0.208
+    80.0                 n=  1  score=0.029 +/- 0.000
+  by makeup:
+    foundation_powder    n=  2  score=0.707 +/- 0.012
+    none                 n= 12  score=0.623 +/- 0.275
+  by glasses:
+    with                 n=  2  score=0.376 +/- 0.376
+    without              n= 12  score=0.678 +/- 0.201
+  by skin_tone:
+    None                 n= 14  score=0.635 +/- 0.257
+  by subject:
+    uuu                  n= 14  score=0.635 +/- 0.257
+
+Lag at peak (ms), mean/SD per condition
+  bonafide     n=  14  mean=17.1ms  SD=38.7ms
+  xsession     n= 182  mean=138.5ms  SD=107.2ms
+  emitter_off  n=   4  mean=122.5ms  SD=123.8ms
+
+Full per-trial results written to C:\Users\UPASANA\Praesens\eval\cross_session.json

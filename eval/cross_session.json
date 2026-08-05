@@ -1,0 +1,3730 @@
+{
+  "summary": {
+    "n_sessions_loaded": 19,
+    "n_trials": 200,
+    "table1": {
+      "bonafide": {
+        "n": 14,
+        "mean": 0.6351345254008869,
+        "std": 0.2566586741978257,
+        "min": 0.0,
+        "max": 0.8328462404875261,
+        "median": 0.727240073963817
+      },
+      "xsession": {
+        "n": 182,
+        "mean": 0.043713668768300885,
+        "std": 0.11395181898053397,
+        "min": -0.45583113574852907,
+        "max": 0.7553806994289711,
+        "median": 0.03886020701091163
+      },
+      "emitter_off": {
+        "n": 4,
+        "mean": 0.008669133159115903,
+        "std": 0.021433018178115826,
+        "min": -0.024010633082315033,
+        "max": 0.028903905645522684,
+        "median": 0.014891630036627981
+      }
+    },
+    "table2": {
+      "n_positive": 14,
+      "n_negative": 186,
+      "auc": 0.9045698924731183,
+      "eer": 0.14132104454685102,
+      "eer_threshold": 0.10197701950771132,
+      "apcer": 0.13978494623655913,
+      "bpcer": 0.14285714285714285,
+      "acer": 0.141321044546851
+    },
+    "table3": {
+      "lighting": {
+        "dim": {
+          "n": 2,
+          "score_mean": 0.7746936054665685,
+          "score_std": 0.05815263502095752
+        },
+        "normal": {
+          "n": 12,
+          "score_mean": 0.6118746787232733,
+          "score_std": 0.2692616870547568
+        }
+      },
+      "distance_cm": {
+        "40.0": {
+          "n": 1,
+          "score_mean": 0.7776849244002346,
+          "score_std": 0.0
+        },
+        "60.0": {
+          "n": 12,
+          "score_mean": 0.6737369080430754,
+          "score_std": 0.20757747978983027
+        },
+        "80.0": {
+          "n": 1,
+          "score_mean": 0.029355534695275395,
+          "score_std": 0.0
+        }
+      },
+      "makeup": {
+        "foundation_powder": {
+          "n": 2,
+          "score_mean": 0.7066738773447265,
+          "score_std": 0.012445748000644186
+        },
+        "none": {
+          "n": 12,
+          "score_mean": 0.6232113000769135,
+          "score_std": 0.2753754921176725
+        }
+      },
+      "glasses": {
+        "with": {
+          "n": 2,
+          "score_mean": 0.3756531269936027,
+          "score_std": 0.3756531269936027
+        },
+        "without": {
+          "n": 12,
+          "score_mean": 0.6783814251354342,
+          "score_std": 0.20060246397935388
+        }
+      },
+      "skin_tone": {
+        "None": {
+          "n": 14,
+          "score_mean": 0.6351345254008869,
+          "score_std": 0.2566586741978257
+        }
+      },
+      "subject": {
+        "uuu": {
+          "n": 14,
+          "score_mean": 0.6351345254008869,
+          "score_std": 0.2566586741978257
+        }
+      }
+    },
+    "lag_by_condition": {
+      "bonafide": {
+        "n": 14,
+        "mean_ms": 17.142857142857142,
+        "std_ms": 38.71665780819329
+      },
+      "xsession": {
+        "n": 182,
+        "mean_ms": 138.54395604395606,
+        "std_ms": 107.24802178947782
+      },
+      "emitter_off": {
+        "n": 4,
+        "mean_ms": 122.5,
+        "std_ms": 123.81942497039792
+      }
+    }
+  },
+  "trials": [
+    {
+      "trial": "20260806T004915_dd177aa3_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.6930490240781039,
+      "lag_ms": 15.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.7610757547116226,
+      "lag_ms": 15.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.7353605225822631,
+      "lag_ms": 10.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.7612250662382977,
+      "lag_ms": 10.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.7620346836612204,
+      "lag_ms": 10.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.6580566256356031,
+      "lag_ms": 0.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.8328462404875261,
+      "lag_ms": 0.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.716540970445611,
+      "lag_ms": 0.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.7776849244002346,
+      "lag_ms": 10.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.029355534695275395,
+      "lag_ms": 155.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.7191196253453707,
+      "lag_ms": 0.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.6942281293440823,
+      "lag_ms": 15.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.0,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_self",
+      "condition": "bonafide",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.7513062539872054,
+      "lag_ms": 0.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T005450_39aabafb_vs_self",
+      "condition": "emitter_off",
+      "session_measured": "20260806T005450_39aabafb",
+      "session_challenge": "20260806T005450_39aabafb",
+      "score": 0.02677954404500777,
+      "lag_ms": 10.0,
+      "n_samples": 97,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_emitter_off"
+      }
+    },
+    {
+      "trial": "20260806T010748_6196d188_vs_self",
+      "condition": "emitter_off",
+      "session_measured": "20260806T010748_6196d188",
+      "session_challenge": "20260806T010748_6196d188",
+      "score": 0.028903905645522684,
+      "lag_ms": 185.0,
+      "n_samples": 293,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_013"
+      }
+    },
+    {
+      "trial": "20260806T010846_59e50d8a_vs_self",
+      "condition": "emitter_off",
+      "session_measured": "20260806T010846_59e50d8a",
+      "session_challenge": "20260806T010846_59e50d8a",
+      "score": 0.0030037160282481907,
+      "lag_ms": 0.0,
+      "n_samples": 311,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_014"
+      }
+    },
+    {
+      "trial": "20260806T010941_44e44d54_vs_self",
+      "condition": "emitter_off",
+      "session_measured": "20260806T010941_44e44d54",
+      "session_challenge": "20260806T010941_44e44d54",
+      "score": -0.024010633082315033,
+      "lag_ms": 295.0,
+      "n_samples": 144,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_015"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.03729810678050421,
+      "lag_ms": 270.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.1140738524054898,
+      "lag_ms": 35.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.004215316422445488,
+      "lag_ms": 140.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.02393148407549027,
+      "lag_ms": 55.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.02436214084104738,
+      "lag_ms": 5.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.03926269054407582,
+      "lag_ms": 110.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.08557337763434975,
+      "lag_ms": 120.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.0971755099275649,
+      "lag_ms": 115.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.01701426167995013,
+      "lag_ms": 275.0,
+      "n_samples": 301,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.026501905461398367,
+      "lag_ms": 120.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.07407326354438308,
+      "lag_ms": 280.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.004215316422445488,
+      "lag_ms": 120.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T004915_dd177aa3_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T004915_dd177aa3",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.02965072223825362,
+      "lag_ms": 55.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.1388661497863892,
+      "lag_ms": 105.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.09730960448730287,
+      "lag_ms": 45.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.012108890438327786,
+      "lag_ms": 270.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.17309564571896197,
+      "lag_ms": 85.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": -0.00877782066307192,
+      "lag_ms": 300.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.1486674162731767,
+      "lag_ms": 30.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.20714382298053294,
+      "lag_ms": 0.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.09823907752288279,
+      "lag_ms": 30.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": -0.07041853953509883,
+      "lag_ms": 35.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.11132345291870799,
+      "lag_ms": 0.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.14973540204897556,
+      "lag_ms": 70.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.011463524881791054,
+      "lag_ms": 280.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005356_5f52fba3_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005356_5f52fba3",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": -0.004206583572546048,
+      "lag_ms": 290.0,
+      "n_samples": 170,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "gate_bonafide"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.1366159713081836,
+      "lag_ms": 0.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.0821517808162258,
+      "lag_ms": 15.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": -0.04700483328220074,
+      "lag_ms": 300.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": -0.007044268800342413,
+      "lag_ms": 300.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": -0.006868660140339456,
+      "lag_ms": 300.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.08494116086413789,
+      "lag_ms": 205.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": -0.04436975612310296,
+      "lag_ms": 135.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.10693420054961832,
+      "lag_ms": 20.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.024581352250365743,
+      "lag_ms": 295.0,
+      "n_samples": 209,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.06560465224907007,
+      "lag_ms": 30.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.08832862269538304,
+      "lag_ms": 0.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": -0.05144918805665294,
+      "lag_ms": 290.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005545_e713b838_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005545_e713b838",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.04647173393418246,
+      "lag_ms": 205.0,
+      "n_samples": 210,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_001"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.05446456811901762,
+      "lag_ms": 55.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.022693650886428236,
+      "lag_ms": 185.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": -0.004345101663254637,
+      "lag_ms": 85.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.012293607252205642,
+      "lag_ms": 0.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.006959959016899689,
+      "lag_ms": 185.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.0032461901937925262,
+      "lag_ms": 195.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.10116038124376105,
+      "lag_ms": 50.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.13144212058408367,
+      "lag_ms": 50.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.11772018605322494,
+      "lag_ms": 65.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.024510793136927136,
+      "lag_ms": 100.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.015534994771514246,
+      "lag_ms": 245.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.7553806994289711,
+      "lag_ms": 10.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005639_45be0953_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005639_45be0953",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.09081619485175427,
+      "lag_ms": 55.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_002"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.045912126474484956,
+      "lag_ms": 10.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.06256212969590269,
+      "lag_ms": 75.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": -0.060080642156976775,
+      "lag_ms": 285.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": -0.02039840731377835,
+      "lag_ms": 85.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.09721510568960112,
+      "lag_ms": 70.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.0392389784331205,
+      "lag_ms": 295.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.023006785907806825,
+      "lag_ms": 160.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.06764172997061345,
+      "lag_ms": 0.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.005271825801783278,
+      "lag_ms": 300.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.05906002725061541,
+      "lag_ms": 75.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.008454461889747567,
+      "lag_ms": 30.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": -0.022190538951370378,
+      "lag_ms": 15.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005742_119ac02e_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005742_119ac02e",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.03977697955307655,
+      "lag_ms": 80.0,
+      "n_samples": 270,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_003"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.16442120444294822,
+      "lag_ms": 10.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": -0.030280981327027157,
+      "lag_ms": 290.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.12923939432207487,
+      "lag_ms": 10.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": -0.04231563344143284,
+      "lag_ms": 300.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.03764322322102397,
+      "lag_ms": 275.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": -0.031011393319272794,
+      "lag_ms": 205.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.027614494310959206,
+      "lag_ms": 285.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.09467624164452587,
+      "lag_ms": 20.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.14392797196814008,
+      "lag_ms": 25.0,
+      "n_samples": 247,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.08379920083790895,
+      "lag_ms": 250.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.0018828306362260654,
+      "lag_ms": 295.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": -0.03701467624119564,
+      "lag_ms": 295.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005836_29f7282c_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005836_29f7282c",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": -0.012931182385614293,
+      "lag_ms": 215.0,
+      "n_samples": 248,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_004"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.08273342200994008,
+      "lag_ms": 130.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": -0.05279227282881434,
+      "lag_ms": 300.0,
+      "n_samples": 219,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.03835553266953497,
+      "lag_ms": 215.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.015676856656963327,
+      "lag_ms": 280.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.03794290584569351,
+      "lag_ms": 295.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.12214632813047799,
+      "lag_ms": 115.0,
+      "n_samples": 219,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.005306283247038935,
+      "lag_ms": 290.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.07288383841528875,
+      "lag_ms": 75.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.06260045786207905,
+      "lag_ms": 75.0,
+      "n_samples": 219,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.03848143558870275,
+      "lag_ms": 15.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.017496260818809582,
+      "lag_ms": 110.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.015676856656963327,
+      "lag_ms": 270.0,
+      "n_samples": 220,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T005933_fbf4ab88_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T005933_fbf4ab88",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": -0.0027028933735716346,
+      "lag_ms": 295.0,
+      "n_samples": 219,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_005"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.09857373991840264,
+      "lag_ms": 45.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.07052784511742143,
+      "lag_ms": 170.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.062476758828871985,
+      "lag_ms": 45.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.05441903977646562,
+      "lag_ms": 95.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.008408700978102111,
+      "lag_ms": 150.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.030494923009388827,
+      "lag_ms": 185.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": -0.12936506817003973,
+      "lag_ms": 270.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": -0.01634848972804767,
+      "lag_ms": 90.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.0405621490402937,
+      "lag_ms": 245.0,
+      "n_samples": 243,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.011106580282810407,
+      "lag_ms": 150.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.01590671272558067,
+      "lag_ms": 225.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.053049267932912064,
+      "lag_ms": 75.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010023_6d014c2f_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010023_6d014c2f",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.00645128301802116,
+      "lag_ms": 200.0,
+      "n_samples": 244,
+      "meta": {
+        "lighting": "dim",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_006"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.12950334895761179,
+      "lag_ms": 0.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.012199319937259982,
+      "lag_ms": 240.0,
+      "n_samples": 263,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.08019178026627574,
+      "lag_ms": 90.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.09829319901776831,
+      "lag_ms": 130.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.025690733364061358,
+      "lag_ms": 295.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.08879830143601142,
+      "lag_ms": 90.0,
+      "n_samples": 263,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.10197701950771132,
+      "lag_ms": 90.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.06543140904750809,
+      "lag_ms": 0.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.07095956725215885,
+      "lag_ms": 125.0,
+      "n_samples": 263,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": -0.05410030279677548,
+      "lag_ms": 300.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.15110121351413267,
+      "lag_ms": 110.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.08808588459580086,
+      "lag_ms": 140.0,
+      "n_samples": 264,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010121_19daeda1_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010121_19daeda1",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": -0.02075449604483739,
+      "lag_ms": 270.0,
+      "n_samples": 263,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 40.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_007"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.03962380902644093,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.10195755877398574,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.040897315146466974,
+      "lag_ms": 300.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.10195755877398574,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.10195755877398574,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.029355534695275395,
+      "lag_ms": 105.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.24391034679642923,
+      "lag_ms": 225.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.03962380902644093,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.10195755877398574,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.058211802703292896,
+      "lag_ms": 65.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": 0.0,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.10195755877398574,
+      "lag_ms": 0.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010216_3f501cea_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010216_3f501cea",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.09093653098897962,
+      "lag_ms": 240.0,
+      "n_samples": 17,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 80.0,
+        "makeup": "none",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_008"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.014200401981244995,
+      "lag_ms": 185.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": -0.0019690788558007362,
+      "lag_ms": 300.0,
+      "n_samples": 231,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.14470752483595162,
+      "lag_ms": 0.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.039306145851694306,
+      "lag_ms": 270.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.09903496522923076,
+      "lag_ms": 85.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.055373803308284814,
+      "lag_ms": 85.0,
+      "n_samples": 231,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.09548461515070013,
+      "lag_ms": 155.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": 0.1383759805079563,
+      "lag_ms": 90.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.04556955830359736,
+      "lag_ms": 160.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": -0.028537508593331175,
+      "lag_ms": 0.0,
+      "n_samples": 231,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.07846678637835867,
+      "lag_ms": 220.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.039306145851694306,
+      "lag_ms": 250.0,
+      "n_samples": 232,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010330_ba429883_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010330_ba429883",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.02769693659159359,
+      "lag_ms": 255.0,
+      "n_samples": 231,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_009"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": -0.03421261567307019,
+      "lag_ms": 235.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.05474196065691013,
+      "lag_ms": 195.0,
+      "n_samples": 301,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.06029045363635584,
+      "lag_ms": 35.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.06122899860523573,
+      "lag_ms": 60.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.0005677880258136169,
+      "lag_ms": 20.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.002264081071232848,
+      "lag_ms": 280.0,
+      "n_samples": 301,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.056291397897372614,
+      "lag_ms": 75.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": -0.02520773693802584,
+      "lag_ms": 225.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.027803237670970152,
+      "lag_ms": 135.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.06309002915809918,
+      "lag_ms": 95.0,
+      "n_samples": 301,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.043416982007935916,
+      "lag_ms": 200.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.052460835981084995,
+      "lag_ms": 0.0,
+      "n_samples": 302,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010431_205aef3f_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010431_205aef3f",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": -0.024542174406817857,
+      "lag_ms": 295.0,
+      "n_samples": 301,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "foundation_powder",
+        "glasses": "without",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_010"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": -0.45583113574852907,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.2747049645537274,
+      "lag_ms": 220.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.022615517984362128,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.0,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": -0.04447463344142629,
+      "lag_ms": 220.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.5456400835369137,
+      "lag_ms": 230.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.24541828616217992,
+      "lag_ms": 220.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": -0.3096423690566261,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": -0.0029880800509097293,
+      "lag_ms": 210.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": -0.3096423690566261,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": -0.09102138229745603,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.45583113574852907,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010548_dde32a18_vs_20260806T010649_2dd5307a",
+      "condition": "xsession",
+      "session_measured": "20260806T010548_dde32a18",
+      "session_challenge": "20260806T010649_2dd5307a",
+      "score": 0.45583113574852907,
+      "lag_ms": 0.0,
+      "n_samples": 26,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_011"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T004915_dd177aa3",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T004915_dd177aa3",
+      "score": 0.020172494845149897,
+      "lag_ms": 270.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005356_5f52fba3",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005356_5f52fba3",
+      "score": 0.0701285117293548,
+      "lag_ms": 100.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005545_e713b838",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005545_e713b838",
+      "score": 0.04764825035688795,
+      "lag_ms": 80.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005639_45be0953",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005639_45be0953",
+      "score": 0.051812652554167754,
+      "lag_ms": 80.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005742_119ac02e",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005742_119ac02e",
+      "score": 0.05451538342824187,
+      "lag_ms": 50.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005836_29f7282c",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005836_29f7282c",
+      "score": 0.00754505120541045,
+      "lag_ms": 295.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T005933_fbf4ab88",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T005933_fbf4ab88",
+      "score": 0.01635978719758858,
+      "lag_ms": 225.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010023_6d014c2f",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010023_6d014c2f",
+      "score": -0.0029156207150800454,
+      "lag_ms": 275.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010121_19daeda1",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010121_19daeda1",
+      "score": 0.02755015574699848,
+      "lag_ms": 205.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010216_3f501cea",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010216_3f501cea",
+      "score": 0.024742893219642507,
+      "lag_ms": 235.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010330_ba429883",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010330_ba429883",
+      "score": 0.010135007842417222,
+      "lag_ms": 280.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010431_205aef3f",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010431_205aef3f",
+      "score": -0.024012177364575105,
+      "lag_ms": 245.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    },
+    {
+      "trial": "20260806T010649_2dd5307a_vs_20260806T010548_dde32a18",
+      "condition": "xsession",
+      "session_measured": "20260806T010649_2dd5307a",
+      "session_challenge": "20260806T010548_dde32a18",
+      "score": 0.05529348047906308,
+      "lag_ms": 75.0,
+      "n_samples": 309,
+      "meta": {
+        "lighting": "normal",
+        "distance_cm": 60.0,
+        "makeup": "none",
+        "glasses": "with",
+        "subject": "uuu",
+        "skin_tone": null,
+        "corpus_slot": "corpus_012"
+      }
+    }
+  ]
+}

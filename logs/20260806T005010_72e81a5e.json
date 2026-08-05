@@ -1,0 +1,35 @@
+{
+  "session": "20260806T005010_72e81a5e",
+  "condition": "emitter_off",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 58,
+  "chip_rate_hz": 1.3420288452141131,
+  "duration_s": 44.708427999867126,
+  "start_time_perf_counter": 138589.7368038,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": false,
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": true,
+  "n_frames": 322,
+  "n_face_detected": 0,
+  "measured_fps": 7.99567524139187,
+  "warnings": [
+    "PRE-FLIGHT (optimistic, no face required to trigger this): measured FPS (8.0) is below 6.0x the chip rate (1.3420288452141131 Hz -> 8.1 Hz floor) -- the pattern is undersampled (~6.0 samples/chip). Raise FPS (detect_every_n_frames / detect_downscale_width) or lower chip_rate_hz (auto_chip_rate) before trusting this session's correlation.",
+    "ACHIEVED (this session's real frame rate): measured FPS (8.0) is below 6.0x the chip rate (1.3420288452141131 Hz -> 8.1 Hz floor) -- the pattern is undersampled (~6.0 samples/chip). Raise FPS (detect_every_n_frames / detect_downscale_width) or lower chip_rate_hz (auto_chip_rate) before trusting this session's correlation."
+  ],
+  "meta": {
+    "lighting": "normal",
+    "distance_cm": 60.0,
+    "makeup": "none",
+    "glasses": "without",
+    "subject": "uuu",
+    "skin_tone": null,
+    "corpus_slot": "gate_emitter_off"
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": []
+}
