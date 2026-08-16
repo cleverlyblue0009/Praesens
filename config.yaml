@@ -77,6 +77,20 @@ eval:
   figure_dpi: 300
   attack_conditions: [replay, swap]   # emitter_off is a control, not an attack -- excluded from ROC/EER
 
+spatial:
+  zone_names: [left, right, top]     # border regions, each independently driven with its own
+                                      # cyclically-shifted m-sequence derived from the session seed
+  min_shift_chips: 0                 # 0 = use period // n_zones (evenly spread); set higher to force
+                                      # more separation if a future chip_rate/duration combo shrinks the period
+  detrend_window_s: 1.5              # reuses optical.detrend_window_s's meaning, kept separate since
+                                      # spatial scoring runs its own capture loop independent of optical's
+  lag_search_max_ms: 300             # matches optical.lag_search_max_ms -- same physical latency budget
+  lag_step_ms: 5
+  expected_assignment:                # which ROI should peak on which zone, physically: screen-left
+    forehead: top                     # illuminates image-left of the face (camera and screen are
+    left_cheek: left                  # co-located facing the subject, so no left/right flip between
+    right_cheek: right                # the emitter's frame and the camera's frame)
+
 cross_session:
   synthetic_emitter_sample_rate_hz: 100.0  # matches typical measured real emitter redraw rate (~90-130Hz);
                                             # no real redraw log is persisted in session JSON, so the

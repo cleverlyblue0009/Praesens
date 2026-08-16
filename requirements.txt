@@ -5,3 +5,7 @@ matplotlib
 mediapipe
 pyyaml
 pygrabber; sys_platform == "win32"   # DirectShow device names for scripts/probe.py --list-cameras
+pynput        # keystroke timing capture, Milestone 10 typing lane
+mss           # screen-capture for attacks/adaptive_injector.py, Milestone 12
+pyvirtualcam  # virtual camera output for attacks/adaptive_injector.py, Milestone 12
+pytest        # unit tests, tests/

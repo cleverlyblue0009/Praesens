@@ -5,4 +5,7 @@ logs/*.png
 eval/figures/
 models/*.task
 demo/screenshots/
+.pytest_cache/
+data/            # hard rule 2: attack videos, recorded sessions, face imagery -- never committed.
+                  # Session logs stay JSON-only (numeric traces, no images) and ARE committed, see logs/.
 .DS_Store

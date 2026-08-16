@@ -144,6 +144,41 @@ def roi_luminance(frame, detection_result, margin_frac: float):
     return float(gray[mask].mean()), True
 
 
+PER_ROI_NAMES = ("forehead", "left_cheek", "right_cheek")
+
+
+def per_roi_luminance(frame, detection_result, margin_frac: float) -> dict:
+    """Milestone 9: mean luminance for forehead/left_cheek/right_cheek
+    SEPARATELY, not merged into one mask like roi_luminance() -- spatial
+    zone scoring needs each region's own trace to test whether it peaks on
+    its geometrically correct zone, not just whether the combined ROI
+    correlates with something. Box order from compute_roi_boxes() is
+    [forehead, image-left-cheek, image-right-cheek] (see that function's
+    body); "image-left"/"image-right" here means literal frame-pixel left/
+    right, not the subject's anatomical left/right -- what matters for
+    spatial coding is that image-left in the CAMERA'S frame corresponds to
+    screen-left in the EMITTER'S frame, since camera and screen are
+    co-located facing the same subject, not anatomical labelling."""
+    if not detection_result.face_landmarks:
+        return {name: float("nan") for name in PER_ROI_NAMES}
+    landmarks = detection_result.face_landmarks[0]
+    boxes = compute_roi_boxes(frame.shape, landmarks, margin_frac)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+
+    out = {}
+    for name, box in zip(PER_ROI_NAMES, boxes):
+        x0, y0, x1, y1 = box
+        xi0, yi0 = max(0, int(x0)), max(0, int(y0))
+        xi1, yi1 = min(w, int(x1)), min(h, int(y1))
+        if xi1 > xi0 and yi1 > yi0:
+            out[name] = float(gray[yi0:yi1, xi0:xi1].mean())
+    for name in PER_ROI_NAMES:
+        if name not in out:
+            out[name] = float("nan")
+    return out
+
+
 class CadenceDetector:
     """Wraps a FaceLandmarker so the expensive landmark-detection step runs
     only every `detect_every_n` frames (reusing the last known ROI boxes on

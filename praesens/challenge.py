@@ -201,6 +201,63 @@ def pick_auto_chip_rate(measured_fps: float, divisor: float = 6.0, min_hz: float
     return chip_rate_hz, duration_s
 
 
+@dataclass
+class ZoneChallenge:
+    """One spatial zone's challenge (Milestone 9): a cyclic-shifted copy of
+    the SAME session m-sequence, not an independently-seeded one -- see
+    derive_zone_challenges for why that's the right (and simplest) choice."""
+    zone_name: str
+    shift_chips: int
+    challenge: "Challenge"
+
+
+def derive_zone_challenges(master: "Challenge", zone_names: tuple, min_shift_chips: int | None = None) -> list:
+    """Milestone 9: derive len(zone_names) zone challenges from the SAME
+    session (order, seed, chip_rate_hz), each a genuine cyclic shift of the
+    underlying maximal-length sequence.
+
+    Not independently seeded: for a FIXED (order, taps), every non-zero
+    seed is just a different starting PHASE of the SAME single cycle (a
+    maximal-length LFSR visits all 2**order-1 non-zero states in one
+    cycle), so two "different seeds" of the same order are cyclic shifts
+    of each other anyway -- there is no separate, independent code family
+    to draw from without a second LFSR polynomial (e.g. true Gold codes).
+    Cross-correlating a sequence with a shift of itself is by definition
+    its AUTOcorrelation evaluated at that shift, and Milestone 1 already
+    verified that autocorrelation is near-ideal (~-1/period) at every
+    nonzero shift -- so shifted copies of one m-sequence are already
+    guaranteed low mutual cross-correlation by a property this codebase
+    checked empirically once, not a new unverified claim.
+
+    Shifts are taken from the FULL period (2**order - 1 chips), not from
+    the session-truncated n_chips window -- rolling a truncated excerpt
+    would wrap at an arbitrary boundary that doesn't correspond to any
+    real LFSR continuation, breaking the near-ideal property this whole
+    scheme depends on. Each zone then truncates its shifted copy to the
+    session's n_chips, same as the master challenge does.
+
+    Default spacing is period // len(zone_names) (evenly spread across the
+    full cycle); min_shift_chips can force a larger minimum, but either
+    way the spacing is far beyond the 0-300ms (<=1.5 chip) lag-search
+    window the optical lane actually searches, so zones stay well-
+    separated within any lag hypothesis actually tested.
+    """
+    period = (1 << master.order) - 1
+    full = Challenge(chip_rate_hz=master.chip_rate_hz, order=master.order, seed=master.seed,
+                      duration_s=period / master.chip_rate_hz)
+    shift = max(min_shift_chips or 0, period // len(zone_names))
+
+    zones = []
+    for i, name in enumerate(zone_names):
+        shift_i = (i * shift) % period
+        rolled = np.roll(full.chips, -shift_i)
+        zone_chips = rolled[:master.n_chips].copy()
+        zone_challenge = Challenge(chip_rate_hz=master.chip_rate_hz, duration_s=master.duration_s,
+                                    order=master.order, seed=master.seed, chips=zone_chips, loop=master.loop)
+        zones.append(ZoneChallenge(zone_name=name, shift_chips=shift_i, challenge=zone_challenge))
+    return zones
+
+
 def autocorrelation(chips: np.ndarray) -> np.ndarray:
     """Normalised circular autocorrelation, lag 0..len-1. For a true
     m-sequence this is 1.0 at lag 0 and approx -1/N elsewhere -- the
