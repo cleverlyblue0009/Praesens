@@ -258,6 +258,51 @@ def derive_zone_challenges(master: "Challenge", zone_names: tuple, min_shift_chi
     return zones
 
 
+# Milestone 10: a small, hand-authored list of common short English words
+# for offline challenge-PHRASE recombination -- not an external corpus
+# (avoids unclear licensing on a bundled word list) and not an LLM (the
+# demo path never has a network/generation dependency; config
+# typing.generative stays false so the paper can honestly describe this as
+# "seeded selection from a fixed word list," not generated text).
+_TYPING_WORDLIST = (
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "and",
+    "or", "but", "if", "so", "for", "to", "of", "in", "on", "at",
+    "by", "with", "from", "up", "down", "out", "over", "under", "again", "then",
+    "cat", "dog", "fox", "bird", "fish", "horse", "tree", "leaf", "river", "stone",
+    "mountain", "ocean", "forest", "desert", "island", "cloud", "storm", "rain", "snow", "wind",
+    "quick", "slow", "brown", "black", "white", "red", "blue", "green", "yellow", "small",
+    "large", "tall", "short", "bright", "dark", "quiet", "loud", "soft", "hard", "warm",
+    "cold", "fresh", "clean", "old", "new", "young", "happy", "sad", "brave", "calm",
+    "run", "walk", "jump", "swim", "fly", "climb", "sit", "stand", "sleep", "wake",
+    "read", "write", "sing", "dance", "cook", "build", "paint", "drive", "carry", "throw",
+    "book", "table", "chair", "window", "door", "wall", "floor", "roof", "garden", "bridge",
+    "road", "path", "market", "village", "city", "school", "office", "kitchen", "library", "station",
+    "morning", "evening", "night", "today", "tomorrow", "week", "month", "year", "hour", "moment",
+    "friend", "family", "teacher", "student", "doctor", "farmer", "writer", "artist", "traveler", "neighbor",
+    "coffee", "bread", "apple", "orange", "lemon", "honey", "sugar", "salt", "pepper", "rice",
+    "music", "story", "letter", "picture", "number", "color", "shape", "sound", "light", "shadow",
+)
+
+
+def generate_challenge_phrase(seed: int, n_words: int = 5, generative: bool = False) -> str:
+    """Milestone 10: session-unique typed phrase, deterministic from the
+    session seed via offline word-list recombination. generative must stay
+    False on the demo path -- no LLM/network dependency, so the paper can
+    honestly describe exactly what ran. Raises if generative=True since
+    that path isn't implemented; it exists as a config flag, not a
+    feature, precisely so it's never silently on."""
+    if generative:
+        raise NotImplementedError(
+            "generative phrase synthesis is not implemented on the demo path "
+            "(and config typing.generative should stay false) -- this raise "
+            "exists so a stray True doesn't silently start depending on an "
+            "LLM/network call nobody asked for."
+        )
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(_TYPING_WORDLIST), size=n_words)
+    return " ".join(_TYPING_WORDLIST[i] for i in idx)
+
+
 def autocorrelation(chips: np.ndarray) -> np.ndarray:
     """Normalised circular autocorrelation, lag 0..len-1. For a true
     m-sequence this is 1.0 at lag 0 and approx -1/N elsewhere -- the
