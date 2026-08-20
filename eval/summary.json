@@ -1,0 +1,338 @@
+{
+  "n_sessions_total": 19,
+  "collapse_latency": {
+    "n_files": 0,
+    "n_switches": 0,
+    "stats": {
+      "n": 0
+    }
+  },
+  "ablation": {
+    "n_sessions": 14,
+    "full_accept_count": 10,
+    "lanes": {
+      "acoustic": {
+        "n_full_accept_sessions": 10,
+        "n_degraded_when_ablated": 0,
+        "fraction_degraded": 0.0
+      },
+      "optical": {
+        "n_full_accept_sessions": 10,
+        "n_degraded_when_ablated": 10,
+        "fraction_degraded": 1.0
+      },
+      "typing": {
+        "n_full_accept_sessions": 10,
+        "n_degraded_when_ablated": 10,
+        "fraction_degraded": 1.0
+      }
+    }
+  },
+  "cross_session_proxy": {
+    "n_sessions_loaded": 19,
+    "n_trials": 200,
+    "table1": {
+      "bonafide": {
+        "n": 14,
+        "mean": 0.6351345254008869,
+        "std": 0.2566586741978257,
+        "min": 0.0,
+        "max": 0.8328462404875261,
+        "median": 0.727240073963817
+      },
+      "xsession": {
+        "n": 182,
+        "mean": 0.043713668768300885,
+        "std": 0.11395181898053397,
+        "min": -0.45583113574852907,
+        "max": 0.7553806994289711,
+        "median": 0.03886020701091163
+      },
+      "emitter_off": {
+        "n": 4,
+        "mean": 0.008669133159115903,
+        "std": 0.021433018178115826,
+        "min": -0.024010633082315033,
+        "max": 0.028903905645522684,
+        "median": 0.014891630036627981
+      }
+    },
+    "table2": {
+      "n_positive": 14,
+      "n_negative": 186,
+      "auc": 0.9045698924731183,
+      "eer": 0.14132104454685102,
+      "eer_threshold": 0.10197701950771132,
+      "apcer": 0.13978494623655913,
+      "bpcer": 0.14285714285714285,
+      "acer": 0.141321044546851
+    },
+    "table3": {
+      "lighting": {
+        "dim": {
+          "n": 2,
+          "score_mean": 0.7746936054665685,
+          "score_std": 0.05815263502095752
+        },
+        "normal": {
+          "n": 12,
+          "score_mean": 0.6118746787232733,
+          "score_std": 0.2692616870547568
+        }
+      },
+      "distance_cm": {
+        "40.0": {
+          "n": 1,
+          "score_mean": 0.7776849244002346,
+          "score_std": 0.0
+        },
+        "60.0": {
+          "n": 12,
+          "score_mean": 0.6737369080430754,
+          "score_std": 0.20757747978983027
+        },
+        "80.0": {
+          "n": 1,
+          "score_mean": 0.029355534695275395,
+          "score_std": 0.0
+        }
+      },
+      "makeup": {
+        "foundation_powder": {
+          "n": 2,
+          "score_mean": 0.7066738773447265,
+          "score_std": 0.012445748000644186
+        },
+        "none": {
+          "n": 12,
+          "score_mean": 0.6232113000769135,
+          "score_std": 0.2753754921176725
+        }
+      },
+      "glasses": {
+        "with": {
+          "n": 2,
+          "score_mean": 0.3756531269936027,
+          "score_std": 0.3756531269936027
+        },
+        "without": {
+          "n": 12,
+          "score_mean": 0.6783814251354342,
+          "score_std": 0.20060246397935388
+        }
+      },
+      "skin_tone": {
+        "None": {
+          "n": 14,
+          "score_mean": 0.6351345254008869,
+          "score_std": 0.2566586741978257
+        }
+      },
+      "subject": {
+        "uuu": {
+          "n": 14,
+          "score_mean": 0.6351345254008869,
+          "score_std": 0.2566586741978257
+        }
+      }
+    },
+    "lag_by_condition": {
+      "bonafide": {
+        "n": 14,
+        "mean_ms": 17.142857142857142,
+        "std_ms": 38.71665780819329
+      },
+      "xsession": {
+        "n": 182,
+        "mean_ms": 138.54395604395606,
+        "std_ms": 107.24802178947782
+      },
+      "emitter_off": {
+        "n": 4,
+        "mean_ms": 122.5,
+        "std_ms": 123.81942497039792
+      }
+    }
+  },
+  "score_by_condition": {
+    "bonafide": {
+      "n": 14,
+      "mean": 0.6332642778252008,
+      "std": 0.25608045382022915
+    },
+    "emitter_off": {
+      "n": 5,
+      "mean": 0.0,
+      "std": 0.0
+    }
+  },
+  "insufficient_signal_count": 8,
+  "insufficient_signal_by_condition": {
+    "bonafide": 3,
+    "emitter_off": 5
+  },
+  "roc_eer": null,
+  "per_attack_type": null,
+  "bonafide_breakdown": {
+    "lighting": {
+      "dim": {
+        "n": 2,
+        "score_mean": 0.7684369496111311,
+        "score_std": 0.060545199117041926,
+        "snr_db_mean": 3.706845678848782,
+        "snr_db_std": 0.9472649269377158
+      },
+      "normal": {
+        "n": 12,
+        "score_mean": 0.6107354991942123,
+        "score_std": 0.268966461437087,
+        "snr_db_mean": 5.322776314010972,
+        "snr_db_std": 3.644217984248675
+      }
+    },
+    "distance_cm": {
+      "40.0": {
+        "n": 1,
+        "score_mean": 0.778714158098961,
+        "score_std": 0.0,
+        "snr_db_mean": 8.403315547146118,
+        "snr_db_std": 0.0
+      },
+      "60.0": {
+        "n": 12,
+        "score_mean": 0.6714691830632145,
+        "score_std": 0.2071038323505625,
+        "snr_db_mean": 5.37221569432949,
+        "snr_db_std": 3.0162560735206307
+      },
+      "80.0": {
+        "n": 1,
+        "score_mean": 0.029355534695275385,
+        "score_std": 0.0,
+        "snr_db_mean": -1.5828967532707674,
+        "snr_db_std": 0.0
+      }
+    },
+    "makeup": {
+      "foundation_powder": {
+        "n": 2,
+        "score_mean": 0.7028643936171407,
+        "score_std": 0.008956428152233298,
+        "snr_db_mean": 7.683286639488008,
+        "snr_db_std": 0.8103577842040521
+      },
+      "none": {
+        "n": 12,
+        "score_mean": 0.6216642585265441,
+        "score_std": 0.27486622060908983,
+        "snr_db_mean": 4.660036153904434,
+        "snr_db_std": 3.519622496466035
+      }
+    },
+    "glasses": {
+      "with": {
+        "n": 2,
+        "score_mean": 0.37561771244642356,
+        "score_std": 0.37561771244642356,
+        "snr_db_mean": 6.428367375233407,
+        "snr_db_std": 2.0519818978066175
+      },
+      "without": {
+        "n": 12,
+        "score_mean": 0.676205372054997,
+        "score_std": 0.20021086708956956,
+        "snr_db_mean": 4.8691893646135345,
+        "snr_db_std": 3.571252883144976
+      }
+    },
+    "skin_tone": {
+      "None": {
+        "n": 14,
+        "score_mean": 0.6332642778252008,
+        "score_std": 0.25608045382022915,
+        "snr_db_mean": 5.091929080416373,
+        "snr_db_std": 3.439631580001035
+      }
+    }
+  },
+  "robustness_table": [
+    {
+      "lighting": "dim",
+      "distance_cm": "60.0",
+      "makeup": "none",
+      "glasses": "without",
+      "skin_tone": "None",
+      "n": 2,
+      "score_mean": 0.7684369496111311,
+      "score_std": 0.060545199117041926,
+      "snr_db_mean": 3.706845678848782
+    },
+    {
+      "lighting": "normal",
+      "distance_cm": "40.0",
+      "makeup": "none",
+      "glasses": "without",
+      "skin_tone": "None",
+      "n": 1,
+      "score_mean": 0.778714158098961,
+      "score_std": 0.0,
+      "snr_db_mean": 8.403315547146118
+    },
+    {
+      "lighting": "normal",
+      "distance_cm": "60.0",
+      "makeup": "foundation_powder",
+      "glasses": "without",
+      "skin_tone": "None",
+      "n": 2,
+      "score_mean": 0.7028643936171407,
+      "score_std": 0.008956428152233298,
+      "snr_db_mean": 7.683286639488008
+    },
+    {
+      "lighting": "normal",
+      "distance_cm": "60.0",
+      "makeup": "none",
+      "glasses": "with",
+      "skin_tone": "None",
+      "n": 2,
+      "score_mean": 0.37561771244642356,
+      "score_std": 0.37561771244642356,
+      "snr_db_mean": 6.428367375233407
+    },
+    {
+      "lighting": "normal",
+      "distance_cm": "60.0",
+      "makeup": "none",
+      "glasses": "without",
+      "skin_tone": "None",
+      "n": 6,
+      "score_mean": 0.7272986809015305,
+      "score_std": 0.04183332584243013,
+      "snr_db_mean": 4.804931490802247
+    },
+    {
+      "lighting": "normal",
+      "distance_cm": "80.0",
+      "makeup": "none",
+      "glasses": "without",
+      "skin_tone": "None",
+      "n": 1,
+      "score_mean": 0.029355534695275385,
+      "score_std": 0.0,
+      "snr_db_mean": -1.5828967532707674
+    }
+  ],
+  "lag_by_condition": {
+    "bonafide": {
+      "n": 14,
+      "mean_ms": 12.5,
+      "std_ms": 35.49396326942694
+    },
+    "emitter_off": {
+      "n": 5,
+      "mean_ms": 0.0,
+      "std_ms": 0.0
+    }
+  }
+}

@@ -295,3 +295,89 @@ zone_names, history_seconds). `praesens/session.py`'s `VALID_CONDITIONS`
 extended with `inject_static`, `inject_swap`, `inject_reenact`,
 `inject_adaptive` (old `replay`/`swap` labels kept for the existing
 corpus).
+
+---
+
+## Milestone 13 — evaluation extensions
+
+**What was built:** `eval/analyse.py` gained five additions, all pure
+functions over already-loaded data (unit-testable without a live corpus):
+`per_attack_type_metrics()` (APCER/BPCER/ACER per attack condition
+individually, at the SAME threshold the pooled ROC/EER picked, so one easy
+or hard attack type can't hide behind a pooled average); `robustness_table()`
+(bona fide score/snr_db grouped by the FULL lighting x distance x makeup x
+glasses x skin_tone combination actually present in the corpus, not one
+field at a time -- the existing `breakdown_by()` single-field tables are
+kept alongside it, not replaced); `collapse_latency_summary()` +
+`load_collapse_latencies()` + `plot_collapse_latency_cdf()` (pools every
+`logs/collapse_latency_*.json` file Milestone 12's `demo/panel.py` writes
+and plots a CDF); `ablation_summary_table()` (reads Milestone 11's
+`eval/ablation.json` back in and reports, among sessions that ACCEPTed with
+every lane present, what fraction stop doing so when each lane is held
+out); `load_cross_session_proxy()` (surfaces `eval/cross_session.py`'s
+output as its own clearly-labelled PROXY section in the printed summary --
+"(b'')" -- never merged into the real-attack ROC/EER, since it's
+constructed from bona fide recordings scored against a mismatched
+challenge, not a recording of a real attack). `config.yaml`'s
+`eval.attack_conditions` was extended from `[replay, swap]` to include the
+new `inject_*` labels from Milestone 12, since the pooled and per-type
+metrics are only as complete as the conditions they're told to look for.
+
+**What was measured:** `python -m eval.analyse` run against the real
+19-session corpus (14 bonafide + 5 emitter_off, no real attack sessions
+collected yet):
+
+- Per-attack-type table (b'): every configured attack condition
+  (`inject_static`/`inject_swap`/`inject_reenact`/`inject_adaptive`/
+  `replay`/`swap`) correctly reports `n=0` honestly rather than a
+  fabricated or zero-defaulted APCER -- confirmed by
+  `tests/test_analyse.py::test_per_attack_type_metrics_reports_honest_zero_n_for_uncollected_type`.
+  Pooled ROC/EER is also correctly skipped (no attack scores at all yet)
+  rather than silently running on zero attack data.
+- Cross-session proxy (b''): AUC=0.9046, EER=0.1413, APCER=0.1398,
+  BPCER=0.1429, ACER=0.1413 -- real numbers from the existing
+  `eval/cross_session.json`, printed in its own clearly-separated section
+  so it is never mistaken for a real-attack ACER.
+- Robustness table (d'): 6 distinct metadata combinations present across
+  14 bona fide sessions (n=1 to n=6 each) -- e.g. `glasses=with` (n=2,
+  score=0.376+/-0.376) is visibly both rarer and noisier than the
+  `normal/60cm/none/without` baseline (n=6, score=0.727+/-0.042), an
+  interaction the single-field `glasses` breakdown in (d) also shows but
+  this table additionally pins to the exact lighting/distance/makeup it
+  co-occurred with.
+- Collapse latency (f): correctly reports "no data recorded yet" -- no
+  `demo/panel.py` session with a real source switch has been run (same gap
+  Milestone 12 already documented).
+- Ablation table (g): `n_sessions=14, full_accept_count=10`; optical and
+  typing both show `fraction_degraded=1.00` (10/10), acoustic
+  `fraction_degraded=0.00` (0/10, expected -- it's a permanent stub) --
+  matches Milestone 11's already-reported ablation finding, now surfaced
+  through the general analysis report instead of only `eval/ablate.py`'s
+  own output.
+- `tests/test_analyse.py` (11/11 pass): per-attack-type metrics verified
+  to actually differentiate an easy attack type (APCER=0.0) from a hard
+  one (APCER=1.0) that a pooled computation over the same 10 trials would
+  have reported as a single misleading 0.5 for both; BPCER confirmed
+  identical across per-type rows (it doesn't depend on attack type);
+  insufficient_signal correctly excluded from per-type APCER;
+  robustness_table confirmed to group by the FULL combination (two rows
+  sharing every field but `lighting` are NOT merged); ablation table's
+  fraction-degraded arithmetic checked against a hand-built 3-session
+  fixture with a known answer.
+- Full regression: 49/49 tests pass across the whole suite (38 from
+  Milestones 0-12 + 11 new).
+
+**Not yet done:** the per-attack-type table and pooled ROC/EER both need
+real `inject_*` session data (Milestone 12's corpus plan,
+`eval/corpus_plan.yaml`, has not been run) before they report anything but
+honest zeros -- this milestone built and tested the reporting machinery,
+not the missing corpus. Same for the collapse-latency CDF: the mechanism
+and its figure are real and tested, the >=20-switch distribution itself is
+not yet collected (needs a real `demo/panel.py` session with OBS Virtual
+Camera or the adaptive injector actually running, per Milestone 12's own
+notes).
+
+**Config added:** `eval.attack_conditions` extended to include the
+Milestone 12 `inject_*` labels; `eval.ablation_json` (path to Milestone
+11's ablation output); `eval.collapse_latency_glob` (glob pattern for
+Milestone 12's collapse-latency logs under `logs_dir`).

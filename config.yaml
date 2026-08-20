@@ -75,7 +75,14 @@ eval:
   logs_dir: logs
   figures_dir: eval/figures
   figure_dpi: 300
-  attack_conditions: [replay, swap]   # emitter_off is a control, not an attack -- excluded from ROC/EER
+  attack_conditions: [replay, swap, inject_static, inject_swap, inject_reenact, inject_adaptive]
+    # emitter_off is a control, not an attack -- excluded from ROC/EER.
+    # Milestone 13's pooled ROC/EER uses ALL of these together; its
+    # per_attack_type_metrics() ALSO breaks each one out individually
+    # against the same pooled threshold, so one easy attack type can't
+    # hide a hard one behind a good pooled average.
+  ablation_json: eval/ablation.json          # Milestone 11's eval/ablate.py output, read back for Milestone 13's table
+  collapse_latency_glob: "collapse_latency_*.json"  # Milestone 12's demo/panel.py output, under logs_dir
 
 spatial:
   zone_names: [left, right, top]     # border regions, each independently driven with its own
