@@ -1,0 +1,56 @@
+# Milestone 12 corpus plan: python scripts/run_corpus.py --plan eval/corpus_plan.yaml
+#
+# Same block shape as scripts/run_corpus.py's built-in CORPUS_PLAN
+# (instruction/condition/meta/count), loaded via load_plan_from_yaml.
+# Attack blocks require manual setup BEFORE that block starts -- the
+# printed instruction says exactly what to switch and to what, and the
+# runner will not proceed until ENTER confirms it's done:
+#   - inject_static / inject_swap / inject_reenact expect a pre-recorded
+#     source (scripts/record_source.py output, or the relevant swap/
+#     reenactment tool's output) playing through OBS Virtual Camera,
+#     switched in via demo/attack.py or OBS itself.
+#   - inject_adaptive expects attacks/adaptive_injector.py running and
+#     selected as the OBS/virtual-camera source.
+# This file is a STARTING PLAN, not a claim that this exact corpus has
+# been collected -- see NOTES.md for what has actually been run.
+
+- instruction: "SIT AT NORMAL DISTANCE (~60cm), NORMAL LIGHTING -- genuine sessions"
+  condition: bonafide
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 4
+
+- instruction: |-
+    SWITCH THE CAMERA SOURCE TO A STATIC PRE-RECORDED VIDEO (scripts/record_source.py
+    output, played through OBS Virtual Camera). No adaptation attempted -- the baseline
+    injection attack.
+  condition: inject_static
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 3
+
+- instruction: |-
+    SWITCH THE SOURCE TO A FACE-SWAPPED RECORDING (whatever face-swap tool is
+    available). Fidelity of the swap doesn't matter to this system -- it never
+    inspects image content, only the light-timing relationship.
+  condition: inject_swap
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 3
+
+- instruction: "SWITCH THE SOURCE TO A REENACTMENT/PUPPETED RECORDING"
+  condition: inject_reenact
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 3
+
+- instruction: |-
+    START attacks/adaptive_injector.py (--mode global or --mode per-zone) POINTED AT A
+    RECORDED SOURCE, then switch the camera to its virtual-camera output. This is the
+    strongest attack in this repo.
+  condition: inject_adaptive
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 3
+
+- instruction: |-
+    SWITCH BACK TO THE REAL CAMERA. Sit normally -- the light pattern will be OFF for
+    these, that's expected (the control: same person, same camera, pattern only off).
+  condition: emitter_off
+  meta: {lighting: normal, distance_cm: 60.0, makeup: none, glasses: without}
+  count: 3

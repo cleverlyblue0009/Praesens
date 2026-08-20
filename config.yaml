@@ -115,6 +115,19 @@ fusion:
   min_contributing_lanes: 1         # below this many lanes with status=ok AND a plausible lag,
                                      # verdict is RE-CHALLENGE regardless of any single lane's score
 
+attacks:
+  adaptive_injector:
+    mode: global                # "global" | "per-zone" -- see attacks/adaptive_injector.py
+    lag_ms: 50.0                # attacker's own estimation/processing delay, applied deliberately
+    depth: 1.0                  # attack modulation strength relative to the estimate's own swing
+    baseline_luminance: 127.0   # matches emitter.base_luminance -- the attacker doesn't know this
+                                 # exactly in practice, this is the tool's own best-guess constant
+    fps: 30.0
+    border_fraction: 0.25       # matches emitter.border_fraction -- sampled from where the real
+                                 # pattern is actually drawn, not guessed independently
+    zone_names: [left, right, top]
+    history_seconds: 2.0        # how much screen-sample history is kept for the lag lookup
+
 cross_session:
   synthetic_emitter_sample_rate_hz: 100.0  # matches typical measured real emitter redraw rate (~90-130Hz);
                                             # no real redraw log is persisted in session JSON, so the

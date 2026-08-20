@@ -27,7 +27,12 @@ from praesens.challenge import Challenge, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import OpticalConfig, run_session, measure_capture_fps
 
-VALID_CONDITIONS = {"bonafide", "replay", "swap", "emitter_off"}
+VALID_CONDITIONS = {
+    "bonafide", "emitter_off",
+    "replay", "swap",  # Milestones 4/5's original attack labels -- kept for the existing corpus
+    # Milestone 12's expanded attack vocabulary, matching eval/corpus_plan.yaml:
+    "inject_static", "inject_swap", "inject_reenact", "inject_adaptive",
+}
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

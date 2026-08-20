@@ -19,6 +19,8 @@ SEE the collapse happen, not wait it out.
 """
 from __future__ import annotations
 
+import json
+import time
 from enum import Enum
 from pathlib import Path
 
@@ -29,6 +31,22 @@ import yaml
 from demo.attack import AttackDashboard
 from demo.live import LiveDashboard, REPO_ROOT, GREEN, RED, GRAY, WHITE, LIGHT_GRAY, BLUE, ORANGE, _plot_series
 from eval.analyse import load_sessions
+
+
+def collapse_latency_stats(latencies: list) -> dict:
+    """Milestone 12: summary stats over however many source-switch ->
+    first-REJECT deltas have been recorded. A single anecdote ("it took
+    800ms once") isn't the claim; the distribution over >=20 real switches
+    is -- this function is the reporting half of that, kept separate from
+    collection so it's testable without needing 20 real switches to run it."""
+    if not latencies:
+        return {"n": 0}
+    arr = np.array(latencies, dtype=np.float64)
+    return {
+        "n": int(len(arr)), "mean_s": float(arr.mean()), "median_s": float(np.median(arr)),
+        "std_s": float(arr.std()), "min_s": float(arr.min()), "max_s": float(arr.max()),
+        "p90_s": float(np.percentile(arr, 90)),
+    }
 
 
 class PanelState(str, Enum):
@@ -63,6 +81,13 @@ class PanelDashboard(AttackDashboard):
         self.state = PanelState.LIVE
         self.status_message = ""
 
+        # Milestone 12: source-switch -> first-REJECT collapse latency.
+        # _pending_switch_time is armed by enter_attack() and disarmed by
+        # _check_collapse_latency() the first time the verdict is observed
+        # to cross to REJECT afterward.
+        self.collapse_latencies: list = []
+        self._pending_switch_time: float | None = None
+
         logs_dir = REPO_ROOT / raw_config["eval"]["logs_dir"]
         self.genuine_ref, self.attack_ref = load_reference_traces(logs_dir)
         if self.genuine_ref is None or self.attack_ref is None:
@@ -76,6 +101,7 @@ class PanelDashboard(AttackDashboard):
         self.switch_camera(self.primary_index)
         self.state = PanelState.LIVE
         self.status_message = ""
+        self._pending_switch_time = None  # returning to LIVE cancels any pending collapse measurement
 
     def enter_attack(self) -> None:
         alternates = [idx for idx in self.camera_slots if idx != self.oconfig.camera_index]
@@ -86,6 +112,58 @@ class PanelDashboard(AttackDashboard):
         self.switch_camera(alternates[0])
         self.state = PanelState.ATTACK
         self.status_message = ""
+        self._pending_switch_time = time.perf_counter()  # arm collapse-latency measurement
+
+    def _check_collapse_latency(self) -> None:
+        """Called every frame after the score updates: if a switch is
+        pending and the verdict has now genuinely crossed to REJECT (score
+        below threshold, with a face actually visible so a "no face" gap
+        can't masquerade as a fast collapse), records the delta and
+        disarms. One measurement per switch -- see collapse_latency_stats
+        for the distribution over however many have accumulated."""
+        if self._pending_switch_time is None:
+            return
+        if not self.face_recently_detected:
+            return
+        if self.current_score < self.dconfig.score_threshold:
+            delta = time.perf_counter() - self._pending_switch_time
+            self.collapse_latencies.append(delta)
+            print(f"collapse latency: {delta * 1000:.0f}ms (switch -> first REJECT), "
+                  f"n={len(self.collapse_latencies)} recorded this session")
+            self._pending_switch_time = None
+
+    def _process_frame(self) -> bool:
+        result = super()._process_frame()
+        self._check_collapse_latency()
+        return result
+
+    def _save_collapse_latencies(self) -> None:
+        """Milestone 12: persist whatever collapse-latency deltas this
+        session recorded, plus the summary distribution, so
+        'report it as a distribution over >=20 switches, not one anecdote'
+        is something that can actually be checked afterward instead of only
+        being visible in the console scrollback while the demo was running.
+        Writes even with 0 recordings (n=0) so a session that never
+        triggered a genuine collapse is a visible, honest empty log, not a
+        silently-missing file that looks the same as 'never ran'."""
+        stats = collapse_latency_stats(self.collapse_latencies)
+        record = {
+            "session": time.strftime("%Y%m%dT%H%M%S"),
+            "latencies_s": self.collapse_latencies,
+            "stats": stats,
+        }
+        logs_dir = REPO_ROOT / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        out_path = logs_dir / f"collapse_latency_{record['session']}.json"
+        with open(out_path, "w") as f:
+            json.dump(record, f, indent=2)
+        print(f"collapse latency log saved to {out_path} (n={stats['n']})")
+
+    def run(self, max_seconds: float | None = None) -> None:
+        try:
+            super().run(max_seconds=max_seconds)
+        finally:
+            self._save_collapse_latencies()
 
     def toggle_pattern(self) -> None:
         self.emitter.set_enabled(not self.emitter.is_enabled())

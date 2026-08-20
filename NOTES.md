@@ -201,3 +201,97 @@ gating this milestone.
 
 **Config added:** `fusion:` section in `config.yaml` (accept_threshold,
 reject_threshold, hysteresis_margin, min_contributing_lanes).
+
+---
+
+## Milestone 12 — attack tooling
+
+**What was built:** `scripts/record_source.py` records N seconds of clean
+face video to `data/` (gitignored, hard rule 2) with a metadata sidecar,
+for later use as attack source material. `scripts/run_corpus.py` gained
+`--plan PLAN_YAML` (`load_plan_from_yaml()`), letting a corpus plan live in
+a versionable YAML file instead of only the module's built-in constant;
+`eval/corpus_plan.yaml` is a new 6-block/19-session plan covering bonafide,
+inject_static, inject_swap, inject_reenact, inject_adaptive and
+emitter_off, with printed manual-setup instructions per attack block
+(nothing here can auto-drive OBS or a face-swap tool). `attacks/
+adaptive_injector.py`: `AdaptiveInjector` screen-captures the emitter's own
+border region(s) via `mss`, estimates the currently-emitted waveform from
+that pixel brightness alone (no privileged access to the session seed or
+true chip values -- exactly what a second camera pointed at the monitor
+would see), and multiplies a supplied source video's luminance (Y-channel
+only, colour preserved) by that estimate before sending it out through
+`pyvirtualcam`. `--mode global` applies one estimate uniformly (the attack
+Milestone 9 exists to catch); `--mode per-zone` estimates left/right/top
+separately and modulates matching thirds of the frame -- the strongest
+plausible version of this attack without also running live face detection
+inside the attacker tool itself. `demo/panel.py` gained collapse-latency
+instrumentation: `enter_attack()` arms a timestamp, `_check_collapse_latency()`
+(called every frame) records the delta the first time the score is
+observed to genuinely cross below threshold WITH a face still visible
+(so a dropped/no-face frame can't masquerade as a fast collapse), and
+`PanelDashboard.run()` now saves every recorded delta plus its summary
+stats to `logs/collapse_latency_<timestamp>.json` on exit -- including an
+honest `n=0` record if a panel session never triggered a genuine collapse.
+
+**What was measured:**
+
+- `tests/test_adaptive_injector.py` (2/2 pass): the REAL image-processing
+  code path (not the simplified scalar-signal version `tests/test_spatial.py`
+  already covers) -- an unrelated source video pushed through
+  `luminance_multiply()` driven by a perfect screen-capture estimate --
+  raises the global optical score from 0.053 (unrelated baseline) to 0.951,
+  while Milestone 9's spatial_assignment_score stays at -0.020 (dead),
+  confirming the spatial defence holds against a genuine implementation of
+  its target attack, not just a hand-derived formula standing in for one.
+  `luminance_multiply()` verified to preserve colour ratio (scales
+  luminance only).
+- Bug caught by the first test run: the test's own attacker-side log was
+  built in the abstract +/-1 chip-value domain instead of the 0-255
+  luminance domain `region_luminance()` actually produces, collapsing the
+  attack multiplier to a near-constant regardless of the true signal
+  (attacked_global=0.025, LOWER than baseline). Root-caused to the test's
+  setup (not `AdaptiveInjector`/`region_luminance()`, which were already
+  correct) and fixed with a `_make_attacker_luminance_log()` helper that
+  converts chip values to a realistic luminance-domain log first.
+- `tests/test_panel.py` (9/9 pass, new this milestone): `_check_collapse_latency`
+  records a delta only once a switch is pending, a face is visible, AND the
+  score has genuinely crossed the threshold -- verified separately that a
+  no-face gap does NOT get recorded as a fast collapse, that a still-high
+  score does not get recorded, and that a second low-score frame after
+  recording doesn't add a duplicate entry. `collapse_latency_stats()`
+  verified against a hand-computed mean/median/min/max. `_save_collapse_latencies`
+  verified to write valid JSON with the full latency list and summary
+  stats, including the empty (`n=0`) case.
+- `scripts/run_corpus.py --plan eval/corpus_plan.yaml` verified to load 6
+  blocks/19 sessions with the correct condition distribution; omitting
+  `--plan` still gives the old built-in 15-session plan unchanged
+  (backward compatible).
+- `AdaptiveInjector` construction verified against the real screen
+  resolution (`regions={'global': (0, 0, 1920, 300)}` on this machine) and
+  its `run()` verified to fail cleanly with a clear `RuntimeError` (not a
+  hang or silent no-op) when the supplied `--source` file doesn't exist.
+
+**Not yet done:** the real end-to-end hardware path -- `AdaptiveInjector.run()`
+actually driving a virtual camera, and `demo/panel.py` recording a real
+20-switch collapse-latency distribution against it -- has NOT been run.
+This needs (a) at least one recorded source video via
+`scripts/record_source.py` (`data/` is currently empty) and (b) a working
+OBS Virtual Camera driver installed and selectable by `pyvirtualcam`,
+neither of which is confirmed present on this machine right now. `mss` and
+`pyvirtualcam` import cleanly and the pure logic (region geometry,
+luminance-multiply, estimate lookup, error handling) is exercised above;
+the live camera-switching/collapse-latency distribution claim
+("report it as a distribution over >=20 switches, not one anecdote")
+remains a mechanism that is built and unit-tested, not yet backed by a
+real 20-switch session. Similarly, `eval/corpus_plan.yaml`'s 19-session
+attack corpus (inject_static/swap/reenact/adaptive) has not actually been
+collected -- it is a starting plan, as its own header comment says, not a
+claim that data exists.
+
+**Config added:** `attacks: adaptive_injector:` section in `config.yaml`
+(mode, lag_ms, depth, baseline_luminance, fps, border_fraction,
+zone_names, history_seconds). `praesens/session.py`'s `VALID_CONDITIONS`
+extended with `inject_static`, `inject_swap`, `inject_reenact`,
+`inject_adaptive` (old `replay`/`swap` labels kept for the existing
+corpus).

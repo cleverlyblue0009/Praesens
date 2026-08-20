@@ -24,6 +24,8 @@ import traceback
 from contextlib import redirect_stdout
 from pathlib import Path
 
+import yaml
+
 from praesens.session import run_one_session, load_config
 from scripts.collect import prompt_int
 from eval.analyse import load_sessions
@@ -86,14 +88,35 @@ GATE_GENUINE_FLOOR = 0.7
 GATE_OFF_CEILING = 0.3
 
 
-def flatten_plan() -> list:
+def load_plan_from_yaml(path: Path) -> list:
+    """Milestone 12: an external corpus plan (--plan eval/corpus_plan.yaml),
+    same block shape as the built-in CORPUS_PLAN (instruction/condition/
+    meta/count per block) so flatten_plan() needs no changes to accept
+    either. Validated eagerly -- a malformed plan should fail before the
+    operator has pressed ENTER on session 1, not mid-collection."""
+    with open(path) as f:
+        blocks = yaml.safe_load(f)
+    if not isinstance(blocks, list):
+        raise ValueError(f"{path}: expected a YAML list of blocks, got {type(blocks).__name__}")
+    for i, block in enumerate(blocks):
+        missing = {"instruction", "condition", "meta", "count"} - set(block.keys())
+        if missing:
+            raise ValueError(f"{path}: block {i} is missing required key(s): {sorted(missing)}")
+    return blocks
+
+
+def flatten_plan(plan: list | None = None) -> list:
     """One entry per actual session, each carrying a stable corpus_slot id
     (plan position, e.g. "corpus_003") used by --resume to detect what's
     already been collected -- independent of the random session id/uuid
-    each run_one_session() call generates."""
+    each run_one_session() call generates. plan defaults to the built-in
+    CORPUS_PLAN (the original optical-only 15-session plan) for backward
+    compatibility; pass a plan loaded via load_plan_from_yaml for
+    Milestone 12's expanded attack-condition plans."""
+    plan = plan if plan is not None else CORPUS_PLAN
     slots = []
     n = 0
-    for block in CORPUS_PLAN:
+    for block in plan:
         for i in range(block["count"]):
             n += 1
             slots.append({
@@ -214,8 +237,9 @@ def run_gate(subject: str, skin_tone: int | None, raw_config: dict) -> bool:
 # Scripted corpus
 # ---------------------------------------------------------------------------
 
-def run_corpus(subject: str, skin_tone: int | None, raw_config: dict, resume: bool) -> dict:
-    slots = flatten_plan()
+def run_corpus(subject: str, skin_tone: int | None, raw_config: dict, resume: bool,
+                plan: list | None = None) -> dict:
+    slots = flatten_plan(plan)
     total = len(slots)
 
     skip = already_done_slots(REPO_ROOT / raw_config["eval"]["logs_dir"]) if resume else set()
@@ -342,9 +366,16 @@ def main():
     parser.add_argument("--skip-gate", action="store_true", help="bypass the sanity gate")
     parser.add_argument("--resume", action="store_true",
                          help="skip corpus sessions already present in logs/ (matched by corpus_slot)")
+    parser.add_argument("--plan", default=None,
+                         help="path to a YAML corpus plan (e.g. eval/corpus_plan.yaml) -- "
+                              "defaults to the built-in optical-only 15-session plan if omitted")
     args = parser.parse_args()
 
     raw_config = load_config()
+    plan = load_plan_from_yaml(Path(args.plan)) if args.plan else None
+    if args.plan:
+        print(f"Loaded corpus plan from {args.plan} ({sum(b['count'] for b in plan)} sessions "
+              f"across {len(plan)} block(s)).")
 
     print("PRAESENS hands-off corpus collection")
     subject = input("subject id: ").strip() or "unknown"
@@ -359,7 +390,7 @@ def main():
     else:
         print("\n--skip-gate: bypassing the sanity gate.")
 
-    run_corpus(subject, skin_tone, raw_config, resume=args.resume)
+    run_corpus(subject, skin_tone, raw_config, resume=args.resume, plan=plan)
 
     print("\nRunning analysis (eval/cross_session.py)...")
     results_path, summary = run_analysis_and_write_results(raw_config)
