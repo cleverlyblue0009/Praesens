@@ -133,3 +133,71 @@ by an actual successful download+load before building on it).
 [hard-pinned false], hand_model_path, coherence window/lag/sigma,
 min_valid_hand_samples, passive_decay_half_life_s,
 passive_no_evidence_after_s, camera_index).
+
+---
+
+## Milestone 11 — fusion and adjudication
+
+**What was built:** New `praesens/fusion.py`: `LaneResult` (uniform shape
+every lane emits: lane_name, subscore, status, lag_ms, confidence,
+diagnostics), `acoustic_lane_stub()` (registers the acoustic lane's
+interface, permanently no_evidence, no audio I/O anywhere in this repo),
+`compute_joint_score()` + `lane_contributes()` (confidence-weighted mean
+of ONLY the lanes that are status=='ok' AND whose measured lag falls
+within their own physically plausible window -- optical/spatial
+[0,300]ms one-directional, typing [-300,300]ms bounded both sides since
+finger motion and key-down are both downstream of the same press, not a
+stimulus-then-response pair), `Adjudicator` (three-way ACCEPT/RE-CHALLENGE/
+REJECT verdict with hysteresis so the demo doesn't flicker at a threshold
+boundary, plus a structured `reason_text`/`per_lane_reasons` explanation
+on every verdict). New `eval/ablate.py`: recomputes the joint verdict with
+each lane held out.
+
+**What was measured:**
+
+- `tests/test_fusion.py` (11/11 pass, 0.22s): a lane with a high subscore
+  but an implausible lag contributes NOTHING (joint score is undefined,
+  not zero, with only that lane present) -- the actual claim this
+  milestone makes, verified directly rather than just asserted. Joint
+  score is confirmed to be exactly the confidence-weighted mean of
+  contributing lanes (checked against a hand-computed expected value).
+  Ablating the only contributing lane leaves RE-CHALLENGE, never a
+  manufactured ACCEPT/REJECT. Hysteresis verified to actually hold a
+  verdict through a value that would fail a FRESH threshold check, then
+  correctly release it on a further drop. min_contributing_lanes=2
+  correctly forces RE-CHALLENGE even with one lane scoring 0.95.
+- Bug caught while building this: `_summarize()`'s reason-priority logic
+  initially always named the acoustic stub as "the reason" for any
+  non-ACCEPT verdict, since it's permanently no_evidence and no_evidence
+  lanes were checked first -- correct per the code, useless in practice,
+  since it would drown out whatever a REAL lane (optical/typing) actually
+  did that window. Fixed by deprioritising any lane in a
+  `_PERMANENTLY_STUBBED_LANES` set unless it's the only lane present;
+  regression test `test_adjudicate_names_the_implausible_lag_lane_not_the_acoustic_stub`
+  added specifically for this.
+- `python -m eval.ablate` run against the real 14-session bonafide optical
+  corpus: no real fused (optical+typing) session data exists yet (the
+  corpus is optical-only; Milestone 10's typing lane has not been run
+  against a live human typing, deliberately -- simulating real OS
+  keystrokes is a genuine un-consented side-effect risk, not a test-
+  hygiene nicety, see Milestone 10's notes). Each real optical session was
+  paired with a FIXED, clearly-labelled SYNTHETIC typing LaneResult
+  (subscore=0.75, values drawn from Milestone 10's own "genuine timing
+  correlation" test, not invented fresh) and the real acoustic stub, under
+  min_contributing_lanes=2 -- a configuration CHOICE ("this deployment
+  needs 2 independent lanes to agree"), not a data manipulation. Result:
+  for every session that reached ACCEPT with all lanes present (9 of 14),
+  removing EITHER real lane (optical or typing) alone dropped it to
+  RE-CHALLENGE with zero exceptions; removing the acoustic stub changed
+  nothing (expected, since it never contributed). Full per-session table
+  in `eval/ablation.json`.
+
+**Not yet done:** a real fused session runner that captures optical AND
+typing concurrently off one shared camera stream and saves a combined log
+-- this milestone's acceptance criterion is the ablation harness itself,
+which is real and tested; a genuine multi-lane corpus (replacing the
+synthetic typing placeholder above with real data) is follow-up work, not
+gating this milestone.
+
+**Config added:** `fusion:` section in `config.yaml` (accept_threshold,
+reject_threshold, hysteresis_margin, min_contributing_lanes).

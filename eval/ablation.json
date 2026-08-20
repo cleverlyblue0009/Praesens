@@ -1,0 +1,324 @@
+[
+  {
+    "session": "20260806T004915_dd177aa3",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7318355648282228,
+      "reason_text": "joint score 0.73 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.6924370009160964,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7318355648282228,
+      "reason_text": "joint score 0.73 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T005356_5f52fba3",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-2.442960207802167)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-2.442960207802167)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-2.442960207802167)"
+    }
+  },
+  {
+    "session": "20260806T005545_e713b838",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7461485298642209,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.735360522582263,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7461485298642209,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T005639_45be0953",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7537581310125094,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7612250662382976,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7537581310125094,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T005742_119ac02e",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7540310530611026,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7620346836612205,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7540310530611026,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T005836_29f7282c",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.706874747831768,
+      "reason_text": "joint score 0.71 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.6516590572996829,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.706874747831768,
+      "reason_text": "joint score 0.71 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T005933_fbf4ab88",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7720721277025673,
+      "reason_text": "joint score 0.77 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8289821487281731,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7720721277025673,
+      "reason_text": "joint score 0.77 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T010023_6d014c2f",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=2.759580751911066)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=2.759580751911066)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=2.759580751911066)"
+    }
+  },
+  {
+    "session": "20260806T010121_19daeda1",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7618262216069075,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.778714158098961,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7618262216069075,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T010216_3f501cea",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.5828967532707674)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.5828967532707674)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.5828967532707674)"
+    }
+  },
+  {
+    "session": "20260806T010330_ba429883",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7360963405444708,
+      "reason_text": "joint score 0.74 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.711820821769374,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7360963405444708,
+      "reason_text": "joint score 0.74 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T010431_205aef3f",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7267525098760984,
+      "reason_text": "joint score 0.73 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.6939079654649074,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7267525098760984,
+      "reason_text": "joint score 0.73 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260806T010548_dde32a18",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.549571821718877,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.0,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.549571821718877,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    }
+  },
+  {
+    "session": "20260806T010649_2dd5307a",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7505115554648154,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7512354248928471,
+      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7505115554648154,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  }
+]

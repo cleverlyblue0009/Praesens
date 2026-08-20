@@ -107,6 +107,14 @@ typing:
   passive_no_evidence_after_s: 10.0 # no keystrokes at all for this long -> no_evidence, triggers re-challenge
   camera_index: 0
 
+fusion:
+  accept_threshold: 0.6             # joint score >= this -> ACCEPT
+  reject_threshold: 0.3             # joint score < this -> REJECT; between the two -> RE-CHALLENGE
+  hysteresis_margin: 0.05           # a verdict must clear its threshold by this much MORE to be
+                                     # LEFT once reached -- stops the demo flickering at a boundary
+  min_contributing_lanes: 1         # below this many lanes with status=ok AND a plausible lag,
+                                     # verdict is RE-CHALLENGE regardless of any single lane's score
+
 cross_session:
   synthetic_emitter_sample_rate_hz: 100.0  # matches typical measured real emitter redraw rate (~90-130Hz);
                                             # no real redraw log is persisted in session JSON, so the
