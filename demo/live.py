@@ -351,11 +351,17 @@ class LiveDashboard:
                 dashboard = self._render_dashboard()
                 self.emitter.set_preview(dashboard)
 
+                # Milestone 14: drive_and_log() (render_frame+log_redraw in
+                # one call) rather than calling them separately here, so
+                # self.emitter can be EITHER praesens.emit.Emitter or
+                # praesens.spatial.SpatialEmitter -- their render_frame/
+                # log_redraw shapes differ (one scalar chip value vs. a
+                # per-zone dict), but both expose this same one-frame
+                # interface. See both classes' drive_and_log() docstrings.
                 elapsed = time.perf_counter() - self.start_time
-                frame, chip_value, luminance, enabled = self.emitter.render_frame(elapsed)
+                frame = self.emitter.drive_and_log(elapsed)
                 cv2.imshow(Emitter.WINDOW_NAME, frame)
                 key = cv2.waitKey(1) & 0xFF
-                self.emitter.log_redraw(chip_value, luminance, enabled)
                 self.frame_times.append(time.perf_counter())
 
                 if not self._handle_key(key, frame):

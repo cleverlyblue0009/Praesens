@@ -381,3 +381,138 @@ notes).
 Milestone 12 `inject_*` labels; `eval.ablation_json` (path to Milestone
 11's ablation output); `eval.collapse_latency_glob` (glob pattern for
 Milestone 12's collapse-latency logs under `logs_dir`).
+
+---
+
+## Milestone 14 — panel demo mode
+
+**What was built:** Two small, behaviour-preserving additions first, to
+make the rest possible: `praesens/emit.py`'s `Emitter` and `praesens/
+spatial.py`'s `SpatialEmitter` both gained a `drive_and_log(elapsed_s)`
+method (render_frame+log_redraw in one call, returning just the frame),
+and `demo/live.py`'s run loop now calls `self.emitter.drive_and_log(...)`
+instead of unpacking `render_frame`'s return value itself -- their
+render_frame/log_redraw shapes genuinely differ (one scalar chip value vs.
+a per-zone dict), but both now expose the same one-frame interface, so
+`self.emitter` can be reassigned to either type without the run loop
+knowing which one is active. Nothing about what gets rendered or logged
+changed (verified in `tests/test_emit.py` and the new `SpatialEmitter`
+test in `tests/test_spatial.py`).
+
+On top of that, `demo/panel.py` (Milestone 8) gained three things:
+
+1. It now drives Milestone 9's `SpatialEmitter` instead of the
+   single-zone `Emitter`, and `_process_frame` was rewritten to run its
+   own per-ROI face-landmark cadence (reusing `self.landmarker` directly,
+   since the inherited `CadenceDetector` merges ROIs into one mask and
+   can't produce per-ROI luminance) and continuously compute BOTH the
+   global score and Milestone 9's spatial assignment score from the same
+   rolling window (throttled to `spatial_update_interval_s`, a real
+   cross-correlation lag search over 3 ROIs x N zones isn't free every
+   frame). The ACCEPT/REJECT banner's verdict is still driven by the
+   global score exactly as in Milestone 8 (`current_score` is kept as an
+   alias for `current_global_score`) -- the spatial score is a visible
+   SECOND opinion, not a second gate -- and the status row flags
+   `GLOBAL PASSES BUT SPATIAL SCORE IS DEAD` when the two disagree past
+   `spatial_score_threshold`, live.
+2. A `[5]` typing-lane screen (`PanelState.TYPING`) runs Milestone 10's
+   PASSIVE mode against the shared camera capture: a dedicated
+   `HandLandmarker` instance (never sharing timestamps with the face
+   landmarker -- MediaPipe's VIDEO mode requires strictly increasing
+   timestamps PER INSTANCE, so two independently-paced callers on the
+   SAME instance would violate that) plus `praesens.typing.KeystrokeCapture`
+   started lazily. Both are wrapped individually so a missing hand model
+   or a keystroke listener that fails to start (permission, no display,
+   etc.) degrades that specific piece to a visible `no_evidence` message
+   instead of crashing the panel -- never a fabricated score.
+3. A `--rehearse` flag drives the whole sequence (`demo.rehearse_script`
+   in `config.yaml`: live -> attack -> live -> replay -> typing, each with
+   its own duration) on a timer instead of waiting for keypresses,
+   re-entering the SAME `enter_live`/`enter_attack`/`enter_replay`/
+   `enter_typing` methods a human pressing keys would use -- so rehearsing
+   exercises the real transition code, not a separate mock path. Each
+   scripted step is wrapped so a failing transition (e.g. no alternate
+   camera found) logs a warning and the sequence continues rather than
+   crashing; `_handle_key` returns `False` once the script completes,
+   reusing the existing `[Q]` quit path.
+
+**What was measured:**
+
+- `tests/test_emit.py` (2/2) and the new `SpatialEmitter` test in
+  `tests/test_spatial.py` (now 5/5, 1 new): `drive_and_log()` produces the
+  IDENTICAL frame `render_frame()` would have and logs exactly one entry
+  per call, with every zone represented for `SpatialEmitter` -- confirms
+  the refactor changed nothing about what's rendered or logged.
+- `tests/test_panel.py` (23/23, 14 new this milestone):
+  `_update_spatial_scores` reproduces Milestone 9's own core claim live --
+  genuine per-zone reflectance gives NO mismatch message; a synthetic
+  global-brightness-multiply attack (the same construction as
+  `tests/test_spatial.py`'s own test) raises the global score above
+  threshold while the spatial score stays below `spatial_score_threshold`
+  AND sets the mismatch status message; a later genuine update correctly
+  CLEARS a stale mismatch message rather than leaving it stuck. Two
+  degradation paths verified: too few valid samples reports global=0.0 but
+  spatial=NaN (no_evidence, not a fabricated zero, rule 7), and a
+  partially-empty per-ROI buffer (an ROI not yet detected this window)
+  returns early without crashing -- this second case caught a bug in the
+  TEST'S OWN fixture (a genuinely-missing dict key raised `KeyError`,
+  since the real `PanelDashboard` always initialises all three ROI keys in
+  `__init__` and this was never reachable in production; the fixture was
+  fixed to match that real invariant, not the production code).
+  `_update_typing_status` verified to report `no_evidence` with the actual
+  unavailability reason when either the keystroke capture or hand
+  landmarker never started, and to recover a real coherence score (>0.7)
+  from the same synthetic genuine-timing construction
+  `tests/test_typing.py` already uses. `_advance_rehearse`/`_check_rehearse`
+  verified to step through a script in order, survive a step whose
+  transition raises (status message set, sequence continues -- this test
+  also caught that `_check_rehearse` calling `self._advance_rehearse()`
+  needs that method actually bound on the test double, a test-harness
+  detail, not a production bug), and only advance once the scheduled time
+  has actually passed. `_handle_key` verified to exit cleanly once the
+  rehearsal is done and to leave normal (non-rehearse) key handling
+  unaffected. Full suite: 66/66 pass.
+- Real hardware: `python -m demo.panel --max-seconds 8` ran end-to-end at
+  the camera's ~8fps with the spatial-scoring rewrite active throughout,
+  saved a screenshot and an honest `n=0` collapse-latency log (no
+  RuntimeWarning after the fix below). `python -m demo.panel --rehearse
+  --max-seconds 90` ran the full 5-step scripted sequence
+  (live/attack/live/replay/typing, ~29s of scripted duration plus model-
+  load/camera-probe overhead, ~35s wall clock total) to completion with
+  ZERO crashes: the `attack` step correctly degraded to "no injected feed
+  source found" (only camera index 0 exists on this machine, no OBS
+  Virtual Camera running) and the `typing` step successfully loaded the
+  hand landmarker and started the keystroke listener. This is the actual
+  acceptance evidence for the hard rule "never crashes on a missing
+  device" -- a real run hit a genuinely missing device (the alternate
+  camera) and degraded exactly as designed. A `RuntimeWarning: Mean of
+  empty slice` surfaced on the first such run (a live rolling window can
+  contain a timestamp where every ROI is momentarily NaN between two good
+  frames -- `tests/test_spatial.py`'s fixed 20s fixtures never hit this
+  because they're fully populated) -- cosmetic only (NaN-in, NaN-out,
+  handled correctly downstream), suppressed locally in
+  `_update_spatial_scores` rather than touched in `praesens/spatial.py`
+  itself, which needed no change.
+
+**Not yet done:** the rehearsal ran with only the primary camera present
+(no OBS Virtual Camera, no `attacks/adaptive_injector.py` actually running
+as a second source on this machine) -- so while the ATTACK step's
+graceful-degradation path is now real, verified evidence, the actual
+"global score recovers, spatial score stays dead" visual has only been
+demonstrated in `tests/test_adaptive_injector.py` (Milestone 12) and the
+new synthetic `test_update_spatial_scores_flags_mismatch_under_global_multiply_attack`
+here, not in a live panel session with a genuine competing camera source.
+Same for the typing lane: the hand landmarker loaded and the keystroke
+listener started successfully, but no keys were actually typed during the
+smoke test (an automated script typing real OS-level keystrokes would be
+the same un-consented side-effect risk Milestone 10's notes already
+flagged), so the live coherence readout itself has not been exercised with
+a real human typing during a `--rehearse` run -- only with the synthetic
+fixture in `tests/test_panel.py`. A fully-populated ACTIVE-mode typing
+screen (with a phrase to type) was deliberately left out of scope in
+favour of PASSIVE mode, which needs no expected-sequence bookkeeping in a
+panel context.
+
+**Config added:** `demo.spatial_score_threshold`, `demo.spatial_update_interval_s`,
+`demo.rehearse_script` (the 5-step scripted sequence, each entry a
+`{state, duration_s, description}` block).

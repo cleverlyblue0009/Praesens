@@ -154,3 +154,16 @@ demo:
   camera_display_name: null    # optional override; falls back to "camera #<index>"
   panel_rolling_window_s: 1.5  # shorter than rolling_window_s -- panel mode trades statistical
                                 # power for a fast, visible collapse (REJECT within ~1s of switching)
+  spatial_score_threshold: 0.15  # Milestone 14: below this, the panel flags "global passes but
+                                  # spatial doesn't" -- same idea as spatial.py's own tests, just a
+                                  # live display threshold rather than a pass/fail test assertion
+  spatial_update_interval_s: 0.5 # how often the panel recomputes the ROI x zone correlation matrix
+                                  # (a real cross-correlation lag search, not free -- throttled like
+                                  # optical.py's detect_every_n_frames throttles face detection)
+  rehearse_script:               # Milestone 14 --rehearse: scripted timed state sequence, no
+                                  # keypresses needed -- see demo/panel.py's _advance_rehearse()
+    - {state: live, duration_s: 6.0, description: "Live verification -- genuine face, pattern ON"}
+    - {state: attack, duration_s: 6.0, description: "Switch to an alternate camera source (OBS Virtual Camera / adaptive injector, if one is available)"}
+    - {state: live, duration_s: 6.0, description: "Switch back to the real camera -- recovery within the rolling window"}
+    - {state: replay, duration_s: 5.0, description: "Stored genuine-vs-injected comparison"}
+    - {state: typing, duration_s: 6.0, description: "Typing lane -- live keystroke/hand coherence"}

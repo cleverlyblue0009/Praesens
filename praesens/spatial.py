@@ -150,6 +150,17 @@ class SpatialEmitter:
         for name, chip_value in chip_values.items():
             self._log[name].append({"t": actual_t, "chip_value": chip_value, "enabled": enabled})
 
+    def drive_and_log(self, elapsed_s: float):
+        """Milestone 14: same one-call interface as praesens.emit.Emitter's
+        drive_and_log -- see that method's docstring. Lets demo/live.py's
+        run loop drive whichever emitter is currently assigned to
+        self.emitter without a type check, even though this class's own
+        render_frame/log_redraw shapes (a per-zone chip_values dict) differ
+        from Emitter's (one scalar chip_value/luminance pair)."""
+        frame, chip_values, enabled = self.render_frame(elapsed_s)
+        self.log_redraw(chip_values, enabled)
+        return frame
+
     def get_zone_log(self, zone_name: str) -> list:
         return list(self._log.get(zone_name, []))
 

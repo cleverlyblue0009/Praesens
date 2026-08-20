@@ -189,6 +189,20 @@ class Emitter:
             "enabled": enabled,
         })
 
+    def drive_and_log(self, elapsed_s: float):
+        """Milestone 14: render_frame() + log_redraw() combined behind one
+        call, returning just the frame -- so a manual-drive caller (demo/
+        live.py's run loop) can drive EITHER this or SpatialEmitter without
+        knowing which one is active, since both expose this same one-frame
+        interface even though their own render_frame/log_redraw internals
+        differ (SpatialEmitter logs a per-zone dict, this logs one scalar
+        chip_value/luminance pair -- render_frame/log_redraw stay available
+        separately for callers that need them split, e.g. this class's own
+        _run() thread above)."""
+        frame, chip_value, luminance, enabled = self.render_frame(elapsed_s)
+        self.log_redraw(chip_value, luminance, enabled)
+        return frame
+
     def _run(self, duration_s: float) -> None:
         cv2.namedWindow(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty(

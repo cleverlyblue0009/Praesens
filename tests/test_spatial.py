@@ -9,7 +9,10 @@ import numpy as np
 import pytest
 
 from praesens.challenge import Challenge, derive_zone_challenges
-from praesens.spatial import compute_correlation_matrix, spatial_assignment_score, global_score_from_logs
+from praesens.emit import EmitterConfig
+from praesens.spatial import (
+    SpatialEmitter, compute_correlation_matrix, spatial_assignment_score, global_score_from_logs,
+)
 
 ZONE_NAMES = ("left", "right", "top")
 ROI_TO_ZONE = {"forehead": "top", "left_cheek": "left", "right_cheek": "right"}
@@ -144,3 +147,27 @@ def test_unrelated_video_gives_near_zero_global_and_spatial_scores(zones_and_log
 
     assert abs(global_score) < 0.3, f"expected near-zero global score for unrelated video: {global_score:.3f}"
     assert abs(spatial_score) < 0.3, f"expected near-zero spatial score for unrelated video: {spatial_score:.3f}"
+
+
+def test_spatial_emitter_drive_and_log_matches_render_frame_and_logs_every_zone():
+    """Milestone 14 regression test: SpatialEmitter.drive_and_log() must be
+    exactly equivalent to render_frame()+log_redraw() (what
+    praesens.spatial's own __main__ session loop still calls separately),
+    and demo/panel.py's live-scoring loop depends on EVERY zone getting a
+    log entry from a single drive_and_log() call, not just one merged
+    entry -- that per-zone detail is what compute_correlation_matrix needs."""
+    master = Challenge(chip_rate_hz=5.0, duration_s=20.0, seed=7, loop=True)
+    zones = derive_zone_challenges(master, ZONE_NAMES)
+    emitter = SpatialEmitter(zones, EmitterConfig())
+    emitter.begin_manual_drive(start_time=0.0)
+
+    expected_frame, *_ = emitter.render_frame(1.5)
+    got_frame = emitter.drive_and_log(1.5)
+    assert np.array_equal(expected_frame, got_frame)
+
+    for name in ZONE_NAMES:
+        log = emitter.get_zone_log(name)
+        assert len(log) == 1
+        assert set(log[0].keys()) == {"t", "chip_value", "enabled"}
+
+    assert len(emitter.get_global_log()) == 1
