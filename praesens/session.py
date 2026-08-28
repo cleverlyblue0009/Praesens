@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
+import threading
 import time
 import uuid
 from pathlib import Path
-
+from praesens.camera import open_camera
 import cv2
 import yaml
 
@@ -68,7 +70,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     # auto_chip_rate is on, since the chip rate depends on a quick FPS
     # measurement of this specific camera -- deciding it from a fixed
     # config value first (the old order) would defeat the point of FIX 2c.
-    cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
+    #cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
+    cap = open_camera(oconfig.camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
 
@@ -98,12 +101,42 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     session_id = generate_session_id()
 
     start_time = time.perf_counter()
-    emitter.start(start_time, challenge.duration_s)
-    try:
-        result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter)
-    finally:
-        emitter.stop()
-        cap.release()
+
+    if platform.system() == "Darwin":
+        # macOS requires the emitter's OpenCV window to run on the main
+        # thread (Cocoa raises an unrecoverable cv2.error otherwise), so we
+        # flip which piece owns the main thread here: capture/scoring moves
+        # to a background thread, and the emitter's window loop blocks the
+        # main thread instead -- the reverse of the Windows/Linux path below.
+        result_box: dict = {}
+        error_box: dict = {}
+
+        def _capture_worker():
+            try:
+                result_box["result"] = run_session(
+                    cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter
+                )
+            except Exception as exc:
+                error_box["error"] = exc
+
+        capture_thread = threading.Thread(target=_capture_worker, daemon=True)
+        capture_thread.start()
+        try:
+            emitter.run_blocking(start_time, challenge.duration_s)
+        finally:
+            capture_thread.join(timeout=challenge.duration_s + 5.0)
+            cap.release()
+
+        if "error" in error_box:
+            raise error_box["error"]
+        result = result_box["result"]
+    else:
+        emitter.start(start_time, challenge.duration_s)
+        try:
+            result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter)
+        finally:
+            emitter.stop()
+            cap.release()
 
     record = {
         "session": session_id,

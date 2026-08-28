@@ -500,8 +500,21 @@ def create_landmarker(model_path: str, running_mode=mp_vision.RunningMode.VIDEO,
             f"FaceLandmarker model not found at {model_path}. Run "
             f"'python scripts/fetch_model.py' once to download it."
         )
+    # options = mp_vision.FaceLandmarkerOptions(
+    #     base_options=BaseOptions(model_asset_path=str(model_path)),
+    #     running_mode=running_mode,
+    #     num_faces=1,
+    #     min_face_detection_confidence=min_face_confidence,
+    #     min_face_presence_confidence=min_face_confidence,
+    #     min_tracking_confidence=min_face_confidence,
+    # )
     options = mp_vision.FaceLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=str(model_path)),
+        # delegate=CPU avoids MediaPipe's GPU/Metal path, which crashes with
+        # "Check failed: service_ Service is unavailable" when the landmarker
+        # is created off macOS's main thread (as it now is, per session.py's
+        # macOS capture-thread arrangement). CPU is plenty fast at our frame
+        # rate and works identically across macOS/Windows/Linux.
+        base_options=BaseOptions(model_asset_path=str(model_path), delegate=BaseOptions.Delegate.CPU),
         running_mode=running_mode,
         num_faces=1,
         min_face_detection_confidence=min_face_confidence,

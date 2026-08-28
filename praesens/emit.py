@@ -152,6 +152,17 @@ class Emitter:
         return frame, chip_value, luminance, enabled
 
     # -- loop lifecycle --------------------------------------------------
+    def run_blocking(self, start_time: float, duration_s: float) -> None:
+        """Same display loop as start()/_run(), but runs on the CALLING
+        thread instead of a spawned background thread. Needed on macOS:
+        Cocoa requires all OpenCV HighGUI window calls (namedWindow/imshow/
+        waitKey) to happen on the process's main thread -- running them via
+        start()'s background thread (which is fine on Windows/Linux) raises
+        an unrecoverable cv2.error there instead."""
+        self._start_time = start_time
+        self._stop_event.clear()
+        self._log = []
+        self._run(duration_s)   
 
     def start(self, start_time: float, duration_s: float) -> None:
         """start_time is a shared time.perf_counter() reference (usually set

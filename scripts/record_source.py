@@ -17,7 +17,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-
+from praesens.camera import open_camera
 import cv2
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -26,7 +26,8 @@ DATA_DIR = REPO_ROOT / "data"
 
 def record_source(camera_index: int, seconds: float, fps: float, out_path: Path,
                    width: int = 1280, height: int = 720) -> dict:
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    #cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    cap = open_camera(camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {camera_index}")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
