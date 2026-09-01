@@ -320,3 +320,53 @@ def test_run_one_session_optical_only_never_touches_typing(tmp_path):
     assert record["lanes"] == "optical"
     assert record["typing"] is None
     assert record["typing_phrase"] is None
+
+
+# ---------------------------------------------------------------------------
+# show_verdict_banner -- 2026-09-03, on-screen ACCEPT/REJECT/RE-CHALLENGE for
+# demo purposes. Real cv2 GUI calls are mocked out (no window should
+# actually open during the test suite); these verify it derives its
+# verdict/colour/text from the SAME shared helpers print_clean_block()
+# uses (never inventing separate pass/fail logic) and that a GUI failure
+# degrades to a warning, never a crash -- a demo failing to SHOW an
+# already-computed, already-saved verdict must not take the run down.
+# ---------------------------------------------------------------------------
+
+def test_show_verdict_banner_never_raises_when_gui_calls_fail():
+    from praesens.session import show_verdict_banner
+    record = _record(verdict="ACCEPT", joint_score=0.78)
+    with patch("cv2.namedWindow", side_effect=RuntimeError("no display")):
+        show_verdict_banner(record, hold_seconds=0.01)  # must not raise
+
+
+def test_show_verdict_banner_uses_the_real_verdict_and_holds_briefly():
+    from praesens.session import show_verdict_banner
+    record = _record(verdict="REJECT", joint_score=0.17,
+                      optical_status="ok", optical_subscore=0.17, optical_lag=45.0,
+                      typing_status="no_evidence", typing_subscore=None, typing_lag=None,
+                      reason_text="optical lane failed -- scored 0.17, below reject_threshold")
+
+    shown_frames = []
+    with patch("cv2.namedWindow"), patch("cv2.setWindowProperty"), \
+         patch("cv2.imshow", side_effect=lambda name, frame: shown_frames.append(frame)), \
+         patch("cv2.waitKey", return_value=-1), patch("cv2.destroyWindow"):
+        show_verdict_banner(record, hold_seconds=0.05)
+
+    assert len(shown_frames) > 0
+    frame = shown_frames[0]
+    # REJECT is drawn on a red-dominant BGR frame, not green -- a real,
+    # checkable property of the rendered image, not just "it ran."
+    assert int(frame[0, 0, 2]) > int(frame[0, 0, 1])  # R channel > G channel in the background fill
+
+
+def test_show_verdict_banner_accept_is_green_not_red():
+    from praesens.session import show_verdict_banner
+    record = _record(verdict="ACCEPT", joint_score=0.78)
+    shown_frames = []
+    with patch("cv2.namedWindow"), patch("cv2.setWindowProperty"), \
+         patch("cv2.imshow", side_effect=lambda name, frame: shown_frames.append(frame)), \
+         patch("cv2.waitKey", return_value=-1), patch("cv2.destroyWindow"):
+        show_verdict_banner(record, hold_seconds=0.05)
+
+    frame = shown_frames[0]
+    assert int(frame[0, 0, 1]) > int(frame[0, 0, 2])  # G channel > R channel -- green background

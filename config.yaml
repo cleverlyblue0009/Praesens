@@ -180,3 +180,6 @@ demo:
     - {state: live, duration_s: 6.0, description: "Switch back to the real camera -- recovery within the rolling window"}
     - {state: replay, duration_s: 5.0, description: "Stored genuine-vs-injected comparison"}
     - {state: typing, duration_s: 6.0, description: "Typing lane -- live keystroke/hand coherence"}
+  verdict_banner_hold_s: 4.0     # 2026-09-03: python -m praesens.session's on-screen ACCEPT/REJECT/
+                                  # RE-CHALLENGE banner (praesens/session.py) -- how long it's held on
+                                  # screen after a session ends, before the window closes

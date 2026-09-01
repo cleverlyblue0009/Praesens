@@ -849,3 +849,61 @@ never touches typing. Plus 1 new test in `tests/test_typing.py`
 
 **Config added:** none new for this milestone (`typing:`/`fusion:` config
 keys already existed from Milestones 10/11).
+
+---
+
+## On-screen ACCEPT/REJECT/RE-CHALLENGE banner (2026-09-03)
+
+**Why:** the operator pointed out the physical setup this system is
+actually demoed on -- a single webcam framed on the face -- realistically
+can't ALSO keep the hands in frame for the typing lane's hand-coherence
+check, so `NO EVIDENCE` for typing is the expected, honest common case
+(confirmed: real keystroke events were captured during three separate
+verification runs with nobody deliberately typing, and correctly
+resulted in `NO EVIDENCE` every time -- hand-tracking couldn't
+corroborate them). Given that, they asked for the verdict itself to be
+unmistakable for a live audience: a big green/red screen instead of
+terminal text.
+
+**What was built:** `praesens.session.show_verdict_banner(record,
+hold_seconds)` -- a fullscreen, colour-coded window (green=ACCEPT,
+red=REJECT, amber=RE-CHALLENGE; RE-CHALLENGE is kept as its own honest
+third state, not folded into red, since it means "insufficient evidence"
+not "failed") shown for `demo.verdict_banner_hold_s` (default 4.0s, new
+config key) after the session completes and the JSON is already saved.
+Refactored `print_clean_block()`'s per-lane PASS/FAIL/NO EVIDENCE logic
+and ACCEPT reason-phrasing into two shared helpers
+(`_lane_display_rows`/`_friendly_reason`) that BOTH the terminal block
+and the on-screen banner call -- the screen and the terminal can never
+disagree, because they're driven by the same computation, not two
+maintained-separately copies. No new pass/fail logic anywhere; this is
+presentation only, over the SAME `fusion` dict the terminal already
+prints. Wrapped in try/except that degrades to a printed warning (never
+a crash) if the GUI call fails -- the session's real result is already
+computed and saved by the time this runs, so a display failure must not
+take down anything. `--no-banner` skips it (terminal output is
+unaffected either way); default is ON for the `python -m praesens.session`
+CLI specifically (`run_one_session()` itself has no banner call at all,
+so scripts/collect.py and scripts/run_corpus.py are unaffected, same
+reasoning as the `--lanes` default split).
+
+**What was measured:** `tests/test_session.py` gained 3 tests (16 lane-
+result/print/banner tests total in that file): the banner never raises
+when the underlying `cv2.namedWindow` call fails (mocked to throw);
+REJECT renders a red-dominant background (checked on the actual pixel
+values of the rendered frame, not just "it ran"); ACCEPT renders green.
+Real hardware run (`logs/20260901T110514_611c0e3a.json`): optical PASS
+(score 0.73) + typing NO EVIDENCE (33 keystroke events, uncorroborated by
+hand-tracking) -> ACCEPT, banner code path executed to completion with
+no warning printed (the only outcome observable from outside the
+process -- the actual rendered colours were verified by the unit tests
+above, not by this run, since the agent has no way to see the screen).
+Full suite: 101/101 pass.
+
+Also noted, still not a code issue but now recurring: real (uninitiated)
+keystroke events were captured on THREE separate hardware verification
+runs (27, then 10, then 33 events) with correct `NO EVIDENCE` results
+every time. Worth the operator checking what's generating them on this
+machine, independent of this project.
+
+**Config added:** `demo.verdict_banner_hold_s` (default 4.0).

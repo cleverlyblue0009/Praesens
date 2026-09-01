@@ -462,9 +462,22 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
 # are always in the JSON log, see run_one_session's record dict above).
 # ---------------------------------------------------------------------------
 
-def print_clean_block(record: dict) -> None:
+_LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane "}
+
+
+def _lane_display_rows(record: dict) -> tuple[list, list]:
+    """Shared by print_clean_block() and the on-screen verdict banner, so
+    the terminal and the screen never disagree. Returns
+    ([(label, status_word, detail), ...], passing_lane_names). PASS
+    requires BOTH a plausible lag (fusion.py's own "contributes") AND a
+    subscore that itself clears reject_threshold -- "contributes" alone
+    is not enough (a lane can be plausibly-timed AND still read as an
+    attack, e.g. subscore 0.17 against reject_threshold 0.3; that must
+    show as FAIL, matching fusion.py's own downgrade rule that a low
+    subscore is disqualifying regardless of confidence/lag)."""
     fusion = record["fusion"]
-    lane_dicts = [l for l in fusion["lanes"]]
+    lane_dicts = fusion["lanes"]
+    reject_threshold = fusion["reject_threshold"]
     lanes_for_contrib = [
         LaneResult(lane_name=l["lane_name"], subscore=l["subscore"], status=l["status"],
                    lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"])
@@ -472,30 +485,12 @@ def print_clean_block(record: dict) -> None:
     ]
     _, contributions = compute_joint_score(lanes_for_contrib, LANE_LAG_BOUNDS_MS)
 
-    verdict = fusion["verdict"]
-    joint_score = fusion["joint_score"]
-    reason = fusion["reason_text"]
-    reject_threshold = fusion["reject_threshold"]
-
-    header = f"PRAESENS  --  session {record['session']}   [{record['condition']}]"
-    width = max(46, len(header) + 4)
-    print("\n" + "=" * width)
-    print(f"  {header}")
-    print("=" * width)
-
-    display_names = {"optical": "Optical lane", "typing": "Typing lane "}
-    passing = []
+    rows, passing = [], []
     for l in lane_dicts:
-        if l["lane_name"] not in display_names:
+        if l["lane_name"] not in _LANE_DISPLAY_NAMES:
             continue  # acoustic is a permanently-stubbed no-op lane, not shown in the panel-style summary
-        label = display_names[l["lane_name"]]
+        label = _LANE_DISPLAY_NAMES[l["lane_name"]]
         contributes = contributions[l["lane_name"]]["contributes"]
-        # PASS requires BOTH a plausible lag (contributes) AND a subscore
-        # that itself clears reject_threshold -- "contributes" alone is
-        # not enough (a lane can plausibly-timed AND still read as an
-        # attack, e.g. subscore 0.17 against reject_threshold 0.3; that
-        # must show as FAIL, matching fusion.py's own downgrade rule that
-        # a low subscore is disqualifying regardless of confidence/lag).
         if l["status"] != "ok":
             status_word, detail = "NO EVIDENCE", f"({l['diagnostics']})" if l["diagnostics"] else ""
         elif contributes and l["subscore"] >= reject_threshold:
@@ -504,26 +499,103 @@ def print_clean_block(record: dict) -> None:
             detail = f"({metric} {l['subscore']:.2f})"
             passing.append(l["lane_name"])
         elif contributes:
-            status_word = "FAIL"
-            detail = f"(subscore {l['subscore']:.2f}, below reject_threshold)"
+            status_word, detail = "FAIL", f"(subscore {l['subscore']:.2f}, below reject_threshold)"
         else:
-            status_word = "FAIL"
-            detail = f"(subscore {l['subscore']:.2f}, implausible lag)"
+            status_word, detail = "FAIL", f"(subscore {l['subscore']:.2f}, implausible lag)"
+        rows.append((label, status_word, detail))
+    return rows, passing
+
+
+def _friendly_reason(record: dict, passing: list) -> str:
+    fusion = record["fusion"]
+    verdict = fusion["verdict"]
+    if verdict == "ACCEPT" and len(passing) >= 2:
+        return ("both lanes agree with this session's challenge" if len(passing) == 2
+                else f"all {len(passing)} lanes agree with this session's challenge")
+    if verdict == "ACCEPT" and len(passing) == 1:
+        return f"{passing[0]} lane agrees with this session's challenge"
+    return fusion["reason_text"]  # REJECT/RE-CHALLENGE: the adjudicator's own reason, verbatim -- nothing invented
+
+
+def print_clean_block(record: dict) -> None:
+    fusion = record["fusion"]
+    rows, passing = _lane_display_rows(record)
+    verdict = fusion["verdict"]
+    joint_score = fusion["joint_score"]
+
+    header = f"PRAESENS  --  session {record['session']}   [{record['condition']}]"
+    width = max(46, len(header) + 4)
+    print("\n" + "=" * width)
+    print(f"  {header}")
+    print("=" * width)
+
+    for label, status_word, detail in rows:
         print(f"  {label} : {status_word:<12s} {detail}")
 
     print("  " + "-" * (width - 4))
     js = f"{joint_score:.2f}" if joint_score is not None else "n/a"
     print(f"  VERDICT      : {verdict:<12s} (joint {js})")
-
-    if verdict == "ACCEPT" and len(passing) >= 2:
-        friendly = ("both lanes agree with this session's challenge" if len(passing) == 2
-                    else f"all {len(passing)} lanes agree with this session's challenge")
-    elif verdict == "ACCEPT" and len(passing) == 1:
-        friendly = f"{passing[0]} lane agrees with this session's challenge"
-    else:
-        friendly = reason  # REJECT/RE-CHALLENGE: the adjudicator's own reason, verbatim -- no new wording invented
-    print(f"  Reason       : {friendly}")
+    print(f"  Reason       : {_friendly_reason(record, passing)}")
     print("=" * width)
+
+
+def show_verdict_banner(record: dict, hold_seconds: float) -> None:
+    """A big, fullscreen, colour-coded ACCEPT/REJECT/RE-CHALLENGE banner --
+    green/red/amber -- for demo purposes: an audience reads a fullscreen
+    colour instantly, they don't read a terminal. The verdict/colour/
+    wording all come straight from the SAME record print_clean_block()
+    prints (_lane_display_rows/_friendly_reason, shared, so the screen
+    and the terminal never disagree) -- this is presentation only, no new
+    pass/fail logic. Opens its own short-lived window (the emitter's own
+    challenge window has already closed by the time a verdict exists,
+    since fusion runs after the capture loop) using the same fullscreen
+    technique as praesens.emit.Emitter._run(); never raises on a
+    windowless/headless environment -- a demo failing to SHOW the verdict
+    must not crash the session that already computed and saved it."""
+    try:
+        from praesens.emit import _screen_resolution
+        fusion = record["fusion"]
+        verdict = fusion["verdict"]
+        rows, passing = _lane_display_rows(record)
+        reason = _friendly_reason(record, passing)
+
+        colors = {"ACCEPT": (60, 180, 60), "REJECT": (40, 40, 200), "RE-CHALLENGE": (30, 170, 220)}  # BGR
+        color = colors.get(verdict, (90, 90, 90))
+        width, height = _screen_resolution(1920, 1080)
+        frame = np.full((height, width, 3), color, dtype=np.uint8)
+
+        title_scale = height / 220.0
+        (tw, _th), _ = cv2.getTextSize(verdict, cv2.FONT_HERSHEY_DUPLEX, title_scale, 8)
+        cv2.putText(frame, verdict, ((width - tw) // 2, int(height * 0.45)), cv2.FONT_HERSHEY_DUPLEX,
+                    title_scale, (255, 255, 255), 8, cv2.LINE_AA)
+
+        for i, (label, status_word, _detail) in enumerate(rows):
+            line = f"{label.strip()}: {status_word}"
+            scale = height / 700.0
+            (lw, _lh), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, scale, 3)
+            cv2.putText(frame, line, ((width - lw) // 2, int(height * 0.58) + i * int(height * 0.06)),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 3, cv2.LINE_AA)
+
+        reason_scale = height / 900.0
+        (rw, _rh), _ = cv2.getTextSize(reason, cv2.FONT_HERSHEY_SIMPLEX, reason_scale, 2)
+        cv2.putText(frame, reason, ((width - rw) // 2, int(height * 0.85)), cv2.FONT_HERSHEY_SIMPLEX,
+                    reason_scale, (255, 255, 255), 2, cv2.LINE_AA)
+
+        window_name = "praesens_verdict"
+        cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        start = time.perf_counter()
+        try:
+            while time.perf_counter() - start < hold_seconds:
+                cv2.imshow(window_name, frame)
+                if cv2.waitKey(30) & 0xFF == ord('q'):
+                    break
+        finally:
+            cv2.destroyWindow(window_name)
+            cv2.waitKey(1)
+    except Exception as e:
+        print(f"WARNING: could not show the on-screen verdict banner (session result is unaffected, "
+              f"already saved): {e}")
 
 
 @contextlib.contextmanager
@@ -581,6 +653,9 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true",
                          help="show full diagnostic output (capture format, preflight, MediaPipe "
                               "logging) live on the terminal instead of routing it to a log file")
+    parser.add_argument("--no-banner", action="store_true",
+                         help="skip the fullscreen ACCEPT/REJECT/RE-CHALLENGE banner shown on screen "
+                              "after the session (the clean terminal block always still prints)")
     args = parser.parse_args()
 
     meta = {
@@ -611,3 +686,6 @@ if __name__ == "__main__":
     if console_log_path is not None:
         print(f"(full diagnostic output: {console_log_path})")
     print(f"saved to {out_path}")
+
+    if not args.no_banner:
+        show_verdict_banner(record, raw_config["demo"].get("verdict_banner_hold_s", 4.0))
