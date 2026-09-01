@@ -292,6 +292,7 @@ if __name__ == "__main__":
 
     from praesens.optical import OpticalConfig, create_landmarker, lock_camera, measure_capture_fps
     from praesens.challenge import pick_auto_chip_rate
+    from praesens.capture import CaptureConfig, configure_capture_format
 
     parser = argparse.ArgumentParser(description="Milestone 9 spatial challenge smoke test")
     parser.add_argument("--seconds", type=float, default=20.0)
@@ -315,6 +316,8 @@ if __name__ == "__main__":
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
     warn_list: list = []
+    cconfig = CaptureConfig.from_dict(raw.get("capture", {}))
+    configure_capture_format(cap, cconfig, warn_list)
     lock_camera(cap, oconfig, warn_list)
     for w in warn_list:
         print(f"WARNING: {w}")

@@ -746,6 +746,7 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
 if __name__ == "__main__":
     import argparse
     import yaml
+    from praesens.capture import CaptureConfig, configure_capture_format
 
     parser = argparse.ArgumentParser(description="Milestone 3 optical lane smoke test")
     parser.add_argument("--debug-roi", action="store_true",
@@ -762,6 +763,8 @@ if __name__ == "__main__":
 
     cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
     warn_list: list = []
+    cconfig = CaptureConfig.from_dict(raw.get("capture", {}))
+    configure_capture_format(cap, cconfig, warn_list)
     lock_camera(cap, oconfig, warn_list)
 
     if args.debug_roi:

@@ -33,6 +33,51 @@ def load_config() -> dict:
         return yaml.safe_load(f)["probe"]
 
 
+def load_capture_config() -> dict:
+    """The config.yaml `capture:` block (FOURCC/resolution/fps), read
+    independently of load_config()'s `probe:` section and NOT via
+    praesens/capture.py -- this module deliberately imports nothing from
+    praesens/ (it's Milestone 0's pre-flight sanity check, meant to run
+    before any of that package is trusted to work at all), so the FOURCC-
+    forcing step below is a small, self-contained duplicate of what
+    praesens.capture.configure_capture_format() does for the real
+    pipeline. Missing keys fall back to the same defaults as
+    praesens.capture.CaptureConfig."""
+    cfg_path = REPO_ROOT / "config.yaml"
+    with open(cfg_path, "r") as f:
+        raw = yaml.safe_load(f)
+    capture = raw.get("capture", {})
+    return {
+        "fourcc": capture.get("fourcc", "MJPG"),
+        "width": capture.get("width", 640),
+        "height": capture.get("height", 480),
+        "requested_fps": capture.get("requested_fps", 30),
+    }
+
+
+def apply_capture_format(cap, capture_cfg: dict) -> dict:
+    """Sets FOURCC -> width -> height -> requested_fps on an already-open
+    capture, in that DSHOW-safe order, then reads back what the driver
+    actually accepted -- the same order and readback
+    praesens.capture.configure_capture_format() uses, duplicated here
+    (not imported, see load_capture_config()'s docstring) so this probe
+    measures the SAME format the real pipeline will actually get, not an
+    idealised driver default."""
+    fourcc = capture_cfg.get("fourcc")
+    if fourcc:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc))
+    if capture_cfg.get("width"):
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, capture_cfg["width"])
+    if capture_cfg.get("height"):
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_cfg["height"])
+    if capture_cfg.get("requested_fps"):
+        cap.set(cv2.CAP_PROP_FPS, capture_cfg["requested_fps"])
+
+    actual_code = int(cap.get(cv2.CAP_PROP_FOURCC))
+    actual_fourcc = "".join(chr((actual_code >> (8 * i)) & 0xFF) for i in range(4)).strip("\x00") or "?"
+    return {"fourcc_requested": fourcc, "fourcc_actual": actual_fourcc}
+
+
 # ---------------------------------------------------------------------------
 # Camera open / identify
 # ---------------------------------------------------------------------------
@@ -245,6 +290,52 @@ def probe_exposure_lock(cap, cfg: dict) -> dict:
     }
 
 
+def load_optical_exposure_value() -> float:
+    """config.yaml's optical.exposure_value -- the REAL value the
+    production pipeline locks to (see praesens.optical.lock_camera),
+    which is typically far more negative (slower shutter, needed for
+    face detection in real room lighting) than probe.exposure_test_value
+    above, which only exists to verify the property is controllable at
+    all, not to represent production conditions."""
+    cfg_path = REPO_ROOT / "config.yaml"
+    with open(cfg_path, "r") as f:
+        raw = yaml.safe_load(f)
+    return raw["optical"]["exposure_value"]
+
+
+def measure_fps_at_production_exposure(cap, exposure_value: float, n_frames: int) -> dict:
+    """2026-09-01 capture-throughput investigation: probe_resolution_and_fps
+    above measures fps under the driver's own default (fast) auto-exposure,
+    which is NOT what the real pipeline ever runs under -- session.py/
+    demo/*.py all lock exposure to optical.exposure_value BEFORE capturing
+    (praesens.optical.lock_camera). Exposure time directly caps achievable
+    fps on this sensor (fps ~= 1/2^exposure_value, already documented in
+    config.yaml), so a measurement taken before that lock materially
+    overstates what the pipeline actually achieves. This locks exposure the
+    same way lock_camera() does (same auto-exposure candidate sweep, same
+    settle time) and re-measures, so the reported number is the one that
+    actually matters."""
+    for candidate in (0.25, 1, 0):
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, candidate)
+    cap.set(cv2.CAP_PROP_EXPOSURE, exposure_value)
+    cap.set(cv2.CAP_PROP_AUTO_WB, 0)
+    time.sleep(0.5)
+
+    for _ in range(5):  # warm up, same as probe_resolution_and_fps
+        cap.read()
+    timestamps = []
+    for _ in range(n_frames):
+        ok, _ = cap.read()
+        t = time.perf_counter()
+        if ok:
+            timestamps.append(t)
+    ts = np.array(timestamps)
+    intervals = np.diff(ts)
+    measured_fps = float(1.0 / np.mean(intervals)) if len(intervals) else float("nan")
+    return {"exposure_value": exposure_value, "measured_fps": measured_fps,
+            "n_frames_captured": len(timestamps)}
+
+
 # ---------------------------------------------------------------------------
 # Display refresh probe
 # ---------------------------------------------------------------------------
@@ -419,6 +510,10 @@ def print_summary(results: dict, min_fps: float) -> None:
 
     cam = results["camera"]
     print(f"\nCamera: index={results['camera_index']} backend={cam['backend']}")
+    cf = cam.get("capture_format")
+    if cf:
+        print(f"  Capture format: requested fourcc={cf['fourcc_requested']!r} -> "
+              f"actual fourcc={cf['fourcc_actual']!r}")
     print(f"  Resolution: {cam['fps']['width']}x{cam['fps']['height']}")
     print(f"  Reported FPS: {cam['fps']['reported_fps']:.1f}")
     print(f"  Measured FPS: {cam['fps']['measured_fps']:.1f} "
@@ -429,6 +524,14 @@ def print_summary(results: dict, min_fps: float) -> None:
     fps_ok = cam["fps"]["measured_fps"] >= min_fps
     print(f"  -> {'OK' if fps_ok else 'PROBLEM'}: measured FPS "
           f"{'meets' if fps_ok else 'is below'} {min_fps} Hz floor")
+
+    prod = cam.get("fps_at_production_exposure")
+    if prod:
+        print(f"\n  Measured FPS at production exposure (optical.exposure_value="
+              f"{prod['exposure_value']}): {prod['measured_fps']:.2f} "
+              f"(over {prod['n_frames_captured']} frames) -- THIS is what the real "
+              f"pipeline actually gets, not the number above (which was measured "
+              f"under the driver's fast default auto-exposure).")
 
     print("\nExposure / white-balance lock:")
     for key, label in [("auto_exposure", "AUTO_EXPOSURE"),
@@ -496,12 +599,23 @@ def main():
         print(f"ERROR: could not open any camera at index {camera_index} with any backend.")
         sys.exit(1)
 
+    capture_cfg = load_capture_config()
+    format_info = apply_capture_format(cap, capture_cfg)
+    print(f"Capture format: requested fourcc={format_info['fourcc_requested']!r} -> "
+          f"driver reports fourcc={format_info['fourcc_actual']!r}")
+
     print("Measuring resolution / FPS / jitter ...")
     fps_info = probe_resolution_and_fps(cap, cfg["n_frames"])
 
     print("Probing exposure / white-balance lock (camera will visibly change "
           "brightness/color during this step, that's expected) ...")
     controls = probe_exposure_lock(cap, cfg)
+
+    production_exposure_value = load_optical_exposure_value()
+    print(f"Re-measuring FPS with exposure LOCKED to optical.exposure_value="
+          f"{production_exposure_value} (the value the real pipeline actually runs "
+          f"under, not probe.exposure_test_value above) ...")
+    production_fps_info = measure_fps_at_production_exposure(cap, production_exposure_value, cfg["n_frames"])
 
     cap.release()
 
@@ -517,7 +631,9 @@ def main():
         "camera_index": camera_index,
         "camera": {
             "backend": backend_name(backend),
+            "capture_format": format_info,
             "fps": fps_info,
+            "fps_at_production_exposure": production_fps_info,
             "controls": controls,
         },
         "display": display_info,

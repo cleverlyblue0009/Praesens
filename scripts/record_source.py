@@ -20,23 +20,29 @@ from pathlib import Path
 
 import cv2
 
+from praesens.capture import CaptureConfig, configure_capture_format
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
 
 
 def record_source(camera_index: int, seconds: float, fps: float, out_path: Path,
-                   width: int = 1280, height: int = 720) -> dict:
+                   width: int = 1280, height: int = 720, fourcc: str | None = "MJPG") -> dict:
     cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {camera_index}")
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cconfig = CaptureConfig(fourcc=fourcc, width=width, height=height, requested_fps=fps)
+    format_info = configure_capture_format(cap, cconfig)
 
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(out_path), fourcc, fps, (actual_w, actual_h))
+    # Output codec for the recorded FILE -- unrelated to (and named
+    # differently from) the INPUT capture's fourcc set just above via
+    # configure_capture_format(), which is the negotiated pixel format
+    # coming OFF the camera, not the codec this file gets encoded with.
+    output_fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(out_path), output_fourcc, fps, (actual_w, actual_h))
     if not writer.isOpened():
         cap.release()
         raise RuntimeError(f"could not open VideoWriter for {out_path} (codec 'mp4v' unavailable?)")
@@ -58,7 +64,7 @@ def record_source(camera_index: int, seconds: float, fps: float, out_path: Path,
     elapsed = time.perf_counter() - start
     print(f"Done: {n_frames} frames in {elapsed:.1f}s ({n_frames / max(elapsed, 1e-9):.1f} fps)")
     return {"n_frames": n_frames, "elapsed_s": elapsed, "width": actual_w, "height": actual_h,
-            "fps_requested": fps}
+            "fps_requested": fps, "input_capture_format": format_info}
 
 
 if __name__ == "__main__":
@@ -71,8 +77,11 @@ if __name__ == "__main__":
     parser.add_argument("--subject", default="unknown")
     parser.add_argument("--camera-index", type=int, default=0)
     parser.add_argument("--fps", type=float, default=30.0)
+    parser.add_argument("--fourcc", default="MJPG",
+                         help="input capture pixel format, e.g. MJPG; 'none' leaves the driver default")
     parser.add_argument("--no-prompt", action="store_true", help="skip the Enter-to-start prompt")
     args = parser.parse_args()
+    fourcc = None if args.fourcc.lower() == "none" else args.fourcc
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     session_id = time.strftime("%Y%m%dT%H%M%S")
@@ -83,7 +92,7 @@ if __name__ == "__main__":
     if not args.no_prompt:
         input("Press ENTER when ready...")
 
-    stats = record_source(args.camera_index, args.seconds, args.fps, out_path)
+    stats = record_source(args.camera_index, args.seconds, args.fps, out_path, fourcc=fourcc)
 
     meta = {
         "session": session_id, "condition_label": args.condition_label,

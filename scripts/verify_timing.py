@@ -23,6 +23,7 @@ import numpy as np
 import yaml
 from mediapipe.tasks.python import vision as mp_vision
 
+from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.challenge import Challenge
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import (
@@ -54,6 +55,8 @@ def main():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
 
     warn_list: list = []
+    cconfig = CaptureConfig.from_dict(raw.get("capture", {}))
+    configure_capture_format(cap, cconfig, warn_list)
     lock_camera(cap, oconfig, warn_list)
     for w in warn_list:
         print(f"WARNING: {w}")

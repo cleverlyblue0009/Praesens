@@ -9,6 +9,14 @@ probe:
   display_test_seconds: 3.0
   min_acceptable_fps: 30.0
 
+capture:
+  fourcc: MJPG          # MJPG unlocks higher fps on most UVC webcams;
+                         # set to null to leave the driver default (YUY2)
+  width: 640
+  height: 480
+  requested_fps: 30     # requested; camera may not honour it
+  warn_below_fps: 20    # log a loud warning if measured fps falls under this
+
 challenge:
   chip_rate_hz: 5.0
   duration_s: 20.0
@@ -16,7 +24,7 @@ challenge:
 emitter:
   emitter_enabled: true       # scientific control switch -- false emits constant mid-grey
   base_luminance: 127         # mid-grey, 0-255
-  modulation_depth: 100       # +/- swing around base_luminance, 0-255. Raised from 60 on 2026-08-06:
+  modulation_depth: 110       # +/- swing around base_luminance, 0-255. Raised from 60 on 2026-08-06:
                                # a real gate run scored bonafide=0.692 (need >=0.7) with emitter_off=0.000
                                # (control collapsed correctly) -- the control passing cleanly means the
                                # fix is real, the bonafide score was just short of margin. insufficient_signal
@@ -68,7 +76,7 @@ optical:
                                    # measurement instead of the fixed value above (see
                                    # praesens/challenge.py pick_auto_chip_rate) and lengthens sessions
                                    # accordingly -- turn back off once lighting lets exposure go faster.
-  auto_chip_rate_divisor: 6.0     # chosen chip_rate_hz = measured_fps / this, clamped to [0.5, 5.0] Hz
+  auto_chip_rate_divisor: 10.0     # chosen chip_rate_hz = measured_fps / this, clamped to [0.5, 5.0] Hz
   auto_chip_rate_min_chips: 60    # session duration is lengthened so at least this many chips are emitted
 
 eval:

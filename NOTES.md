@@ -516,3 +516,120 @@ panel context.
 **Config added:** `demo.spatial_score_threshold`, `demo.spatial_update_interval_s`,
 `demo.rehearse_script` (the 5-step scripted sequence, each entry a
 `{state, duration_s, description}` block).
+
+---
+
+## Camera throughput investigation (2026-09-01) — MJPG did NOT fix it; the ceiling is exposure time, not pixel format
+
+**What was built:** New `praesens/capture.py`: `CaptureConfig` dataclass
++ `configure_capture_format(cap, config, warn_list=None)`, the ONE shared
+function that now sets FOURCC -> width -> height -> requested_fps (DSHOW-
+safe order, empirically matching the ordering discipline this project
+already applies to exposure/WB) on every real capture site --
+`demo/live.py`, `demo/attack.py`'s `probe_camera`, `praesens/session.py`,
+`praesens/spatial.py`'s `__main__`, `praesens/typing.py`'s `__main__`,
+`scripts/diagnose.py`, `scripts/verify_timing.py`, `scripts/
+record_source.py`. It reads back what the driver actually accepted
+(requested and actual routinely differ), runs a real 30-frame
+grab+retrieve measurement (reusing `praesens.optical.measure_capture_fps`,
+not reimplemented), and appends a warning to a caller-owned `warn_list`
+(same convention as `praesens.optical.lock_camera`) if the measured rate
+falls under `capture.warn_below_fps`. It never touches exposure/WB itself
+-- `lock_camera` is still called separately, at its existing call sites,
+completely unchanged. Two deliberate exclusions: `scripts/probe.py`
+(Milestone 0's pre-flight check, which must run before `praesens/` is
+trusted, so it applies the same `capture:` block itself, independently,
+with no import) and `attacks/adaptive_injector.py` (opens a video FILE or
+a secondary camera as attack SOURCE material, not the optical lane's own
+capture -- forcing live-camera properties on a file capture would be
+wrong).
+
+`scripts/probe.py` also gained a second, more honest FPS measurement:
+`measure_fps_at_production_exposure()`, which locks exposure to
+`optical.exposure_value` (the value the real pipeline actually runs
+under) the same way `lock_camera()` does, then re-measures. This exists
+because `probe_resolution_and_fps()`'s existing measurement runs BEFORE
+any exposure lock, under the driver's fast auto-exposure default --
+which is not a condition the real pipeline ever runs in, and was silently
+overstating achievable throughput.
+
+**What was measured -- the honest result, not the hypothesized one:**
+
+The working hypothesis (documented in this milestone's own commit
+message before testing) was that the camera was delivering an
+uncompressed YUY2 stream that saturates the USB link at ~8fps, and that
+forcing MJPG (on-camera JPEG compression, far less raw bandwidth) would
+unlock a much higher rate. That hypothesis is **wrong for this camera**,
+confirmed by direct measurement, not assumed:
+
+- `python scripts/probe.py --skip-display` (`logs/probe_1788232170.json`):
+  `fourcc_requested='MJPG' -> fourcc_actual='YUY2'` (the driver silently
+  declined the FOURCC request and stayed YUY2) in every run.
+  `probe_resolution_and_fps`'s measurement (taken before any exposure
+  lock) varied run-to-run with the camera's residual driver state --
+  29.97fps on one run, 8.0fps on another, since it depends on whatever
+  auto-exposure state the driver happened to carry in from the previous
+  process -- which is itself part of why a measurement taken before
+  locking exposure isn't representative and needed replacing.
+- The new production-exposure re-measurement (exposure locked to
+  `optical.exposure_value=-3`, matching every real session) is the
+  number that matters, and is NOT run-to-run noisy: **7.99fps** in the
+  logged run above, **8.00fps** and **8.15fps** in two earlier runs of
+  the same measurement -- all within measurement noise of each other and
+  of the previously-documented ~8fps baseline (`config.yaml`'s own
+  `-3 ~8fps WITH a face` note from the 2026-08-06 exposure sweep).
+- A direct isolation sweep (`cv2.VideoCapture` driven by hand, exposure
+  locked the same way as `lock_camera`, MJPG + explicit
+  `CAP_PROP_FPS=30` requested either way): `exposure_value=-3 ->
+  8.15fps`, `-4 -> 16.56fps`, `-5 -> 31.16fps`, `-6 -> 30.33fps`, **with
+  or without MJPG requested -- the fourcc readback stayed YUY2 in every
+  case, and fps tracked exposure_value only.** This exactly matches
+  `config.yaml`'s already-documented `fps ~= 1/2^exposure_value`
+  relationship: doubling the exposure time each step (`-3` -> `-4` ->
+  `-5`) roughly doubles the achievable frame period, independent of
+  pixel format.
+
+**Conclusion, stated plainly per the brief's own instruction not to dress
+up a null result: MJPG does not raise fps above ~8 once exposure is
+locked to the value this room's lighting requires (`-3`). The ceiling is
+the sensor's manual exposure TIME (a real physical constraint --
+longer exposure per frame directly caps frames per second, independent
+of how those frames are encoded/transferred), not the pixel format.**
+This driver on this camera never actually honoured the MJPG FOURCC
+request at all (readback stayed `YUY2` in every test run, at every
+exposure value) -- whether that's a driver limitation specific to this
+UVC device, or MJPG genuinely wasn't the bottleneck so the driver had no
+reason to switch, wasn't distinguishable from the outside, but either way
+the practical answer is the same: forcing MJPG bought nothing here.
+
+The `-1.0` `Reported FPS` / 137ms max-gap symptom that originally
+motivated the MJPG hypothesis is real and still present (still `-1.0`,
+still large frame gaps under auto-exposure -- see the raw probe JSON),
+but it turns out to be a red herring for the actual 8fps ceiling: it's a
+driver readback quirk under YUY2, correlated with but not causally
+responsible for the low production fps, which is fully explained by
+exposure time alone.
+
+**What this means for the real fix:** the only two levers that actually
+move this camera's achievable fps at face-detectable exposure are (a)
+more physical light near the subject, allowing a less-negative
+`exposure_value` (each notch roughly doubles fps, per the sweep above),
+or (b) continuing to rely on `auto_chip_rate` (already in place since
+2026-08-06) to pick a chip rate the ACTUAL achievable fps can sample
+correctly, rather than chasing a higher fps that this hardware/lighting
+combination cannot deliver. `praesens/capture.py` is kept, not reverted --
+it is a real, tested, useful refactor (one shared FOURCC/resolution/fps
+setup point, honest warn_below_fps diagnostics) regardless of this
+specific negative result, and would matter on a camera/driver
+combination where MJPG negotiation actually succeeds.
+
+**Tests:** `tests/test_capture.py` (9/9 pass) -- verifies the DSHOW-safe
+property-setting order (FOURCC before width/height/fps) against a mocked
+capture, that `fourcc: null` skips the FOURCC call entirely (and that
+width/height/fps=0/falsy are each individually skipped the same way),
+the requested-vs-actual readback contract, and the `warn_below_fps`
+warning firing/not-firing correctly off a monkeypatched
+`measure_capture_fps`. Full suite: 75/75 pass.
+
+**Config added:** top-level `capture:` block (`fourcc`, `width`, `height`,
+`requested_fps`, `warn_below_fps`).

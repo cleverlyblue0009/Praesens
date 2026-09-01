@@ -32,6 +32,7 @@ import numpy as np
 import yaml
 from mediapipe.tasks.python import vision as mp_vision
 
+from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.challenge import Challenge
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import (
@@ -112,6 +113,12 @@ class LiveDashboard:
         self.cap = cv2.VideoCapture(self.oconfig.camera_index, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             raise RuntimeError(f"could not open camera index {self.oconfig.camera_index}")
+
+        self.capture_warn_list: list = []
+        cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
+        configure_capture_format(self.cap, cconfig, self.capture_warn_list)
+        for w in self.capture_warn_list:
+            print(f"WARNING: {w}")
 
         self._camera_name = self.dconfig.camera_display_name or f"camera #{self.oconfig.camera_index}"
 

@@ -26,10 +26,11 @@ import cv2
 import yaml
 
 from demo.live import LiveDashboard, REPO_ROOT
+from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.optical import lock_camera
 
 
-def probe_camera(index: int, oconfig, warn_prefix: str = "") -> cv2.VideoCapture | None:
+def probe_camera(index: int, oconfig, cconfig: CaptureConfig, warn_prefix: str = "") -> cv2.VideoCapture | None:
     """Opens, verifies a frame is actually deliverable, and exposure-locks
     a camera index. Returns None (and releases) if the index doesn't work,
     rather than raising -- enumeration expects most indices to be empty."""
@@ -37,11 +38,12 @@ def probe_camera(index: int, oconfig, warn_prefix: str = "") -> cv2.VideoCapture
     if not cap.isOpened():
         cap.release()
         return None
+    warn_list: list = []
+    configure_capture_format(cap, cconfig, warn_list)
     ok, frame = cap.read()
     if not ok or frame is None:
         cap.release()
         return None
-    warn_list: list = []
     lock_camera(cap, oconfig, warn_list)
     for w in warn_list:
         print(f"{warn_prefix}WARNING: {w}")
@@ -55,12 +57,13 @@ class AttackDashboard(LiveDashboard):
         primary_index = self.oconfig.camera_index
         self._captures[primary_index] = self.cap
 
+        cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
         print(f"Probing camera indices 0-{max_camera_probe - 1} for additional sources "
               f"(e.g. OBS Virtual Camera)...")
         for idx in range(max_camera_probe):
             if idx == primary_index:
                 continue
-            cap = probe_camera(idx, self.oconfig, warn_prefix=f"[camera {idx}] ")
+            cap = probe_camera(idx, self.oconfig, cconfig, warn_prefix=f"[camera {idx}] ")
             if cap is not None:
                 self._captures[idx] = cap
 

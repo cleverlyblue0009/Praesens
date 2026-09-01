@@ -23,6 +23,7 @@ from pathlib import Path
 import cv2
 import yaml
 
+from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.challenge import Challenge, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import OpticalConfig, run_session, measure_capture_fps
@@ -71,6 +72,16 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
+
+    # Format negotiated BEFORE the auto_chip_rate preflight measurement
+    # below, so that measurement reflects the true achievable throughput
+    # (MJPG vs whatever the driver defaulted to) -- not touching chip-rate
+    # selection itself, only what fps it's given to work with.
+    cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
+    capture_warn_list: list = []
+    configure_capture_format(cap, cconfig, capture_warn_list)
+    for w in capture_warn_list:
+        print(f"WARNING: {w}")
 
     challenge_cfg = dict(raw_config["challenge"])
     auto_chip_rate_used = bool(raw_config["optical"].get("auto_chip_rate", False))

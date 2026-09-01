@@ -444,9 +444,12 @@ if __name__ == "__main__":
     tconfig.hand_model_path = str(repo_root / tconfig.hand_model_path)
 
     import cv2
+    from praesens.capture import CaptureConfig, configure_capture_format
     cap = cv2.VideoCapture(tconfig.camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {tconfig.camera_index}")
+    cconfig = CaptureConfig.from_dict(raw.get("capture", {}))
+    configure_capture_format(cap, cconfig)  # no exposure lock here, matching this lane's existing behaviour
 
     phrase = None
     if args.mode == "active":

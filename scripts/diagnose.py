@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 import yaml
 
+from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.challenge import Challenge
 from praesens.emit import Emitter, EmitterConfig
 from praesens.optical import OpticalConfig, run_session
@@ -145,6 +146,12 @@ def main():
     cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
+
+    cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
+    capture_warn_list: list = []
+    configure_capture_format(cap, cconfig, capture_warn_list)
+    for w in capture_warn_list:
+        print(f"WARNING: {w}")
 
     base_depth = raw_config["emitter"]["modulation_depth"]
     max_depth = raw_config["emitter"]["max_modulation_depth"]
