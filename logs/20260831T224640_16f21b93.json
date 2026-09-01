@@ -1,0 +1,31 @@
+{
+  "session": "20260831T224640_16f21b93",
+  "condition": "bonafide",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 46,
+  "chip_rate_hz": 4.98390696440629,
+  "duration_s": 20.0,
+  "start_time_perf_counter": 7404.7954549,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": true,
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": true,
+  "n_frames": 481,
+  "n_face_detected": 0,
+  "measured_fps": 29.99998668750686,
+  "warnings": [],
+  "meta": {
+    "lighting": "normal",
+    "distance_cm": 60.0,
+    "makeup": "none",
+    "glasses": "without",
+    "subject": "unknown",
+    "skin_tone": null
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": []
+}
