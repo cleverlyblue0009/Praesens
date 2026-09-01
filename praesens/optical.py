@@ -628,20 +628,151 @@ def check_nyquist(fps: float, chip_rate_hz: float, min_multiple: float) -> str |
             f"correlation.")
 
 
+class OpticalFrameProcessor:
+    """The per-frame optical-lane state (buffers, adaptive-boost tracking,
+    landmark detector), extracted (2026-09-02) from run_session()'s inline
+    loop body so a caller driving its OWN shared frame loop -- e.g.
+    praesens/session.py's concurrent optical+typing path, where one grab/
+    retrieve loop must feed the SAME frame to both lanes -- can process
+    frames one at a time instead of this module owning cap.grab()/
+    retrieve() itself. Every line of actual computation below is verbatim
+    from the pre-refactor run_session() loop body and post-loop tail, just
+    moved into methods; run_session() itself (below) is a thin wrapper
+    that owns its own loop and delegates here, so its behaviour for
+    existing single-lane callers (diagnose.py, this module's own smoke
+    test) is unchanged."""
+
+    def __init__(self, config: OpticalConfig, landmarker=None):
+        self.config = config
+        self.own_landmarker = landmarker is None
+        if self.own_landmarker:
+            landmarker = create_landmarker(config.model_path, mp_vision.RunningMode.VIDEO,
+                                            config.min_face_confidence)
+        self.landmarker = landmarker
+        self.detector = CadenceDetector(landmarker, config.detect_every_n_frames, config.detect_downscale_width)
+
+        self.timestamps: list = []
+        self.luminances: list = []
+        self.face_flags: list = []
+        self._adaptive_triggered = False
+        self._last_ts_ms = -1
+
+    def process_frame(self, frame, t: float, start_time: float, challenge: Challenge,
+                       emitter: Emitter | None) -> str | None:
+        """One frame's worth of what run_session()'s loop body used to do.
+        Returns an adaptive-boost warning message this call (or None) --
+        the caller owns the warn_list, this class doesn't accumulate one
+        itself so it stays a pure per-frame processor."""
+        elapsed = t - start_time
+        ts_ms = max(self._last_ts_ms + 1, int(elapsed * 1000))
+        self._last_ts_ms = ts_ms
+
+        if emitter is not None:
+            emitter.set_preview(frame)
+
+        lum, face_ok = self.detector.process(frame, ts_ms, self.config.roi_margin_frac)
+
+        self.timestamps.append(t)
+        self.luminances.append(lum)
+        self.face_flags.append(face_ok)
+
+        if emitter is not None and not self._adaptive_triggered and elapsed >= self.config.adaptive_window_s:
+            self._adaptive_triggered = True
+            ts_arr = np.array(self.timestamps)
+            lum_arr = np.array(self.luminances)
+            early_mask = ts_arr <= start_time + self.config.adaptive_window_s
+            if early_mask.sum() >= 8:
+                early_detrended = moving_average_detrend(
+                    ts_arr[early_mask], lum_arr[early_mask], self.config.detrend_window_s
+                )
+                early_snr = estimate_snr_db(
+                    ts_arr[early_mask], early_detrended, challenge.chip_rate_hz,
+                    self.config.snr_low_cut_hz, self.config.snr_resample_rate_hz
+                )
+                if not np.isnan(early_snr) and early_snr < self.config.snr_floor_db:
+                    emitter.set_modulation_depth(emitter.config.max_modulation_depth)
+                    return (f"early SNR {early_snr:.1f} dB below floor "
+                            f"{self.config.snr_floor_db} dB -- boosted modulation depth to "
+                            f"{emitter.config.max_modulation_depth}")
+        return None
+
+    def finalize(self, challenge: Challenge, emitter: Emitter | None, exposure_locked: bool,
+                 extra_warnings: list) -> "OpticalResult":
+        """The post-loop tail of the pre-refactor run_session(), verbatim.
+        extra_warnings is whatever the caller already accumulated (exposure
+        lock warnings, preflight Nyquist warning, adaptive-boost messages
+        returned from process_frame calls)."""
+        ts_arr = np.array(self.timestamps)
+        lum_arr = np.array(self.luminances)
+        n_face = int(np.sum(self.face_flags))
+        warn_list = list(extra_warnings)
+
+        achieved_fps = float((len(ts_arr) - 1) / (ts_arr[-1] - ts_arr[0])) if len(ts_arr) >= 2 else float("nan")
+        achieved_warning = check_nyquist(achieved_fps, challenge.chip_rate_hz,
+                                          self.config.min_fps_multiple_of_chip_rate)
+        if achieved_warning:
+            msg = f"ACHIEVED (this session's real frame rate): {achieved_warning}"
+            print("!" * 70)
+            print(f"WARNING: {msg}")
+            print("!" * 70)
+            warn_list.append(msg)
+
+        if len(ts_arr) == 0:
+            return OpticalResult(
+                score=0.0, lag_ms=0.0, snr_db=float("nan"), insufficient_signal=True,
+                adaptive_boost_applied=(emitter.adaptive_boost_applied() if emitter else False),
+                exposure_locked=exposure_locked, trace_emitted=[], trace_measured=[],
+                timestamps=[], n_frames=0, n_face_detected=0, measured_fps=achieved_fps,
+                warnings=warn_list + ["no frames captured"],
+            )
+
+        detrended = moving_average_detrend(ts_arr, lum_arr, self.config.detrend_window_s)
+        emitter_log = emitter.get_log() if emitter is not None else []
+
+        score, lag_ms, emitted_at_lag, valid_ts, valid_measured = cross_correlate_lag_search(
+            detrended, ts_arr, emitter_log, self.config.lag_search_max_ms, self.config.lag_step_ms
+        )
+
+        final_snr_db = estimate_snr_db(
+            ts_arr, detrended, challenge.chip_rate_hz, self.config.snr_low_cut_hz, self.config.snr_resample_rate_hz
+        )
+        insufficient_signal = bool(np.isnan(final_snr_db) or final_snr_db < self.config.snr_floor_db)
+
+        return OpticalResult(
+            score=float(score),
+            lag_ms=float(lag_ms),
+            snr_db=float(final_snr_db) if not np.isnan(final_snr_db) else float("nan"),
+            insufficient_signal=insufficient_signal,
+            adaptive_boost_applied=(emitter.adaptive_boost_applied() if emitter else False),
+            exposure_locked=exposure_locked,
+            trace_emitted=_zscore(emitted_at_lag).tolist(),
+            trace_measured=_zscore(valid_measured).tolist(),
+            timestamps=valid_ts.tolist(),
+            n_frames=len(ts_arr),
+            n_face_detected=n_face,
+            measured_fps=achieved_fps,
+            warnings=warn_list,
+        )
+
+    def close(self) -> None:
+        if self.own_landmarker:
+            self.landmarker.close()
+
+
 def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: float,
                  duration_s: float, emitter: Emitter | None = None, landmarker=None) -> OpticalResult:
     """Runs the capture+measurement loop for one session and returns the
     liveness score, lag, SNR, and both aligned traces. If `emitter` is
     given, its modulation depth is boosted mid-session when early SNR is
-    too low (Milestone 3's SNR addendum)."""
+    too low (Milestone 3's SNR addendum). Thin wrapper around
+    OpticalFrameProcessor (see its docstring) -- owns its own grab/
+    retrieve loop for callers that only need the optical lane; the
+    concurrent optical+typing path in praesens/session.py drives
+    OpticalFrameProcessor directly instead, from its own shared loop."""
     warn_list: list = []
     exposure_locked = lock_camera(cap, config, warn_list)
 
-    own_landmarker = landmarker is None
-    if own_landmarker:
-        landmarker = create_landmarker(config.model_path, mp_vision.RunningMode.VIDEO,
-                                        config.min_face_confidence)
-    detector = CadenceDetector(landmarker, config.detect_every_n_frames, config.detect_downscale_width)
+    processor = OpticalFrameProcessor(config, landmarker)
 
     preflight_fps = measure_capture_fps(cap)
     preflight_warning = check_nyquist(preflight_fps, challenge.chip_rate_hz, config.min_fps_multiple_of_chip_rate)
@@ -651,10 +782,6 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
         print(f"WARNING: {msg}")
         print("!" * 70)
         warn_list.append(msg)
-
-    timestamps, luminances, face_flags = [], [], []
-    adaptive_triggered = False
-    last_ts_ms = -1
 
     try:
         while True:
@@ -670,90 +797,13 @@ def run_session(cap, challenge: Challenge, config: OpticalConfig, start_time: fl
             if not ok or frame is None:
                 continue
 
-            ts_ms = max(last_ts_ms + 1, int((t - start_time) * 1000))
-            last_ts_ms = ts_ms
-
-            if emitter is not None:
-                emitter.set_preview(frame)
-
-            lum, face_ok = detector.process(frame, ts_ms, config.roi_margin_frac)
-
-            timestamps.append(t)
-            luminances.append(lum)
-            face_flags.append(face_ok)
-
-            if emitter is not None and not adaptive_triggered and (t - start_time) >= config.adaptive_window_s:
-                adaptive_triggered = True
-                ts_arr = np.array(timestamps)
-                lum_arr = np.array(luminances)
-                early_mask = ts_arr <= start_time + config.adaptive_window_s
-                if early_mask.sum() >= 8:
-                    early_detrended = moving_average_detrend(
-                        ts_arr[early_mask], lum_arr[early_mask], config.detrend_window_s
-                    )
-                    early_snr = estimate_snr_db(
-                        ts_arr[early_mask], early_detrended, challenge.chip_rate_hz,
-                        config.snr_low_cut_hz, config.snr_resample_rate_hz
-                    )
-                    if not np.isnan(early_snr) and early_snr < config.snr_floor_db:
-                        emitter.set_modulation_depth(emitter.config.max_modulation_depth)
-                        msg = (f"early SNR {early_snr:.1f} dB below floor "
-                               f"{config.snr_floor_db} dB -- boosted modulation depth to "
-                               f"{emitter.config.max_modulation_depth}")
-                        warn_list.append(msg)
+            boost_msg = processor.process_frame(frame, t, start_time, challenge, emitter)
+            if boost_msg:
+                warn_list.append(boost_msg)
     finally:
-        if own_landmarker:
-            landmarker.close()
+        processor.close()
 
-    ts_arr = np.array(timestamps)
-    lum_arr = np.array(luminances)
-    n_face = int(np.sum(face_flags))
-
-    achieved_fps = float((len(ts_arr) - 1) / (ts_arr[-1] - ts_arr[0])) if len(ts_arr) >= 2 else float("nan")
-    achieved_warning = check_nyquist(achieved_fps, challenge.chip_rate_hz, config.min_fps_multiple_of_chip_rate)
-    if achieved_warning:
-        msg = f"ACHIEVED (this session's real frame rate): {achieved_warning}"
-        print("!" * 70)
-        print(f"WARNING: {msg}")
-        print("!" * 70)
-        warn_list.append(msg)
-
-    if len(ts_arr) == 0:
-        return OpticalResult(
-            score=0.0, lag_ms=0.0, snr_db=float("nan"), insufficient_signal=True,
-            adaptive_boost_applied=(emitter.adaptive_boost_applied() if emitter else False),
-            exposure_locked=exposure_locked, trace_emitted=[], trace_measured=[],
-            timestamps=[], n_frames=0, n_face_detected=0, measured_fps=achieved_fps,
-            warnings=warn_list + ["no frames captured"],
-        )
-
-    detrended = moving_average_detrend(ts_arr, lum_arr, config.detrend_window_s)
-    emitter_log = emitter.get_log() if emitter is not None else []
-
-    score, lag_ms, emitted_at_lag, valid_ts, valid_measured = cross_correlate_lag_search(
-        detrended, ts_arr, emitter_log, config.lag_search_max_ms, config.lag_step_ms
-    )
-
-    final_snr_db = estimate_snr_db(
-        ts_arr, detrended, challenge.chip_rate_hz, config.snr_low_cut_hz, config.snr_resample_rate_hz
-    )
-    insufficient_signal = bool(np.isnan(final_snr_db) or final_snr_db < config.snr_floor_db)
-
-    return OpticalResult(
-        score=float(score),
-        lag_ms=float(lag_ms),
-        snr_db=float(final_snr_db) if not np.isnan(final_snr_db) else float("nan"),
-        insufficient_signal=insufficient_signal,
-        adaptive_boost_applied=(emitter.adaptive_boost_applied() if emitter else False),
-        exposure_locked=exposure_locked,
-        trace_emitted=_zscore(emitted_at_lag).tolist(),
-        trace_measured=_zscore(valid_measured).tolist(),
-        timestamps=valid_ts.tolist(),
-        n_frames=len(ts_arr),
-        n_face_detected=n_face,
-        measured_fps=achieved_fps,
-        warnings=warn_list,
-    )
+    return processor.finalize(challenge, emitter, exposure_locked, warn_list)
 
 
 if __name__ == "__main__":

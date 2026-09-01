@@ -45,6 +45,22 @@ def test_keystroke_capture_flags_mismatches_without_recording_what_was_typed():
         assert not isinstance(e["matched_expected"], str)
 
 
+def test_chars_matched_is_a_count_not_a_character():
+    """chars_matched is the one extra thing an on-screen prompt is allowed
+    to read (2026-09-02, for the concurrent session's live phrase overlay)
+    -- must be an int count that advances only on a correct match, never
+    anything that leaks the pressed character."""
+    capture = KeystrokeCapture(expected_phrase="cat")
+    assert capture.chars_matched == 0
+    capture._on_press(KeyCode.from_char("c"))  # matches -> advances
+    assert capture.chars_matched == 1
+    capture._on_press(KeyCode.from_char("x"))  # mismatch -> does not advance
+    assert capture.chars_matched == 1
+    capture._on_press(KeyCode.from_char("a"))  # matches -> advances
+    assert capture.chars_matched == 2
+    assert isinstance(capture.chars_matched, int)
+
+
 def test_passive_mode_never_sets_matched_expected():
     capture = KeystrokeCapture(expected_phrase=None)
     for ch in "hello":

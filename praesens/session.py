@@ -1,35 +1,68 @@
-"""Milestone 4: session runner.
+"""Milestone 4/2026-09-02: session runner.
 
-Ties challenge + emitter + optical lane together for one 20 s session and
-writes a single JSON log record. `condition` is recorded but never
-influences how the session is measured -- bonafide/replay/swap/emitter_off
-all run through the identical capture and scoring path, and only differ in
-what's physically in front of the camera or whether the emitter is on. That
-is what makes the emitter_off condition a real scientific control rather
-than a special-cased "off" mode: the pipeline can't tell it apart from any
-other session except by the light pattern itself. Metadata (lighting,
-distance, makeup, glasses, subject, skin tone) is recorded per session
-because Milestone 5's analysis needs it to check the system doesn't fail
-quietly for some conditions more than others.
+Ties challenge + emitter + optical lane (+ typing lane, since 2026-09-02)
+together for one session and writes a single JSON log record. `condition`
+is recorded but never influences how the session is measured --
+bonafide/replay/swap/emitter_off all run through the identical capture
+and scoring path, and only differ in what's physically in front of the
+camera or whether the emitter is on. That is what makes the emitter_off
+condition a real scientific control rather than a special-cased "off"
+mode: the pipeline can't tell it apart from any other session except by
+the light pattern itself. Metadata (lighting, distance, makeup, glasses,
+subject, skin tone) is recorded per session because Milestone 5's
+analysis needs it to check the system doesn't fail quietly for some
+conditions more than others.
+
+`--lanes optical+typing` (the default) runs the optical and typing lanes
+CONCURRENTLY off ONE shared capture loop -- each frame is grabbed exactly
+once and fed to both lanes' per-frame processors, answering the SAME
+session challenge (including a displayed typing phrase) in the SAME
+window. That concurrency IS the joint-temporal-coherence claim fusion.py
+makes: two lanes measured over the same window, not two sequential passes
+that could each be satisfied independently. `--lanes optical` skips
+typing entirely and keeps the exact single-lane path this module has
+always used (praesens.optical.run_session, which owns its own loop).
+Either way, both lanes' raw numbers feed praesens.fusion.Adjudicator for
+one joint verdict, which prints as a short clean block on the terminal
+(scores/lag/SNR/every raw field still go to the JSON log in full --
+`fusion`/`typing` are ADDED fields, nothing existing is removed or
+renamed).
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import math
+import os
 import platform
+import sys
 import threading
 import time
 import uuid
 from pathlib import Path
 
 import cv2
+import numpy as np
 import yaml
 
 from praesens.camera import open_camera
 from praesens.capture import CaptureConfig, configure_capture_format, measure_steady_state_fps
-from praesens.challenge import Challenge, pick_auto_chip_rate
+from praesens.challenge import Challenge, generate_challenge_phrase, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
-from praesens.optical import OpticalConfig, run_session
+from praesens.fusion import (
+    LaneResult, Adjudicator, AdjudicatorConfig, acoustic_lane_stub,
+    compute_joint_score, LANE_LAG_BOUNDS_MS,
+)
+from praesens.optical import (
+    OpticalConfig, OpticalFrameProcessor, OpticalResult, run_session,
+    lock_camera, measure_capture_fps, check_nyquist,
+)
+from praesens.typing import (
+    TypingConfig, TypingResult, TypingFrameProcessor, KeystrokeCapture,
+    finalize_typing_result, create_hand_landmarker,
+)
+from mediapipe.tasks.python import vision as mp_vision
 
 VALID_CONDITIONS = {
     "bonafide", "emitter_off",
@@ -37,6 +70,8 @@ VALID_CONDITIONS = {
     # Milestone 12's expanded attack vocabulary, matching eval/corpus_plan.yaml:
     "inject_static", "inject_swap", "inject_reenact", "inject_adaptive",
 }
+
+VALID_LANES = ("optical", "optical+typing")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -53,11 +88,182 @@ def load_config(config_path: str | Path = "config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
+# ---------------------------------------------------------------------------
+# LaneResult wrapping -- confidence formulas match established precedent,
+# not invented fresh here. Optical: identical to eval/ablate.py's
+# optical_lane_result_from_log() (SNR margin above zero, clipped to
+# [0.05, 1.0]) -- same formula, reused, so a live session and an offline-
+# analysed log agree on what "confidence" means for this lane. Typing:
+# praesens.typing.passive_confidence()'s own recency-decay formula
+# (2**(-dt/half_life)), applied to the dt TypingResult already computes
+# (seconds_since_last_keystroke) -- not re-derived, just reused with the
+# one input available here.
+# ---------------------------------------------------------------------------
+
+def optical_lane_result(result: OpticalResult) -> LaneResult:
+    if result.n_frames == 0:
+        return LaneResult(lane_name="optical", subscore=None, status="no_evidence",
+                           lag_ms=None, confidence=0.0, diagnostics="no frames captured")
+    if result.insufficient_signal:
+        return LaneResult(lane_name="optical", subscore=None, status="insufficient_signal",
+                           lag_ms=None, confidence=0.0, diagnostics=f"snr_db={result.snr_db}")
+    snr_db = result.snr_db
+    confidence = 0.3 if math.isnan(snr_db) else float(np.clip(snr_db / 15.0, 0.05, 1.0))
+    return LaneResult(lane_name="optical", subscore=result.score, status="ok",
+                       lag_ms=result.lag_ms, confidence=confidence,
+                       diagnostics=f"snr_db={snr_db:.1f}" if not math.isnan(snr_db) else "snr_db=nan")
+
+
+def typing_lane_result(result: TypingResult, decay_half_life_s: float) -> LaneResult:
+    if result.status != "ok":
+        return LaneResult(lane_name="typing", subscore=None, status=result.status,
+                           lag_ms=None, confidence=0.0,
+                           diagnostics=f"n_keystrokes={result.n_keystrokes}")
+    confidence = float(2 ** (-result.seconds_since_last_keystroke / decay_half_life_s))
+    return LaneResult(lane_name="typing", subscore=result.coherence_score, status="ok",
+                       lag_ms=result.coherence_lag_ms, confidence=confidence,
+                       diagnostics=(f"n_keystrokes={result.n_keystrokes}, "
+                                    f"coherence_lag_ms={result.coherence_lag_ms:.0f}"))
+
+
+def _draw_phrase_overlay(frame: np.ndarray, phrase: str, chars_matched: int) -> np.ndarray:
+    """A COPY of frame with the challenge phrase drawn across the top --
+    the caller already fed the UNMODIFIED frame to optical's ROI sampling
+    before this runs, so this cannot contaminate the luminance
+    measurement. The matched prefix (a COUNT only -- see KeystrokeCapture.
+    chars_matched) is highlighted; the phrase text itself is not secret,
+    it's generated from the session seed and displayed for the operator
+    to read, the same way the light challenge is fully reconstructable
+    from the seed alone."""
+    canvas = frame.copy()
+    h, w = canvas.shape[:2]
+    banner_h = max(60, h // 8)
+    cv2.rectangle(canvas, (0, 0), (w, banner_h), (20, 20, 20), -1)
+    cv2.putText(canvas, "TYPE:", (10, max(18, banner_h // 2 - 8)), cv2.FONT_HERSHEY_SIMPLEX,
+                0.55, (200, 200, 200), 1, cv2.LINE_AA)
+
+    matched = phrase[:chars_matched]
+    remaining = phrase[chars_matched:]
+    scale = float(np.clip((w - 20) / max(8 * len(phrase), 1), 0.5, 1.2))
+    y = banner_h - 12
+    (mw, _mh), _ = cv2.getTextSize(matched, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)
+    cv2.putText(canvas, matched, (10, y), cv2.FONT_HERSHEY_SIMPLEX, scale, (80, 220, 80), 2, cv2.LINE_AA)
+    cv2.putText(canvas, remaining, (10 + mw, y), cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 2, cv2.LINE_AA)
+    return canvas
+
+
+def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig, tconfig: TypingConfig,
+                           emitter: Emitter, start_time: float, duration_s: float,
+                           expected_phrase: str) -> tuple[OpticalResult, TypingResult]:
+    """ONE shared capture loop: grabs each frame exactly once and feeds it
+    to BOTH the optical ROI processor and the typing hand-tracking
+    processor, so both lanes answer the SAME session challenge in the
+    SAME window -- see module docstring. Mirrors run_one_session()'s own
+    existing platform branch (macOS needs the emitter's HighGUI window on
+    the main thread; Windows/Linux the reverse) since this replaces the
+    single-lane run_session() call in that branch, not the branch itself."""
+    warn_list: list = []
+    exposure_locked = lock_camera(cap, oconfig, warn_list)
+
+    optical_processor = OpticalFrameProcessor(oconfig)  # owns its own FaceLandmarker
+    hand_landmarker = create_hand_landmarker(tconfig.hand_model_path, mp_vision.RunningMode.VIDEO,
+                                              tconfig.min_hand_confidence)
+    typing_processor = TypingFrameProcessor(hand_landmarker)  # landmarker lifecycle owned here, not by typing.py
+
+    keystroke_capture = KeystrokeCapture(expected_phrase=expected_phrase)
+    keystroke_unavailable_reason = None
+    try:
+        keystroke_capture.start()
+    except Exception as e:
+        keystroke_unavailable_reason = str(e)
+        print(f"WARNING: could not start keystroke listener -- typing lane will show no_evidence: {e}")
+
+    preflight_fps = measure_capture_fps(cap)
+    preflight_warning = check_nyquist(preflight_fps, challenge.chip_rate_hz, oconfig.min_fps_multiple_of_chip_rate)
+    if preflight_warning:
+        msg = f"PRE-FLIGHT (optimistic, no face required to trigger this): {preflight_warning}"
+        print("!" * 70)
+        print(f"WARNING: {msg}")
+        print("!" * 70)
+        warn_list.append(msg)
+
+    def _loop() -> None:
+        while True:
+            elapsed = time.perf_counter() - start_time
+            if elapsed >= duration_s:
+                break
+
+            grabbed = cap.grab()
+            t = time.perf_counter()
+            if not grabbed:
+                continue
+            ok, frame = cap.retrieve()
+            if not ok or frame is None:
+                continue
+
+            boost_msg = optical_processor.process_frame(frame, t, start_time, challenge, emitter)
+            if boost_msg:
+                warn_list.append(boost_msg)
+
+            typing_processor.process_frame(frame, t, start_time)
+
+            preview = _draw_phrase_overlay(frame, expected_phrase, keystroke_capture.chars_matched)
+            emitter.set_preview(preview)
+
+    try:
+        if platform.system() == "Darwin":
+            # See run_one_session()'s single-lane branch for why: Cocoa
+            # requires HighGUI calls on the main thread, so capture/scoring
+            # moves to a background thread here and the emitter blocks
+            # the main thread instead.
+            capture_thread = threading.Thread(target=_loop, daemon=True)
+            capture_thread.start()
+            try:
+                emitter.run_blocking(start_time, duration_s)
+            finally:
+                capture_thread.join(timeout=duration_s + 5.0)
+        else:
+            emitter.start(start_time, duration_s)
+            try:
+                _loop()
+            finally:
+                emitter.stop()
+    finally:
+        keystroke_capture.stop()
+        optical_processor.close()
+        hand_landmarker.close()
+
+    optical_result = optical_processor.finalize(challenge, emitter, exposure_locked, warn_list)
+
+    typing_warn = ([f"keystroke listener unavailable: {keystroke_unavailable_reason}"]
+                    if keystroke_unavailable_reason else [])
+    typing_result = finalize_typing_result(
+        keystroke_capture, typing_processor.hand_ts, typing_processor.hand_activity,
+        "active", tconfig, start_time, duration_s, expected_phrase,
+    )
+    if typing_warn:
+        # finalize_typing_result already decided status from the real
+        # data (an unstarted listener means zero events -> "no_evidence"
+        # via compute_typing_status already); this just makes WHY visible
+        # in the log's warnings, without touching optical_result at all.
+        optical_result.warnings = optical_result.warnings + typing_warn
+
+    return optical_result, typing_result
+
+
 def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
                      camera_index_override: int | None = None,
-                     output_dir: str | Path = "logs") -> tuple[dict, Path]:
+                     output_dir: str | Path = "logs", lanes: str = "optical") -> tuple[dict, Path]:
+    """lanes defaults to "optical" here (this function's own default,
+    called directly by scripts/collect.py and scripts/run_corpus.py,
+    neither of which asked for typing) -- the `python -m praesens.session`
+    CLI below defaults its OWN --lanes flag to "optical+typing" instead,
+    per the brief. Existing callers that don't pass lanes= are completely
+    unaffected by this milestone."""
     if condition not in VALID_CONDITIONS:
         raise ValueError(f"condition must be one of {sorted(VALID_CONDITIONS)}, got {condition!r}")
+    if lanes not in VALID_LANES:
+        raise ValueError(f"lanes must be one of {VALID_LANES}, got {lanes!r}")
 
     if raw_config is None:
         raw_config = load_config()
@@ -76,112 +282,168 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
 
-    # Format negotiated BEFORE the auto_chip_rate preflight measurement
-    # below, so that measurement reflects the true achievable throughput
-    # (MJPG vs whatever the driver defaulted to) -- not touching chip-rate
-    # selection itself, only what fps it's given to work with.
-    cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
-    capture_warn_list: list = []
-    configure_capture_format(cap, cconfig, capture_warn_list)
-    for w in capture_warn_list:
-        print(f"WARNING: {w}")
-
-    challenge_cfg = dict(raw_config["challenge"])
-    auto_chip_rate_used = bool(raw_config["optical"].get("auto_chip_rate", False))
-    if auto_chip_rate_used:
-        # Bug fixed 2026-09-01: this measurement used to run BEFORE exposure
-        # was ever locked (lock_camera only happened later, inside
-        # run_session() below) -- see praesens.capture.measure_steady_state_fps's
-        # docstring for the full story. Locking exposure here is safe even
-        # though run_session() will lock it again later (idempotent).
-        preflight_warn_list: list = []
-        warmup_frames = raw_config["optical"].get("camera_warmup_frames", 30)
-        preflight_fps = measure_steady_state_fps(cap, oconfig, warmup_frames, preflight_warn_list)
-        for w in preflight_warn_list:
+    try:
+        # Format negotiated BEFORE the auto_chip_rate preflight measurement
+        # below, so that measurement reflects the true achievable throughput
+        # (MJPG vs whatever the driver defaulted to) -- not touching chip-rate
+        # selection itself, only what fps it's given to work with.
+        cconfig = CaptureConfig.from_dict(raw_config.get("capture", {}))
+        capture_warn_list: list = []
+        configure_capture_format(cap, cconfig, capture_warn_list)
+        for w in capture_warn_list:
             print(f"WARNING: {w}")
 
-        chip_rate_hz, duration_s = pick_auto_chip_rate(
-            preflight_fps,
-            divisor=raw_config["optical"].get("auto_chip_rate_divisor", 6.0),
-            min_hz=0.5, max_hz=5.0,
-            min_chips=raw_config["optical"].get("auto_chip_rate_min_chips", 60),
-            base_duration_s=challenge_cfg.get("duration_s", 20.0),
-        )
-        print(f"auto_chip_rate: measured preflight FPS={preflight_fps:.1f} -> "
-              f"chip_rate_hz={chip_rate_hz:.2f}, duration_s={duration_s:.1f}")
-        challenge_cfg["chip_rate_hz"] = chip_rate_hz
-        challenge_cfg["duration_s"] = duration_s
+        challenge_cfg = dict(raw_config["challenge"])
+        auto_chip_rate_used = bool(raw_config["optical"].get("auto_chip_rate", False))
+        if auto_chip_rate_used:
+            # Bug fixed 2026-09-01: this measurement used to run BEFORE exposure
+            # was ever locked (lock_camera only happened later, inside
+            # run_session() below) -- see praesens.capture.measure_steady_state_fps's
+            # docstring for the full story. Locking exposure here is safe even
+            # though run_session() will lock it again later (idempotent).
+            preflight_warn_list: list = []
+            warmup_frames = raw_config["optical"].get("camera_warmup_frames", 30)
+            preflight_fps = measure_steady_state_fps(cap, oconfig, warmup_frames, preflight_warn_list)
+            for w in preflight_warn_list:
+                print(f"WARNING: {w}")
 
-    challenge = Challenge(**challenge_cfg)
+            chip_rate_hz, duration_s = pick_auto_chip_rate(
+                preflight_fps,
+                divisor=raw_config["optical"].get("auto_chip_rate_divisor", 6.0),
+                min_hz=0.5, max_hz=5.0,
+                min_chips=raw_config["optical"].get("auto_chip_rate_min_chips", 60),
+                base_duration_s=challenge_cfg.get("duration_s", 20.0),
+            )
+            print(f"auto_chip_rate: measured preflight FPS={preflight_fps:.1f} -> "
+                  f"chip_rate_hz={chip_rate_hz:.2f}, duration_s={duration_s:.1f}")
+            challenge_cfg["chip_rate_hz"] = chip_rate_hz
+            challenge_cfg["duration_s"] = duration_s
 
-    econfig = EmitterConfig.from_dict(raw_config["emitter"])
-    if condition == "emitter_off":
-        econfig.emitter_enabled = False
+        challenge = Challenge(**challenge_cfg)
 
-    emitter = Emitter(challenge, econfig)
-    session_id = generate_session_id()
+        econfig = EmitterConfig.from_dict(raw_config["emitter"])
+        if condition == "emitter_off":
+            econfig.emitter_enabled = False
 
-    start_time = time.perf_counter()
+        emitter = Emitter(challenge, econfig)
+        session_id = generate_session_id()
 
-    if platform.system() == "Darwin":
-        # macOS requires the emitter's OpenCV window to run on the main
-        # thread (Cocoa raises an unrecoverable cv2.error otherwise), so we
-        # flip which piece owns the main thread here: capture/scoring moves
-        # to a background thread, and the emitter's window loop blocks the
-        # main thread instead -- the reverse of the Windows/Linux path below.
-        result_box: dict = {}
-        error_box: dict = {}
+        typing_enabled = lanes == "optical+typing"
+        tconfig = None
+        expected_phrase = None
+        if typing_enabled:
+            tconfig = TypingConfig.from_dict(raw_config.get("typing", {}))
+            tconfig.hand_model_path = str(REPO_ROOT / tconfig.hand_model_path)
+            expected_phrase = generate_challenge_phrase(
+                challenge.seed, n_words=tconfig.n_words,
+                generative=raw_config.get("typing", {}).get("generative", False),
+            )
 
-        def _capture_worker():
+        start_time = time.perf_counter()
+        typing_result: TypingResult | None = None
+
+        if typing_enabled:
+            optical_result, typing_result = _run_concurrent_lanes(
+                cap, challenge, oconfig, tconfig, emitter, start_time, challenge.duration_s, expected_phrase
+            )
+        elif platform.system() == "Darwin":
+            # macOS requires the emitter's OpenCV window to run on the main
+            # thread (Cocoa raises an unrecoverable cv2.error otherwise), so we
+            # flip which piece owns the main thread here: capture/scoring moves
+            # to a background thread, and the emitter's window loop blocks the
+            # main thread instead -- the reverse of the Windows/Linux path below.
+            result_box: dict = {}
+            error_box: dict = {}
+
+            def _capture_worker():
+                try:
+                    result_box["result"] = run_session(
+                        cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter
+                    )
+                except Exception as exc:
+                    error_box["error"] = exc
+
+            capture_thread = threading.Thread(target=_capture_worker, daemon=True)
+            capture_thread.start()
             try:
-                result_box["result"] = run_session(
-                    cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter
-                )
-            except Exception as exc:
-                error_box["error"] = exc
+                emitter.run_blocking(start_time, challenge.duration_s)
+            finally:
+                capture_thread.join(timeout=challenge.duration_s + 5.0)
 
-        capture_thread = threading.Thread(target=_capture_worker, daemon=True)
-        capture_thread.start()
-        try:
-            emitter.run_blocking(start_time, challenge.duration_s)
-        finally:
-            capture_thread.join(timeout=challenge.duration_s + 5.0)
-            cap.release()
+            if "error" in error_box:
+                raise error_box["error"]
+            optical_result = result_box["result"]
+        else:
+            emitter.start(start_time, challenge.duration_s)
+            try:
+                optical_result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s,
+                                              emitter=emitter)
+            finally:
+                emitter.stop()
+    finally:
+        cap.release()
 
-        if "error" in error_box:
-            raise error_box["error"]
-        result = result_box["result"]
-    else:
-        emitter.start(start_time, challenge.duration_s)
-        try:
-            result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter)
-        finally:
-            emitter.stop()
-            cap.release()
+    # -- fusion: build LaneResults and adjudicate, regardless of lanes -- a
+    # single-lane session still gets a real verdict from optical+acoustic
+    # (acoustic never contributes, so this reduces to "does optical alone
+    # clear the bar," the same three-way ACCEPT/RE-CHALLENGE/REJECT logic
+    # either way, no special-cased single-lane verdict rule invented here.
+    lane_results = [optical_lane_result(optical_result)]
+    if typing_result is not None:
+        lane_results.append(typing_lane_result(typing_result, tconfig.passive_decay_half_life_s))
+    lane_results.append(acoustic_lane_stub())
+
+    fusion_config = AdjudicatorConfig.from_dict(raw_config.get("fusion", {}))
+    joint_result = Adjudicator(fusion_config).adjudicate(lane_results)
 
     record = {
         "session": session_id,
         "condition": condition,
-        "score": result.score,
-        "lag_ms": result.lag_ms,
+        "score": optical_result.score,
+        "lag_ms": optical_result.lag_ms,
         "seed": challenge.seed,
         "chip_rate_hz": challenge.chip_rate_hz,
         "duration_s": challenge.duration_s,
         "start_time_perf_counter": start_time,
         "auto_chip_rate_used": auto_chip_rate_used,
         "emitter_enabled": econfig.emitter_enabled,
-        "snr_db": result.snr_db,
-        "insufficient_signal": result.insufficient_signal,
-        "adaptive_boost_applied": result.adaptive_boost_applied,
-        "exposure_locked": result.exposure_locked,
-        "n_frames": result.n_frames,
-        "n_face_detected": result.n_face_detected,
-        "measured_fps": result.measured_fps,
-        "warnings": result.warnings,
+        "snr_db": optical_result.snr_db,
+        "insufficient_signal": optical_result.insufficient_signal,
+        "adaptive_boost_applied": optical_result.adaptive_boost_applied,
+        "exposure_locked": optical_result.exposure_locked,
+        "n_frames": optical_result.n_frames,
+        "n_face_detected": optical_result.n_face_detected,
+        "measured_fps": optical_result.measured_fps,
+        "warnings": optical_result.warnings,
         "meta": meta,
-        "trace_emitted": result.trace_emitted,
-        "trace_measured": result.trace_measured,
-        "timestamps": result.timestamps,
+        "trace_emitted": optical_result.trace_emitted,
+        "trace_measured": optical_result.trace_measured,
+        "timestamps": optical_result.timestamps,
+        # -- added 2026-09-02, ADD-ONLY: concurrent typing lane + fusion verdict --
+        "lanes": lanes,
+        "typing_phrase": expected_phrase,  # not secret -- seed-derived and shown on screen; keystrokes are what's never logged
+        "typing": ({
+            "mode": typing_result.mode, "status": typing_result.status,
+            "n_keystrokes": typing_result.n_keystrokes, "n_matched": typing_result.n_matched,
+            "n_expected": typing_result.n_expected,
+            "inter_key_mean_s": typing_result.inter_key_mean_s, "inter_key_std_s": typing_result.inter_key_std_s,
+            "coherence_score": typing_result.coherence_score, "coherence_lag_ms": typing_result.coherence_lag_ms,
+            "seconds_since_last_keystroke": typing_result.seconds_since_last_keystroke,
+            "events": typing_result.events,  # t_down/t_up/matched_expected ONLY -- see praesens/typing.py's privacy contract
+        } if typing_result is not None else None),
+        "fusion": {
+            "verdict": joint_result.verdict,
+            "joint_score": (None if math.isnan(joint_result.joint_score) else joint_result.joint_score),
+            "reason_text": joint_result.reason_text,
+            "per_lane_reasons": joint_result.per_lane_reasons,
+            "accept_threshold": fusion_config.accept_threshold,
+            "reject_threshold": fusion_config.reject_threshold,
+            "lanes": [
+                {"lane_name": l.lane_name, "subscore": l.subscore, "status": l.status,
+                 "lag_ms": l.lag_ms, "confidence": l.confidence, "diagnostics": l.diagnostics}
+                for l in lane_results
+            ],
+        },
     }
 
     out_dir = Path(output_dir)
@@ -195,7 +457,114 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     return record, out_path
 
 
+# ---------------------------------------------------------------------------
+# Terminal presentation -- a short, clean block, not the raw numbers (those
+# are always in the JSON log, see run_one_session's record dict above).
+# ---------------------------------------------------------------------------
+
+def print_clean_block(record: dict) -> None:
+    fusion = record["fusion"]
+    lane_dicts = [l for l in fusion["lanes"]]
+    lanes_for_contrib = [
+        LaneResult(lane_name=l["lane_name"], subscore=l["subscore"], status=l["status"],
+                   lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"])
+        for l in lane_dicts
+    ]
+    _, contributions = compute_joint_score(lanes_for_contrib, LANE_LAG_BOUNDS_MS)
+
+    verdict = fusion["verdict"]
+    joint_score = fusion["joint_score"]
+    reason = fusion["reason_text"]
+    reject_threshold = fusion["reject_threshold"]
+
+    header = f"PRAESENS  --  session {record['session']}   [{record['condition']}]"
+    width = max(46, len(header) + 4)
+    print("\n" + "=" * width)
+    print(f"  {header}")
+    print("=" * width)
+
+    display_names = {"optical": "Optical lane", "typing": "Typing lane "}
+    passing = []
+    for l in lane_dicts:
+        if l["lane_name"] not in display_names:
+            continue  # acoustic is a permanently-stubbed no-op lane, not shown in the panel-style summary
+        label = display_names[l["lane_name"]]
+        contributes = contributions[l["lane_name"]]["contributes"]
+        # PASS requires BOTH a plausible lag (contributes) AND a subscore
+        # that itself clears reject_threshold -- "contributes" alone is
+        # not enough (a lane can plausibly-timed AND still read as an
+        # attack, e.g. subscore 0.17 against reject_threshold 0.3; that
+        # must show as FAIL, matching fusion.py's own downgrade rule that
+        # a low subscore is disqualifying regardless of confidence/lag).
+        if l["status"] != "ok":
+            status_word, detail = "NO EVIDENCE", f"({l['diagnostics']})" if l["diagnostics"] else ""
+        elif contributes and l["subscore"] >= reject_threshold:
+            status_word = "PASS"
+            metric = "score" if l["lane_name"] == "optical" else "coherence"
+            detail = f"({metric} {l['subscore']:.2f})"
+            passing.append(l["lane_name"])
+        elif contributes:
+            status_word = "FAIL"
+            detail = f"(subscore {l['subscore']:.2f}, below reject_threshold)"
+        else:
+            status_word = "FAIL"
+            detail = f"(subscore {l['subscore']:.2f}, implausible lag)"
+        print(f"  {label} : {status_word:<12s} {detail}")
+
+    print("  " + "-" * (width - 4))
+    js = f"{joint_score:.2f}" if joint_score is not None else "n/a"
+    print(f"  VERDICT      : {verdict:<12s} (joint {js})")
+
+    if verdict == "ACCEPT" and len(passing) >= 2:
+        friendly = ("both lanes agree with this session's challenge" if len(passing) == 2
+                    else f"all {len(passing)} lanes agree with this session's challenge")
+    elif verdict == "ACCEPT" and len(passing) == 1:
+        friendly = f"{passing[0]} lane agrees with this session's challenge"
+    else:
+        friendly = reason  # REJECT/RE-CHALLENGE: the adjudicator's own reason, verbatim -- no new wording invented
+    print(f"  Reason       : {friendly}")
+    print("=" * width)
+
+
+@contextlib.contextmanager
+def _quiet_console(log_path: Path):
+    """Redirects BOTH Python's own print() output AND the raw OS file
+    descriptors (fd 1/2) to log_path -- MediaPipe's C++ backend (glog/
+    TensorFlow Lite) writes those "W0000 ..."/"INFO: Created TensorFlow
+    Lite..." lines directly to the underlying file descriptor, bypassing
+    anything that only reassigns sys.stdout/sys.stderr at the Python
+    level (contextlib.redirect_stdout alone does NOT catch this). Nothing
+    is lost -- it's all still in log_path -- this only keeps it off the
+    terminal so the clean block (printed AFTER this context exits) is the
+    only thing the operator sees, per the brief's --verbose requirement."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w") as f:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        saved_stdout_fd = os.dup(1)
+        saved_stderr_fd = os.dup(2)
+        os.dup2(f.fileno(), 1)
+        os.dup2(f.fileno(), 2)
+        try:
+            yield
+        finally:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os.dup2(saved_stdout_fd, 1)
+            os.dup2(saved_stderr_fd, 2)
+            os.close(saved_stdout_fd)
+            os.close(saved_stderr_fd)
+
+
 if __name__ == "__main__":
+    # Best-effort reduction at the source, in addition to the fd-level
+    # redirect below -- must be set before mediapipe's C++ backend
+    # initialises (i.e. before any landmarker is created), so this has to
+    # happen at true module-import time, ahead of anything that could
+    # trigger it.
+    os.environ.setdefault("GLOG_minloglevel", "2")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+
     parser = argparse.ArgumentParser(description="Milestone 4 session runner")
     parser.add_argument("--condition", required=True, choices=sorted(VALID_CONDITIONS))
     parser.add_argument("--lighting", default="normal",
@@ -207,6 +576,11 @@ if __name__ == "__main__":
     parser.add_argument("--skin-tone", type=int, default=None,
                          help="Fitzpatrick scale 1-6, self-reported")
     parser.add_argument("--camera-index", type=int, default=None)
+    parser.add_argument("--lanes", choices=VALID_LANES, default="optical+typing",
+                         help="which lanes run concurrently off the shared capture loop")
+    parser.add_argument("--verbose", action="store_true",
+                         help="show full diagnostic output (capture format, preflight, MediaPipe "
+                              "logging) live on the terminal instead of routing it to a log file")
     args = parser.parse_args()
 
     meta = {
@@ -219,16 +593,21 @@ if __name__ == "__main__":
     }
 
     raw_config = load_config()
-    print(f"Starting {args.condition} session ({raw_config['challenge']['duration_s']}s)... look at the screen.")
-    record, out_path = run_one_session(args.condition, meta, raw_config=raw_config,
-                                        camera_index_override=args.camera_index)
+    typing_note = " -- type the on-screen phrase while it plays" if args.lanes == "optical+typing" else ""
+    print(f"Starting {args.condition} session, lanes={args.lanes} "
+          f"({raw_config['challenge']['duration_s']}s)... look at the screen{typing_note}.")
 
-    print(f"\nsession={record['session']} condition={record['condition']}")
-    print(f"score={record['score']:.3f} lag_ms={record['lag_ms']:.1f} "
-          f"snr_db={record['snr_db']:.2f} insufficient_signal={record['insufficient_signal']}")
-    print(f"n_frames={record['n_frames']} n_face_detected={record['n_face_detected']} "
-          f"measured_fps={record['measured_fps']:.1f} "
-          f"exposure_locked={record['exposure_locked']} adaptive_boost={record['adaptive_boost_applied']}")
-    for w in record["warnings"]:
-        print(f"  warning: {w}")
+    console_log_path = None
+    redirect_ctx = contextlib.nullcontext()
+    if not args.verbose:
+        console_log_path = REPO_ROOT / "logs" / f"console_{int(time.time())}.log"
+        redirect_ctx = _quiet_console(console_log_path)
+
+    with redirect_ctx:
+        record, out_path = run_one_session(args.condition, meta, raw_config=raw_config,
+                                            camera_index_override=args.camera_index, lanes=args.lanes)
+
+    print_clean_block(record)
+    if console_log_path is not None:
+        print(f"(full diagnostic output: {console_log_path})")
     print(f"saved to {out_path}")

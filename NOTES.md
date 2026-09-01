@@ -694,3 +694,158 @@ called in some order"); a different `warmup_frames` value is respected;
 81/81 pass.
 
 **Config added:** `optical.camera_warmup_frames` (default 30).
+
+---
+
+## Concurrent optical+typing session with one clean verdict (2026-09-02)
+
+**What was built:** `python -m praesens.session` now runs optical and
+typing CONCURRENTLY off ONE shared capture loop by default
+(`--lanes optical+typing`, `--lanes optical` for the old single-lane path).
+
+- **The decomposition that made this possible:** `praesens/optical.py`'s
+  `run_session()` used to OWN its grab/retrieve loop; it's now a thin
+  wrapper around a new `OpticalFrameProcessor` (per-frame ROI sampling +
+  adaptive-boost tracking, extracted verbatim -- no scoring math changed)
+  with a `.finalize()` that does the exact same post-loop detrend/cross-
+  correlate/SNR computation as before. `praesens/typing.py`'s
+  `run_typing_session()` got the identical treatment: a new
+  `TypingFrameProcessor` for per-frame hand-tracking, `finalize_typing_result()`
+  for the post-loop computation. Both single-lane wrappers are unchanged
+  in behaviour for their existing callers (diagnose.py, each module's own
+  smoke test) -- this was a pure extraction, verified by re-running real
+  bonafide sessions before/after and confirming consistent scores.
+- **`praesens/session.py`'s new `_run_concurrent_lanes()`** is the actual
+  shared loop: locks exposure once, builds one `OpticalFrameProcessor` +
+  one `TypingFrameProcessor` (its own hand landmarker -- a face landmarker
+  and a hand landmarker are different objects with independent timestamp
+  sequences, no MediaPipe VIDEO-mode collision, same discipline already
+  established in Milestone 14's panel.py), starts the keystroke listener,
+  generates the challenge phrase up front (`generate_challenge_phrase`,
+  `generative:false` path, unchanged), then ONE loop: grab, retrieve,
+  feed the SAME frame object to `optical_processor.process_frame()` then
+  `typing_processor.process_frame()`, overlay the phrase (on a COPY, so
+  the frame optical already scored is untouched) into the emitter
+  preview. Mirrors the existing macOS/Windows platform branch for who
+  owns the main thread.
+- **Fusion wiring:** `optical_lane_result()` wraps `OpticalResult` into a
+  `LaneResult` using the SAME confidence formula `eval/ablate.py`'s
+  `optical_lane_result_from_log()` already established (SNR margin,
+  clipped [0.05, 1.0]) -- reused, not re-derived. `typing_lane_result()`
+  reuses `praesens.typing.passive_confidence()`'s own recency-decay
+  formula. Both feed `Adjudicator.adjudicate()` unchanged (plus the
+  acoustic stub) for one real `JointResult`, even in `--lanes optical`
+  mode (optical+acoustic alone, so a single-lane session still gets a
+  genuine three-way verdict, not a special-cased rule).
+- **Terminal output:** `print_clean_block()` prints the short block from
+  the brief; PASS/FAIL/NO EVIDENCE come from the lane's real `status` +
+  whether it contributed to the joint score (fusion.py's own
+  `compute_joint_score`) + whether its subscore itself clears
+  `reject_threshold` (see the bug below) -- no new pass/fail threshold
+  invented, all three checks are existing fusion.py concepts. REJECT/
+  RE-CHALLENGE print the adjudicator's OWN `reason_text` verbatim; ACCEPT
+  gets one fixed, honest phrase ("both lanes agree..." / "N lanes
+  agree..." / "{lane} lane agrees...") sized to how many lanes actually
+  contributed. Console noise (MediaPipe/TensorFlow C++ logging) is
+  suppressed by default via `GLOG_minloglevel`/`TF_CPP_MIN_LOG_LEVEL` env
+  vars PLUS an OS-file-descriptor-level redirect (`_quiet_console`) --
+  `contextlib.redirect_stdout` alone does NOT catch it, since MediaPipe's
+  C++ backend writes directly to the underlying fd, bypassing anything
+  that only reassigns `sys.stdout`/`sys.stderr` at the Python level.
+  `--verbose` skips the redirect; nothing is ever lost either way, it
+  either shows live or goes to `logs/console_<ts>.log`.
+
+**STOP-and-flag finding, resolved before building the above (per explicit
+instruction to verify with the real Adjudicator and stop if it
+reproduced):** confirmed a real bug in `Adjudicator.adjudicate()` -- a
+confidence-weighted mean let a strong, confident typing lane numerically
+outvote an optical lane that, on its own terms, already read as an
+attack (subscore=0.05, confidence=0.20 -- the lowest confidence reachable
+while status is still "ok" -- plus typing subscore=0.95 confidence=1.0
+-> joint=0.80, ACCEPT). Fixed in `praesens/fusion.py`: after the normal
+threshold branches compute a verdict, if it's ACCEPT and any
+CONTRIBUTING lane's own subscore is below `reject_threshold`, downgrade
+to REJECT -- scoped narrowly, only pulls back an about-to-be-lenient
+ACCEPT. Also fixed a related `_summarize()` bug found while writing the
+regression test: a RE-CHALLENGE where two real lanes both contributed
+but the mean fell in the gap between thresholds used to name the
+permanently-stubbed acoustic lane instead of the real joint score
+(dead-code fallback, unreachable whenever acoustic was present).
+15 fusion tests pass (11 original + 4 new), `eval/ablate.py` re-run
+against the full real corpus with the same CONFIRMED result.
+
+**A second real bug caught by hardware verification, not by review:** the
+first version of `print_clean_block()` labelled a lane PASS whenever it
+"contributed" (plausible lag), without checking whether its subscore
+itself cleared `reject_threshold` -- a real session showed
+"Optical lane : PASS (score 0.17)" with `reject_threshold=0.3`, an
+outright misleading label for a session that correctly REJECTed. Fixed
+by adding `reject_threshold` to the record's `fusion` dict (add-only) and
+requiring `contributes AND subscore >= reject_threshold` for PASS.
+Regression test added; re-verified on real hardware (now shows
+"Optical lane : FAIL (subscore -0.03, below reject_threshold)" for a
+session that scored badly).
+
+**What was measured (real hardware, `logs/2026090[19]*`):**
+
+- `--lanes optical+typing`, genuine face, no typing: optical PASS
+  (score 0.81) + typing NO EVIDENCE (n_keystrokes=0) -> **ACCEPT**
+  (joint 0.81), reason "optical lane agrees with this session's
+  challenge" (the single-real-contributing-lane phrasing).
+- `--lanes optical+typing`, genuine face, insufficient signal this
+  particular take: optical NO EVIDENCE (insufficient_signal,
+  snr_db=-2.17) + typing NO EVIDENCE -> **RE-CHALLENGE**, reason names
+  the real cause.
+- `--lanes optical+typing --camera-index 1` (OBS Virtual Camera,
+  `inject_static`): optical NO EVIDENCE (insufficient_signal) across
+  three separate runs, once optical FAIL (subscore -0.03, a genuine
+  bonafide take that happened to score badly) -> REJECT/RE-CHALLENGE
+  every time, never a false ACCEPT.
+- `--lanes optical` (backward-compat path): identical clean-block
+  presentation, single-lane verdict, "Starting..." line correctly omits
+  the typing prompt.
+- Exactly ONE `open_camera()` call confirmed both structurally (grep:
+  one call site in the whole module) and dynamically
+  (`tests/test_session.py`'s mocked-hardware test asserts
+  `mock_open_camera.assert_called_once()` and that both lanes' per-frame
+  processors receive the literal SAME frame object from a single
+  grab()/retrieve() pair per loop iteration).
+- Console suppression verified: default run shows only the clean block
+  (11-line `logs/console_*.log` captures everything else, zero
+  MediaPipe/TensorFlow spam on the terminal); `--verbose` shows
+  everything live, confirmed.
+
+**Not yet done:** the literal "I type the phrase while it plays, both
+lanes PASS, VERDICT ACCEPT" case needs a human actually typing --
+deliberately not simulated here (`pynput.keyboard.Controller()` would
+deliver real OS-level keystrokes to whatever window has focus, the same
+un-consented side-effect risk Milestone 10's notes already flagged for
+this exact reason). Every OTHER path (no typing, insufficient signal,
+optical fail, backward-compat single-lane, the shared-loop mechanics
+themselves) is verified on real hardware above; the genuine dual-PASS
+case is mechanically identical to what's already proven working (typing
+already reached `status=ok` with real coherence numbers in Milestone
+10's own hardware test, and optical PASS is demonstrated above) but
+hasn't been observed end-to-end together with a live human typing during
+a `--lanes optical+typing` run.
+
+Also observed, not a code issue: real keystroke events (27, then 10) were
+captured during two separate hardware runs where no one was
+intentionally typing -- correctly resulted in NO EVIDENCE both times
+(hand-tracking couldn't corroborate them, exactly the honest degradation
+this lane is designed for) and, per the privacy contract, only
+timing/counts were ever recorded, never characters. Source unidentified
+(pynput's OS-level keyboard hook can pick up any process's keystrokes,
+not just ones intended for this session) -- worth the operator's
+awareness if running near other automation, though it does not affect
+this milestone's correctness.
+
+**Tests:** `tests/test_session.py` (new, 12 tests): `optical_lane_result`/
+`typing_lane_result`'s confidence formulas; `print_clean_block`'s PASS/
+FAIL/NO EVIDENCE logic including the reject_threshold regression case;
+the shared-loop/single-open-camera mocked-hardware test; `--lanes optical`
+never touches typing. Plus 1 new test in `tests/test_typing.py`
+(`chars_matched` is a count, never a character). Full suite: 98/98 pass.
+
+**Config added:** none new for this milestone (`typing:`/`fusion:` config
+keys already existed from Milestones 10/11).

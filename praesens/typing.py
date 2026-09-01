@@ -42,6 +42,8 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import cv2
+import mediapipe as mp
 import numpy as np
 from pynput import keyboard
 
@@ -70,6 +72,17 @@ class KeystrokeCapture:
     @property
     def phrase_complete(self) -> bool:
         return self.expected_phrase is not None and self._cursor >= len(self.expected_phrase)
+
+    @property
+    def chars_matched(self) -> int:
+        """How many characters of expected_phrase have been correctly
+        typed IN ORDER so far -- a COUNT only, consistent with this
+        module's privacy contract (never which characters, never the
+        phrase as actually typed). Lets a caller (e.g. an on-screen
+        prompt) show live progress against the ALREADY-KNOWN, already-
+        displayed expected phrase without learning anything about what
+        was actually pressed beyond this running count."""
+        return self._cursor
 
     @staticmethod
     def _extract_char_local(key):
@@ -331,64 +344,47 @@ class TypingResult:
     events: list  # {"t_down","t_up","matched_expected"} -- no characters
 
 
-def run_typing_session(mode: str, duration_s: float, config: TypingConfig, cap,
-                        landmarker=None, expected_phrase: str | None = None) -> TypingResult:
-    """Runs one ACTIVE or PASSIVE typing-lane session against an ALREADY-
-    OPEN cv2.VideoCapture (never opens its own -- see module docstring).
-    ACTIVE requires expected_phrase; PASSIVE ignores it."""
-    if mode not in ("active", "passive"):
-        raise ValueError(f"mode must be 'active' or 'passive', got {mode!r}")
-    if mode == "active" and not expected_phrase:
-        raise ValueError("active mode requires expected_phrase")
+class TypingFrameProcessor:
+    """Per-frame hand-tracking state, extracted (2026-09-02) from
+    run_typing_session()'s inline loop body so a caller driving its OWN
+    shared frame loop -- e.g. praesens/session.py's concurrent optical+
+    typing path, where one grab/retrieve loop must feed the SAME frame to
+    both lanes -- can feed frames in one at a time instead of this module
+    owning cap.grab()/retrieve() itself. The keystroke listener thread
+    (KeystrokeCapture) is untouched by this: it never read from the
+    camera and needs no change; only hand-tracking (which DOES need
+    frames) is extracted here. Every line of computation below is
+    verbatim from the pre-refactor run_typing_session() loop body."""
 
-    own_landmarker = landmarker is None
-    if own_landmarker:
-        landmarker = create_hand_landmarker(config.hand_model_path, mp_vision.RunningMode.VIDEO,
-                                             config.min_hand_confidence)
+    def __init__(self, landmarker):
+        self.landmarker = landmarker  # lifecycle owned by the CALLER (own_landmarker stays their concern)
+        self.tracker = HandActivityTracker()
+        self.hand_ts: list = []
+        self.hand_activity: list = []
+        self._last_ts_ms = -1
 
-    capture = KeystrokeCapture(expected_phrase=expected_phrase if mode == "active" else None)
-    capture.start()
+    def process_frame(self, frame, t: float, start_time: float) -> None:
+        ts_ms = max(self._last_ts_ms + 1, int((t - start_time) * 1000))
+        self._last_ts_ms = ts_ms
 
-    tracker = HandActivityTracker()
-    hand_ts: list = []
-    hand_activity: list = []
-    last_ts_ms = -1
-    start_time = time.perf_counter()
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = self.landmarker.detect_for_video(mp_image, ts_ms)
+        activity = self.tracker.process(result)
 
-    import cv2
-    import mediapipe as mp
+        self.hand_ts.append(t)
+        self.hand_activity.append(activity)
 
-    try:
-        while True:
-            elapsed = time.perf_counter() - start_time
-            if elapsed >= duration_s:
-                break
-            if mode == "active" and capture.phrase_complete:
-                break
 
-            grabbed = cap.grab()
-            t = time.perf_counter()
-            if not grabbed:
-                continue
-            ok, frame = cap.retrieve()
-            if not ok or frame is None:
-                continue
-
-            ts_ms = max(last_ts_ms + 1, int((t - start_time) * 1000))
-            last_ts_ms = ts_ms
-
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            result = landmarker.detect_for_video(mp_image, ts_ms)
-            activity = tracker.process(result)
-
-            hand_ts.append(t)
-            hand_activity.append(activity)
-    finally:
-        capture.stop()
-        if own_landmarker:
-            landmarker.close()
-
+def finalize_typing_result(capture: KeystrokeCapture, hand_ts: list, hand_activity: list,
+                            mode: str, config: TypingConfig, start_time: float, duration_s: float,
+                            expected_phrase: str | None) -> TypingResult:
+    """The post-loop tail of the pre-refactor run_typing_session(),
+    verbatim -- turns accumulated keystroke events + a hand-activity trace
+    into a TypingResult. Caller must have already called capture.stop();
+    this function only reads from capture, it doesn't manage its
+    lifecycle (mirrors OpticalFrameProcessor.finalize()'s split of
+    "own the loop" vs. "compute the result" in praesens/optical.py)."""
     events = capture.get_events()
     intervals = capture.inter_key_intervals()
 
@@ -423,6 +419,57 @@ def run_typing_session(mode: str, duration_s: float, config: TypingConfig, cap,
     )
 
 
+def run_typing_session(mode: str, duration_s: float, config: TypingConfig, cap,
+                        landmarker=None, expected_phrase: str | None = None) -> TypingResult:
+    """Runs one ACTIVE or PASSIVE typing-lane session against an ALREADY-
+    OPEN cv2.VideoCapture (never opens its own -- see module docstring).
+    ACTIVE requires expected_phrase; PASSIVE ignores it. Thin wrapper
+    around TypingFrameProcessor (see its docstring) -- owns its own grab/
+    retrieve loop for callers that only need the typing lane; the
+    concurrent optical+typing path in praesens/session.py drives
+    TypingFrameProcessor directly instead, from its own shared loop."""
+    if mode not in ("active", "passive"):
+        raise ValueError(f"mode must be 'active' or 'passive', got {mode!r}")
+    if mode == "active" and not expected_phrase:
+        raise ValueError("active mode requires expected_phrase")
+
+    own_landmarker = landmarker is None
+    if own_landmarker:
+        landmarker = create_hand_landmarker(config.hand_model_path, mp_vision.RunningMode.VIDEO,
+                                             config.min_hand_confidence)
+
+    capture = KeystrokeCapture(expected_phrase=expected_phrase if mode == "active" else None)
+    capture.start()
+
+    processor = TypingFrameProcessor(landmarker)
+    start_time = time.perf_counter()
+
+    try:
+        while True:
+            elapsed = time.perf_counter() - start_time
+            if elapsed >= duration_s:
+                break
+            if mode == "active" and capture.phrase_complete:
+                break
+
+            grabbed = cap.grab()
+            t = time.perf_counter()
+            if not grabbed:
+                continue
+            ok, frame = cap.retrieve()
+            if not ok or frame is None:
+                continue
+
+            processor.process_frame(frame, t, start_time)
+    finally:
+        capture.stop()
+        if own_landmarker:
+            landmarker.close()
+
+    return finalize_typing_result(capture, processor.hand_ts, processor.hand_activity,
+                                   mode, config, start_time, duration_s, expected_phrase)
+
+
 if __name__ == "__main__":
     import argparse
     import json
@@ -443,9 +490,9 @@ if __name__ == "__main__":
     tconfig = TypingConfig.from_dict(raw.get("typing", {}))
     tconfig.hand_model_path = str(repo_root / tconfig.hand_model_path)
 
-    import cv2
+    from praesens.camera import open_camera
     from praesens.capture import CaptureConfig, configure_capture_format
-    cap = cv2.VideoCapture(tconfig.camera_index, cv2.CAP_DSHOW)
+    cap = open_camera(tconfig.camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {tconfig.camera_index}")
     cconfig = CaptureConfig.from_dict(raw.get("capture", {}))

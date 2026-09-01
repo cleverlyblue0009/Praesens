@@ -9,12 +9,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.6924370009160964,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.69 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -32,7 +32,7 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
@@ -55,12 +55,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.735360522582263,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.74 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -78,12 +78,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7612250662382976,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.76 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -101,12 +101,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7620346836612205,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.76 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -124,12 +124,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.6516590572996829,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.65 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -147,12 +147,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.8289821487281731,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.83 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -170,7 +170,7 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
@@ -193,12 +193,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.778714158098961,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.78 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -216,7 +216,7 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
@@ -239,12 +239,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.711820821769374,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.71 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -262,12 +262,12 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.6939079654649074,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.69 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
@@ -280,17 +280,17 @@
     "full": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.549571821718877,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.55 below the acceptance threshold"
     },
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.0,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.00 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "RE-CHALLENGE",
@@ -308,16 +308,844 @@
     "optical": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7500000000000001,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "typing": {
       "verdict": "RE-CHALLENGE",
       "joint_score": 0.7512354248928471,
-      "reason_text": "acoustic lane: no evidence (acoustic lane not implemented)"
+      "reason_text": "joint score 0.75 below the acceptance threshold"
     },
     "acoustic": {
       "verdict": "ACCEPT",
       "joint_score": 0.7505115554648154,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T125530_40d4105f",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.44816416041298807,
+      "reason_text": "joint score 0.45 below the acceptance threshold"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.1717156919049977,
+      "reason_text": "joint score 0.17 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.44816416041298807,
+      "reason_text": "joint score 0.45 below the acceptance threshold"
+    }
+  },
+  {
+    "session": "20260828T130454_9446fb44",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.760208115032603,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7724921517591529,
+      "reason_text": "joint score 0.77 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.760208115032603,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T133910_7f731b19",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7609998462456127,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7782293852742151,
+      "reason_text": "joint score 0.78 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7609998462456127,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134237_57a3891f",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6662994208993092,
+      "reason_text": "joint score 0.67 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5786035508627466,
+      "reason_text": "joint score 0.58 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6662994208993092,
+      "reason_text": "joint score 0.67 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134406_70c01fdb",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5496487416253996,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.11454571918946901,
+      "reason_text": "joint score 0.11 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5496487416253996,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    }
+  },
+  {
+    "session": "20260828T134531_70eb6bfe",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7571656369174112,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7691908698507784,
+      "reason_text": "joint score 0.77 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7571656369174112,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134636_1786481b",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7534631475270809,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.758196653523391,
+      "reason_text": "joint score 0.76 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7534631475270809,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134733_d3b795b0",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7742892325408306,
+      "reason_text": "joint score 0.77 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8060764823590678,
+      "reason_text": "joint score 0.81 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7742892325408306,
+      "reason_text": "joint score 0.77 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134828_877571f1",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6293751033023226,
+      "reason_text": "joint score 0.63 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5153713988316222,
+      "reason_text": "joint score 0.52 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6293751033023226,
+      "reason_text": "joint score 0.63 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T134935_64a09241",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7994388569728212,
+      "reason_text": "joint score 0.80 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8563502278272436,
+      "reason_text": "joint score 0.86 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7994388569728212,
+      "reason_text": "joint score 0.80 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135039_6f0be2c8",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7971061671955774,
+      "reason_text": "joint score 0.80 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8481146064618785,
+      "reason_text": "joint score 0.85 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7971061671955774,
+      "reason_text": "joint score 0.80 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135143_0586f784",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.793404212303931,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8440434752415058,
+      "reason_text": "joint score 0.84 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.793404212303931,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135241_cf46a085",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7850379001887554,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8288672814713538,
+      "reason_text": "joint score 0.83 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7850379001887554,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135347_54bff4b6",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7760837356232148,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8080483339502357,
+      "reason_text": "joint score 0.81 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7760837356232148,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135444_b22ac763",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.775583214288875,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8142694542769787,
+      "reason_text": "joint score 0.81 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.775583214288875,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135546_fb8b4383",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6757095492767247,
+      "reason_text": "joint score 0.68 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.602057201352685,
+      "reason_text": "joint score 0.60 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6757095492767247,
+      "reason_text": "joint score 0.68 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135641_eb21c64b",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6504449970606372,
+      "reason_text": "joint score 0.65 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5037999503253313,
+      "reason_text": "joint score 0.50 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6504449970606372,
+      "reason_text": "joint score 0.65 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135755_91bee26e",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7170411387096,
+      "reason_text": "joint score 0.72 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.6588944602231885,
+      "reason_text": "joint score 0.66 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7170411387096,
+      "reason_text": "joint score 0.72 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T135853_399cc533",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5466586725563273,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.3646734835069083,
+      "reason_text": "joint score 0.36 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5466586725563273,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    }
+  },
+  {
+    "session": "20260828T135946_9dc636a3",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5497571130865058,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.3344594808858669,
+      "reason_text": "joint score 0.33 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.5497571130865058,
+      "reason_text": "joint score 0.55 below the acceptance threshold"
+    }
+  },
+  {
+    "session": "20260828T140052_6e839aed",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6615006870541978,
+      "reason_text": "joint score 0.66 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.569476178394685,
+      "reason_text": "joint score 0.57 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.6615006870541978,
+      "reason_text": "joint score 0.66 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260828T140156_5326987d",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.782142651859954,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8153152120432267,
+      "reason_text": "joint score 0.82 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.782142651859954,
+      "reason_text": "joint score 0.78 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260831T224640_16f21b93",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=nan)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=nan)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=nan)"
+    }
+  },
+  {
+    "session": "20260831T225359_d7f73663",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.5108912279376283)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.5108912279376283)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.5108912279376283)"
+    }
+  },
+  {
+    "session": "20260831T225631_82ac104d",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.1412680662726424)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.1412680662726424)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-1.1412680662726424)"
+    }
+  },
+  {
+    "session": "20260831T225801_316d0b22",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.1503307574756086)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.1503307574756086)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.1503307574756086)"
+    }
+  },
+  {
+    "session": "20260901T074009_d792ee9e",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7860494762545517,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.8459590952564492,
+      "reason_text": "joint score 0.85 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7860494762545517,
+      "reason_text": "joint score 0.79 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260901T074129_260125e3",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.7392432641888608)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.7392432641888608)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.7392432641888608)"
+    }
+  },
+  {
+    "session": "20260901T075351_f1e85820",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8165027792396928)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8165027792396928)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8165027792396928)"
+    }
+  },
+  {
+    "session": "20260901T080629_0461d846",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.12448250289427265)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.12448250289427265)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.12448250289427265)"
+    }
+  },
+  {
+    "session": "20260901T084724_da9f9a21",
+    "full": {
+      "verdict": "REJECT",
+      "joint_score": 0.6329796318965315,
+      "reason_text": "optical lane failed -- scored 0.23, below reject_threshold; a lane failing this clearly cannot be outvoted by another lane's confidence"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.23320605488998308,
+      "reason_text": "joint score 0.23 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "REJECT",
+      "joint_score": 0.6329796318965315,
+      "reason_text": "optical lane failed -- scored 0.23, below reject_threshold; a lane failing this clearly cannot be outvoted by another lane's confidence"
+    }
+  },
+  {
+    "session": "20260901T084931_590e8f0e",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8658509619164722)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8658509619164722)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8658509619164722)"
+    }
+  },
+  {
+    "session": "20260901T085419_be0b4eea",
+    "full": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8764081603051133)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": NaN,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8764081603051133)"
+    },
+    "acoustic": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "optical lane: insufficient signal (snr_db=-0.8764081603051133)"
+    }
+  },
+  {
+    "session": "20260901T090233_241b5f1d",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7639384676846565,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.785604660719254,
+      "reason_text": "joint score 0.79 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7639384676846565,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260901T090959_6efcb26e",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7624765623383805,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7828981062214856,
+      "reason_text": "joint score 0.78 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7624765623383805,
+      "reason_text": "joint score 0.76 across 2 coherent lane(s)"
+    }
+  },
+  {
+    "session": "20260901T091341_4a144c24",
+    "full": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7540287701942884,
+      "reason_text": "joint score 0.75 across 2 coherent lane(s)"
+    },
+    "optical": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7500000000000001,
+      "reason_text": "joint score 0.75 below the acceptance threshold"
+    },
+    "typing": {
+      "verdict": "RE-CHALLENGE",
+      "joint_score": 0.7607664711878728,
+      "reason_text": "joint score 0.76 below the acceptance threshold"
+    },
+    "acoustic": {
+      "verdict": "ACCEPT",
+      "joint_score": 0.7540287701942884,
       "reason_text": "joint score 0.75 across 2 coherent lane(s)"
     }
   }
