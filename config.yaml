@@ -40,7 +40,7 @@ emitter:
 optical:
   camera_index: 0
   model_path: models/face_landmarker.task
-  exposure_value: -3              # log2 seconds. -6 (M0's original) was too dark for MediaPipe to find a
+  exposure_value: -4              # log2 seconds. -6 (M0's original) was too dark for MediaPipe to find a
                                    # face at all in this room's actual ambient light (mean luminance ~24/255,
                                    # confirmed via a clean fresh-capture-per-value sweep on 2026-08-06); -3 is
                                    # the darkest/fastest setting in that sweep where a face is reliably found.
@@ -78,6 +78,11 @@ optical:
                                    # accordingly -- turn back off once lighting lets exposure go faster.
   auto_chip_rate_divisor: 10.0     # chosen chip_rate_hz = measured_fps / this, clamped to [0.5, 5.0] Hz
   auto_chip_rate_min_chips: 60    # session duration is lengthened so at least this many chips are emitted
+  camera_warmup_frames: 30        # 2026-09-01: discarded (grab+retrieve, not read()) right after exposure
+                                   # is locked and BEFORE the auto_chip_rate preflight FPS measurement --
+                                   # DSHOW cameras take several frames after an exposure change before fps
+                                   # and brightness actually settle; measuring too early picks a chip rate
+                                   # for the OLD (often much slower) exposure's frame rate, not the real one
 
 eval:
   logs_dir: logs

@@ -9,12 +9,13 @@ ordering claim unverified, matching this repo's "verify empirically,
 don't assume" discipline applied elsewhere (e.g. the LFSR tap table,
 the SNR passband).
 """
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import cv2
 import pytest
 
-from praesens.capture import CaptureConfig, configure_capture_format
+import praesens.capture as capture_mod
+from praesens.capture import CaptureConfig, configure_capture_format, measure_steady_state_fps
 
 
 def _make_mock_cap(fourcc_readback: str = "MJPG", width: int = 640, height: int = 480,
@@ -152,3 +153,112 @@ def test_capture_config_from_dict_ignores_unknown_keys():
     assert config.fourcc == "MJPG"
     assert config.width == 800
     assert config.height == 480  # default, untouched
+
+
+# ---------------------------------------------------------------------------
+# measure_steady_state_fps -- 2026-09-01 preflight-staleness fix. Bug: the
+# auto_chip_rate preflight measurement in praesens/session.py used to run
+# BEFORE exposure was ever locked, measuring whatever fps the driver
+# defaulted to on open rather than the fps achievable at the CONFIGURED
+# exposure_value. These tests verify the ACTUAL ordering (lock, then
+# warm-up frames, then measurement) against a mocked capture -- not just
+# that the right functions get called, but that the warm-up frames are
+# genuinely consumed BEFORE the measurement starts.
+# ---------------------------------------------------------------------------
+
+def test_measure_steady_state_fps_locks_exposure_before_any_grab():
+    """lock_camera must run before even the warm-up loop starts -- a lock
+    that happens after frames have already been grabbed doesn't fix
+    anything, since those frames were captured under the OLD exposure."""
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+    grab_count_at_lock_call = []
+
+    def fake_lock_camera(cap_arg, config_arg, warn_list_arg):
+        grab_count_at_lock_call.append(cap_arg.grab.call_count)
+        return True
+
+    with patch.object(capture_mod, "lock_camera", side_effect=fake_lock_camera) as mock_lock, \
+         patch.object(capture_mod, "measure_capture_fps", return_value=16.0):
+        measure_steady_state_fps(cap, optical_config, warmup_frames=30)
+
+    mock_lock.assert_called_once()
+    assert grab_count_at_lock_call == [0]  # no frames grabbed yet when lock_camera ran
+
+
+def test_measure_steady_state_fps_measures_only_after_warmup_frames_consumed():
+    """The core acceptance test: measure_capture_fps must not be called
+    until exactly `warmup_frames` grab/retrieve pairs have already
+    happened."""
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+    grab_count_at_measure_call = []
+
+    def fake_measure_capture_fps(cap_arg, n_frames=10):
+        grab_count_at_measure_call.append(cap_arg.grab.call_count)
+        return 16.0
+
+    with patch.object(capture_mod, "lock_camera", return_value=True), \
+         patch.object(capture_mod, "measure_capture_fps", side_effect=fake_measure_capture_fps):
+        result = measure_steady_state_fps(cap, optical_config, warmup_frames=30)
+
+    assert grab_count_at_measure_call == [30]
+    assert cap.retrieve.call_count == 30  # every warm-up grab is paired with a retrieve (DSHOW-safe)
+    assert result == 16.0
+
+
+def test_measure_steady_state_fps_respects_a_different_warmup_frame_count():
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+    grab_count_at_measure_call = []
+
+    def fake_measure_capture_fps(cap_arg, n_frames=10):
+        grab_count_at_measure_call.append(cap_arg.grab.call_count)
+        return 16.0
+
+    with patch.object(capture_mod, "lock_camera", return_value=True), \
+         patch.object(capture_mod, "measure_capture_fps", side_effect=fake_measure_capture_fps):
+        measure_steady_state_fps(cap, optical_config, warmup_frames=5)
+
+    assert grab_count_at_measure_call == [5]
+
+
+def test_measure_steady_state_fps_zero_warmup_frames_measures_immediately():
+    """warmup_frames=0 is a valid (if inadvisable) configuration -- must
+    not crash, and measurement starts with zero frames consumed."""
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+    grab_count_at_measure_call = []
+
+    def fake_measure_capture_fps(cap_arg, n_frames=10):
+        grab_count_at_measure_call.append(cap_arg.grab.call_count)
+        return 16.0
+
+    with patch.object(capture_mod, "lock_camera", return_value=True), \
+         patch.object(capture_mod, "measure_capture_fps", side_effect=fake_measure_capture_fps):
+        measure_steady_state_fps(cap, optical_config, warmup_frames=0)
+
+    assert grab_count_at_measure_call == [0]
+
+
+def test_measure_steady_state_fps_forwards_warn_list_to_lock_camera():
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+    warn_list: list = []
+
+    with patch.object(capture_mod, "lock_camera") as mock_lock, \
+         patch.object(capture_mod, "measure_capture_fps", return_value=16.0):
+        measure_steady_state_fps(cap, optical_config, warmup_frames=1, warn_list=warn_list)
+
+    mock_lock.assert_called_once_with(cap, optical_config, warn_list)
+
+
+def test_measure_steady_state_fps_no_warn_list_does_not_raise():
+    cap = _make_mock_cap()
+    optical_config = MagicMock()
+
+    with patch.object(capture_mod, "lock_camera", return_value=True), \
+         patch.object(capture_mod, "measure_capture_fps", return_value=16.0):
+        result = measure_steady_state_fps(cap, optical_config, warmup_frames=1, warn_list=None)
+
+    assert result == 16.0

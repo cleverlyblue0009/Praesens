@@ -633,3 +633,64 @@ warning firing/not-firing correctly off a monkeypatched
 
 **Config added:** top-level `capture:` block (`fourcc`, `width`, `height`,
 `requested_fps`, `warn_below_fps`).
+
+---
+
+## Preflight FPS staleness fix (2026-09-01) — auto_chip_rate was picking a chip rate for a camera state that no longer existed by the time the session ran
+
+**What was found:** with `optical.exposure_value` moved to `-4` (more
+light became available; `-3`'s ~8fps ceiling from the capture-throughput
+investigation above no longer applied), real sessions were running at a
+genuinely-achieved `measured_fps=16.0` with 100% face detection, but
+`auto_chip_rate`'s preflight measurement still reported `8.0` and picked
+`chip_rate_hz=0.80` -- SNR stayed stuck. Root cause confirmed by reading
+the actual call order, not assumed: in `praesens/session.py`,
+`preflight_fps = measure_capture_fps(cap)` (feeding `pick_auto_chip_rate`,
+which fixes `chip_rate_hz` for the whole session) ran BEFORE exposure was
+ever locked -- `lock_camera` only happened later, inside
+`praesens.optical.run_session()`, called AFTER the chip-rate decision was
+already baked into `challenge_cfg`. The preflight was measuring whatever
+fps the driver defaulted to on open, not the fps achievable at the
+CONFIGURED `exposure_value`. `praesens/spatial.py`'s equivalent block did
+NOT have this specific bug (it already locked exposure before measuring)
+but had no explicit warm-up burst either.
+
+**What was built:** `praesens/capture.py` gained
+`measure_steady_state_fps(cap, optical_config, warmup_frames, warn_list=None)`
+-- locks exposure (`praesens.optical.lock_camera`, completely unchanged:
+same candidate sweep, same `exposure_value`, same `disable_auto_wb`
+logic), discards `warmup_frames` frames (grab+retrieve pairs, matching
+`measure_capture_fps`'s own DSHOW-safe pattern), THEN measures. New config
+key `optical.camera_warmup_frames` (default 30). `praesens/session.py`'s
+auto_chip_rate block now calls this instead of a bare
+`measure_capture_fps(cap)`; `lock_camera` still runs again later inside
+`run_session()` exactly as before (idempotent, harmless -- deliberately
+NOT removed, to keep this fix to ONLY the ordering of the preflight
+measurement, not a restructuring of `run_session()` itself).
+`praesens/spatial.py`'s `__main__` gained the same warm-up burst inline
+(exposure there was already locked in the right place, just needed the
+settle time).
+
+**What was measured:** `python -m praesens.session --condition bonafide --camera-index 0`
+(`logs/20260901T090233_241b5f1d.json`):
+
+- `auto_chip_rate: measured preflight FPS=16.0 -> chip_rate_hz=1.60,
+  duration_s=37.4` -- exactly `16.0 / auto_chip_rate_divisor(10.0) = 1.60`,
+  matching the real achieved rate, not the stale 8.0 reading.
+- `measured_fps=16.0` for the actual scored session -- IDENTICAL to the
+  preflight prediction, confirming the mismatch is gone.
+- `snr_db=7.72` (floor is `3.0`) and `insufficient_signal=False`.
+- `score=0.786`, `n_frames=556`, `n_face_detected=556` (100%).
+
+**Tests:** `tests/test_capture.py` gained 6 tests for
+`measure_steady_state_fps` (21 total in that file): `lock_camera` runs
+before any frame is grabbed; the measurement call happens only after
+EXACTLY `warmup_frames` grab/retrieve pairs (verified by recording
+`cap.grab.call_count` at the moment the (mocked) `measure_capture_fps` is
+invoked -- the actual acceptance criterion, not just "the functions got
+called in some order"); a different `warmup_frames` value is respected;
+`warmup_frames=0` doesn't crash; `warn_list` is forwarded to
+`lock_camera` unchanged; a missing `warn_list` doesn't raise. Full suite:
+81/81 pass.
+
+**Config added:** `optical.camera_warmup_frames` (default 30).

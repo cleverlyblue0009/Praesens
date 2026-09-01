@@ -23,10 +23,10 @@ from pathlib import Path
 import cv2
 import yaml
 
-from praesens.capture import CaptureConfig, configure_capture_format
+from praesens.capture import CaptureConfig, configure_capture_format, measure_steady_state_fps
 from praesens.challenge import Challenge, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
-from praesens.optical import OpticalConfig, run_session, measure_capture_fps
+from praesens.optical import OpticalConfig, run_session
 
 VALID_CONDITIONS = {
     "bonafide", "emitter_off",
@@ -86,7 +86,17 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     challenge_cfg = dict(raw_config["challenge"])
     auto_chip_rate_used = bool(raw_config["optical"].get("auto_chip_rate", False))
     if auto_chip_rate_used:
-        preflight_fps = measure_capture_fps(cap)
+        # Bug fixed 2026-09-01: this measurement used to run BEFORE exposure
+        # was ever locked (lock_camera only happened later, inside
+        # run_session() below) -- see praesens.capture.measure_steady_state_fps's
+        # docstring for the full story. Locking exposure here is safe even
+        # though run_session() will lock it again later (idempotent).
+        preflight_warn_list: list = []
+        warmup_frames = raw_config["optical"].get("camera_warmup_frames", 30)
+        preflight_fps = measure_steady_state_fps(cap, oconfig, warmup_frames, preflight_warn_list)
+        for w in preflight_warn_list:
+            print(f"WARNING: {w}")
+
         chip_rate_hz, duration_s = pick_auto_chip_rate(
             preflight_fps,
             divisor=raw_config["optical"].get("auto_chip_rate_divisor", 6.0),

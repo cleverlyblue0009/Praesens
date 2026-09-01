@@ -325,6 +325,15 @@ if __name__ == "__main__":
     chip_rate_hz = raw["challenge"]["chip_rate_hz"]
     duration_s = args.seconds
     if raw["optical"].get("auto_chip_rate", False):
+        # Same fix as praesens/session.py (2026-09-01): exposure is already
+        # locked above (unlike session.py's old bug, this file always
+        # locked before measuring), but a warm-up burst was still missing --
+        # DSHOW cameras take several frames to settle fps after an exposure
+        # change, so measure only after discarding camera_warmup_frames.
+        warmup_frames = raw["optical"].get("camera_warmup_frames", 30)
+        for _ in range(warmup_frames):
+            cap.grab()
+            cap.retrieve()
         preflight_fps = measure_capture_fps(cap)
         chip_rate_hz, min_duration_s = pick_auto_chip_rate(
             preflight_fps,

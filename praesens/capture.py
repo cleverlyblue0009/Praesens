@@ -17,9 +17,23 @@ negotiated, in DSHOW-safe order: FOURCC and resolution are set (and, on
 this backend, effectively negotiated together) BEFORE fps, and all of it
 happens BEFORE any exposure/white-balance work -- that stays entirely in
 praesens.optical.lock_camera, called separately by each site exactly as
-it already was; this module never touches exposure/WB and never calls
-lock_camera itself, so every existing capture site's exposure/WB
-behaviour is unchanged, byte-for-byte.
+it already was; configure_capture_format() itself never touches
+exposure/WB, so every existing capture site's exposure/WB behaviour is
+unchanged, byte-for-byte.
+
+measure_steady_state_fps() (added 2026-09-01) fixes a related, separate
+bug: praesens/session.py's auto_chip_rate preflight FPS measurement used
+to run BEFORE exposure was ever locked (lock_camera only happened later,
+inside praesens.optical.run_session), so it measured whatever fps the
+driver defaulted to on open -- not the fps achievable at the CONFIGURED
+optical.exposure_value. At exposure_value=-4 that meant a stale ~8fps
+reading got baked into chip_rate_hz for the whole session while the real,
+exposure-locked session then ran at ~16fps, badly undersampled relative
+to that rate. This function locks exposure (via lock_camera, unchanged)
+THEN discards a configurable warm-up burst (optical.camera_warmup_frames)
+THEN measures -- DSHOW cameras take several frames to settle fps and
+brightness after an exposure change, so measuring immediately after the
+lock() call still risks reading a transient.
 
 Every capture-creation site in the codebase now calls
 configure_capture_format() immediately after opening the device and
@@ -47,7 +61,7 @@ from dataclasses import dataclass
 
 import cv2
 
-from praesens.optical import measure_capture_fps
+from praesens.optical import measure_capture_fps, lock_camera
 
 
 @dataclass
@@ -126,3 +140,28 @@ def configure_capture_format(cap, config: CaptureConfig, warn_list: list | None 
         "fps_requested": config.requested_fps, "fps_reported": reported_fps,
         "fps_measured": measured_fps,
     }
+
+
+def measure_steady_state_fps(cap, optical_config, warmup_frames: int, warn_list: list | None = None) -> float:
+    """Locks exposure (praesens.optical.lock_camera, unchanged -- same
+    candidate sweep, same exposure_value, same disable_auto_wb logic),
+    discards `warmup_frames` frames (grab+retrieve pairs, matching
+    measure_capture_fps's own DSHOW-safe pattern -- grab() alone doesn't
+    block for a new frame on this driver), THEN measures fps. Returns the
+    measured rate; warn_list, if given, is mutated in place by
+    lock_camera exactly as it already was at every other call site.
+
+    Callers: praesens/session.py's and praesens/spatial.py's
+    auto_chip_rate preflight -- see module docstring for the bug this
+    fixes. lock_camera() is safe to call here even though it will be
+    called AGAIN later inside praesens.optical.run_session() for
+    session.py's callers specifically: it's idempotent (re-locking the
+    same exposure_value does nothing harmful), and moving it here is
+    deliberately the ONLY ordering change -- run_session() itself is
+    untouched.
+    """
+    lock_camera(cap, optical_config, warn_list if warn_list is not None else [])
+    for _ in range(warmup_frames):
+        cap.grab()
+        cap.retrieve()
+    return measure_capture_fps(cap)
