@@ -17,6 +17,8 @@ session 1 would mean "looks like session 1 used to look," not liveness.
 """
 from __future__ import annotations
 
+import platform
+import threading
 import time
 from pathlib import Path
 
@@ -24,6 +26,7 @@ import cv2
 import numpy as np
 import yaml
 
+from praesens.camera import open_camera
 from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.challenge import Challenge
 from praesens.emit import Emitter, EmitterConfig
@@ -56,12 +59,39 @@ def run_one_diagnostic(label: str, cap, oconfig, raw_config: dict, emitter_enabl
 
     emitter = Emitter(challenge, econfig)
     start_time = time.perf_counter()
-    emitter.start(start_time, challenge.duration_s)
-    try:
-        result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s,
-                              emitter=emitter)
-    finally:
-        emitter.stop()
+
+    if platform.system() == "Darwin":
+        # Same macOS fix as praesens/session.py: the emitter's OpenCV window
+        # must run on the main thread here, so capture/scoring moves to a
+        # background thread instead.
+        result_box: dict = {}
+        error_box: dict = {}
+
+        def _capture_worker():
+            try:
+                result_box["result"] = run_session(
+                    cap, challenge, oconfig, start_time, challenge.duration_s, emitter=emitter
+                )
+            except Exception as exc:
+                error_box["error"] = exc
+
+        capture_thread = threading.Thread(target=_capture_worker, daemon=True)
+        capture_thread.start()
+        try:
+            emitter.run_blocking(start_time, challenge.duration_s)
+        finally:
+            capture_thread.join(timeout=challenge.duration_s + 5.0)
+
+        if "error" in error_box:
+            raise error_box["error"]
+        result = result_box["result"]
+    else:
+        emitter.start(start_time, challenge.duration_s)
+        try:
+            result = run_session(cap, challenge, oconfig, start_time, challenge.duration_s,
+                                  emitter=emitter)
+        finally:
+            emitter.stop()
 
     samples_per_chip = (result.measured_fps / challenge.chip_rate_hz
                          if not np.isnan(result.measured_fps) else float("nan"))
@@ -143,7 +173,7 @@ def main():
     model_path = Path(oconfig.model_path)
     oconfig.model_path = str(model_path if model_path.is_absolute() else REPO_ROOT / model_path)
 
-    cap = cv2.VideoCapture(oconfig.camera_index, cv2.CAP_DSHOW)
+    cap = open_camera(oconfig.camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {oconfig.camera_index}")
 

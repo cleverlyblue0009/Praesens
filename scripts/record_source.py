@@ -20,6 +20,7 @@ from pathlib import Path
 
 import cv2
 
+from praesens.camera import open_camera
 from praesens.capture import CaptureConfig, configure_capture_format
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -28,7 +29,7 @@ DATA_DIR = REPO_ROOT / "data"
 
 def record_source(camera_index: int, seconds: float, fps: float, out_path: Path,
                    width: int = 1280, height: int = 720, fourcc: str | None = "MJPG") -> dict:
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    cap = open_camera(camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {camera_index}")
     cconfig = CaptureConfig(fourcc=fourcc, width=width, height=height, requested_fps=fps)

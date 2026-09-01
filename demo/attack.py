@@ -26,6 +26,7 @@ import cv2
 import yaml
 
 from demo.live import LiveDashboard, REPO_ROOT
+from praesens.camera import open_camera
 from praesens.capture import CaptureConfig, configure_capture_format
 from praesens.optical import lock_camera
 
@@ -34,7 +35,7 @@ def probe_camera(index: int, oconfig, cconfig: CaptureConfig, warn_prefix: str =
     """Opens, verifies a frame is actually deliverable, and exposure-locks
     a camera index. Returns None (and releases) if the index doesn't work,
     rather than raising -- enumeration expects most indices to be empty."""
-    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    cap = open_camera(index)
     if not cap.isOpened():
         cap.release()
         return None
