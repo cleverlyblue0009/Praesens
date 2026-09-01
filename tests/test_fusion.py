@@ -139,3 +139,79 @@ def test_min_contributing_lanes_forces_re_challenge_even_with_a_high_score():
     adj = Adjudicator(config)
     result = adj.adjudicate([_ok("optical", subscore=0.95, lag_ms=40.0), acoustic_lane_stub()])
     assert result.verdict == "RE-CHALLENGE", "one contributing lane should not satisfy a 2-lane minimum"
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-02 bug fix: a confidence-weighted mean must not let one confident,
+# high-scoring lane rescue a session where another CONTRIBUTING lane's own
+# subscore already reads as an attack (below reject_threshold). Confirmed
+# reproducible before this fix with realistic values (optical subscore=0.05
+# confidence=0.20 -- the lowest confidence reachable while status is still
+# "ok" at the default snr_floor_db=3.0/15.0 scaling -- plus typing
+# subscore=0.95 confidence=1.0 -> joint=0.80, ACCEPT).
+# ---------------------------------------------------------------------------
+
+def test_a_passing_lane_cannot_rescue_a_contributing_lane_that_scored_below_reject_threshold():
+    config = AdjudicatorConfig(accept_threshold=0.6, reject_threshold=0.3)
+    adj = Adjudicator(config)
+    optical_attack = _ok("optical", subscore=0.05, lag_ms=290.0, confidence=0.20)
+    typing_strong = _ok("typing", subscore=0.95, lag_ms=-10.0, confidence=1.0)
+
+    result = adj.adjudicate([optical_attack, typing_strong, acoustic_lane_stub()])
+
+    # The unguarded weighted mean here is (0.05*0.20 + 0.95*1.0)/1.20 = 0.80,
+    # which clears accept_threshold -- confirming this test actually
+    # exercises the rescue scenario, not a case that would fail anyway.
+    assert result.joint_score == pytest.approx(0.80, abs=0.01)
+    assert result.verdict == "REJECT"
+    assert "optical" in result.reason_text
+    assert "0.05" in result.reason_text
+
+
+def test_downgrade_only_applies_when_the_failing_lane_actually_contributes():
+    """A lane with a low subscore that does NOT contribute (implausible
+    lag, or non-ok status) must not trigger the downgrade -- only a lane
+    that genuinely counted toward the joint score and still scored below
+    reject_threshold should pull an ACCEPT back."""
+    config = AdjudicatorConfig(accept_threshold=0.6, reject_threshold=0.3)
+    adj = Adjudicator(config)
+    optical_excluded = _ok("optical", subscore=0.05, lag_ms=500.0, confidence=0.20)  # lag outside (0,300)
+    typing_strong = _ok("typing", subscore=0.95, lag_ms=-10.0, confidence=1.0)
+
+    result = adj.adjudicate([optical_excluded, typing_strong])
+
+    assert result.verdict == "ACCEPT"  # typing alone, uncontested, legitimately accepts
+
+
+def test_downgrade_does_not_fire_for_a_verdict_that_was_already_below_accept():
+    """The downgrade is scoped to pulling back an ACCEPT -- a verdict that
+    was already REJECT/RE-CHALLENGE through the normal threshold branches
+    must keep ITS OWN reason (e.g. a no_evidence lane), not have the
+    failing-lane message override it."""
+    config = AdjudicatorConfig(accept_threshold=0.6, reject_threshold=0.3)
+    adj = Adjudicator(config)
+    result = adj.adjudicate([
+        _ok("optical", subscore=0.1, lag_ms=40.0),  # contributes, below reject_thr, but verdict is
+        _no_evidence("typing", diagnostics="no typing in window"),  # already REJECT via the normal branch
+    ])
+    assert result.verdict == "REJECT"
+    assert "typing" in result.reason_text
+    assert "no evidence" in result.reason_text
+
+
+def test_re_challenge_names_the_real_joint_score_not_the_acoustic_stub():
+    """Bug fix (2026-09-02): a RE-CHALLENGE where two REAL lanes both
+    contributed but the weighted mean fell in the gap between thresholds
+    used to name the permanently-stubbed acoustic lane instead of the
+    actual number -- the acoustic lane is uninformative here, the real
+    story is 'joint score below acceptance.'"""
+    config = AdjudicatorConfig(accept_threshold=0.6, reject_threshold=0.3)
+    adj = Adjudicator(config)
+    optical = _ok("optical", subscore=0.046, lag_ms=295.0, confidence=0.37)
+    typing = _ok("typing", subscore=0.75, lag_ms=-30.0, confidence=0.8)
+
+    result = adj.adjudicate([optical, typing, acoustic_lane_stub()])
+
+    assert result.verdict == "RE-CHALLENGE"
+    assert "joint score" in result.reason_text
+    assert "acoustic" not in result.reason_text

@@ -183,6 +183,26 @@ class Adjudicator:
             verdict = "REJECT"
         else:
             verdict = "RE-CHALLENGE"
+
+        # Bug fix (2026-09-02): a confidence-weighted MEAN can let one
+        # high-confidence, high-subscore lane numerically outvote another
+        # CONTRIBUTING lane that, on its own terms, already looks like an
+        # attack (subscore below reject_threshold) -- confirmed reachable
+        # with realistic values (optical subscore=0.05 confidence=0.20 +
+        # typing subscore=0.95 confidence=1.0 -> joint=0.80, ACCEPT, before
+        # this fix). Averaging is not the same claim as joint coherence:
+        # "both lanes agree" must mean no contributing lane is independently
+        # screaming REJECT. Scoped narrowly to the ACCEPT case only -- a
+        # verdict already RE-CHALLENGE/REJECT is not made MORE lenient by
+        # this check, only an about-to-be-lenient ACCEPT is pulled back.
+        failing_contributors = [
+            lane for lane in lane_results
+            if contributions[lane.lane_name]["contributes"] and lane.subscore < reject_thr
+        ]
+        downgraded_from_accept = verdict == "ACCEPT" and bool(failing_contributors)
+        if downgraded_from_accept:
+            verdict = "REJECT"
+
         self._last_verdict = verdict
 
         per_lane_reasons = {
@@ -190,7 +210,10 @@ class Adjudicator:
             for lane in lane_results
         }
 
-        reason_text = self._summarize(verdict, lane_results, contributions, joint_score)
+        reason_text = self._summarize(
+            verdict, lane_results, contributions, joint_score,
+            failing_contributors if downgraded_from_accept else None,
+        )
         return JointResult(verdict=verdict, joint_score=joint_score, lane_results=lane_results,
                             reason_text=reason_text, per_lane_reasons=per_lane_reasons)
 
@@ -203,8 +226,22 @@ class Adjudicator:
     _PERMANENTLY_STUBBED_LANES = frozenset({"acoustic"})
 
     @classmethod
-    def _summarize(cls, verdict: str, lane_results: list, contributions: dict, joint_score: float) -> str:
+    def _summarize(cls, verdict: str, lane_results: list, contributions: dict, joint_score: float,
+                    failing_contributors: list | None = None) -> str:
         n_contributing = sum(1 for c in contributions.values() if c["contributes"])
+
+        # Most specific reason of all: this verdict is REJECT specifically
+        # BECAUSE a contributing lane's own subscore said so, overriding
+        # what would otherwise have been an ACCEPT -- see adjudicate()'s
+        # downgraded_from_accept. Only ever non-empty in that exact case,
+        # never for a REJECT/RE-CHALLENGE reached through the normal
+        # threshold branches (those keep their own, different reasons below).
+        if failing_contributors:
+            worst = min(failing_contributors, key=lambda l: l.subscore)
+            return (f"{worst.lane_name} lane failed -- scored {worst.subscore:.2f}, below "
+                    f"reject_threshold; a lane failing this clearly cannot be outvoted by "
+                    f"another lane's confidence")
+
         if verdict == "ACCEPT":
             return f"joint score {joint_score:.2f} across {n_contributing} coherent lane(s)"
 
@@ -220,10 +257,17 @@ class Adjudicator:
         for lane in real_lanes:
             if lane.status in ("no_evidence", "insufficient_signal"):
                 return _lane_reason(lane, False)
+        # Then: a real, numeric explanation -- something DID contribute,
+        # it just didn't clear the threshold -- BEFORE falling back to
+        # naming a permanently-stubbed lane (bug fixed 2026-09-02: this
+        # used to be checked AFTER the stubbed-lane loop below, so it was
+        # dead code whenever acoustic was present -- every RE-CHALLENGE
+        # with two real contributing-but-insufficient lanes named the inert
+        # acoustic stub instead of the actual joint score).
+        if not np.isnan(joint_score):
+            return f"joint score {joint_score:.2f} below the acceptance threshold"
         # Then: any stubbed lane, only if nothing real explains the verdict.
         for lane in lane_results:
             if lane.lane_name in cls._PERMANENTLY_STUBBED_LANES:
                 return _lane_reason(lane, False)
-        if np.isnan(joint_score):
-            return "no lane produced usable evidence this window"
-        return f"joint score {joint_score:.2f} below the acceptance threshold"
+        return "no lane produced usable evidence this window"
