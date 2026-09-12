@@ -183,3 +183,11 @@ demo:
   verdict_banner_hold_s: 4.0     # 2026-09-03: python -m praesens.session's on-screen ACCEPT/REJECT/
                                   # RE-CHALLENGE banner (praesens/session.py) -- how long it's held on
                                   # screen after a session ends, before the window closes
+
+acoustic:
+  sample_rate_hz: 44100
+  carrier_hz: 18000.0
+  amplitude: 0.6
+  lag_search_max_ms: 60.0
+  snr_floor_db: 6.0
+  ramp_ms: 5.0

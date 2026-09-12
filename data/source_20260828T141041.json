@@ -1,0 +1,14 @@
+{
+  "session": "20260828T141041",
+  "condition_label": "clean",
+  "lighting": "normal",
+  "makeup": "none",
+  "subject": "suhaani",
+  "camera_index": 0,
+  "n_frames": 597,
+  "elapsed_s": 20.193593042204157,
+  "width": 1280,
+  "height": 720,
+  "fps_requested": 30.0,
+  "video_path": "data/source_20260828T141041.mp4"
+}
