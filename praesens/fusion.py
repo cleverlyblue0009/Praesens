@@ -47,6 +47,15 @@ class LaneResult:
     lag_ms: float | None            # None unless status == "ok"
     confidence: float               # 0..1, this lane's own confidence in subscore (e.g. sample count, SNR)
     diagnostics: str = ""
+    is_stub: bool = False           # True ONLY for a lane that never ran at all this session (e.g.
+                                     # acoustic_lane_stub() below when --lanes excluded acoustic). A
+                                     # REAL lane that ran and genuinely found nothing (mic too quiet,
+                                     # no face detected) is status="no_evidence" with is_stub=False --
+                                     # that's a real, informative measurement gap, not the same thing
+                                     # as "this lane doesn't exist yet." status alone can't
+                                     # distinguish these two once a lane sometimes runs for real and
+                                     # sometimes doesn't (depending on --lanes), which is why this is
+                                     # a separate field rather than inferred from lane_name/status.
     timestamp: float = field(default_factory=time.perf_counter)
 
     def __post_init__(self):
@@ -57,13 +66,18 @@ class LaneResult:
 
 
 def acoustic_lane_stub() -> LaneResult:
-    """Registers the acoustic lane's LaneResult interface now, permanently
-    no_evidence, so a real acoustic lane later is a new implementation
-    behind this same interface, not a fusion-layer rewrite. No audio
-    capture, no microphone access, no acoustic signal processing exists
-    anywhere in this repo -- this function does no I/O of any kind."""
+    """Fallback LaneResult for a session where --lanes did not include
+    acoustic (or a real acoustic run raised an exception -- see
+    praesens/session.py's acoustic_box error handling). is_stub=True is
+    what tells Adjudicator._summarize() to treat this as "acoustic never
+    ran," not as a real measurement gap -- see LaneResult.is_stub's
+    docstring for why that distinction can't be made from lane_name or
+    status alone anymore, now that praesens.acoustic.run_acoustic_session
+    is a real implementation that sometimes DOES run and legitimately
+    reports no_evidence/insufficient_signal itself."""
     return LaneResult(lane_name="acoustic", subscore=None, status="no_evidence",
-                       lag_ms=None, confidence=0.0, diagnostics="acoustic lane not implemented")
+                       lag_ms=None, confidence=0.0, diagnostics="acoustic lane not implemented",
+                       is_stub=True)
 
 
 # Per-lane plausible-lag windows, in ms, relative to the shared challenge
@@ -217,14 +231,6 @@ class Adjudicator:
         return JointResult(verdict=verdict, joint_score=joint_score, lane_results=lane_results,
                             reason_text=reason_text, per_lane_reasons=per_lane_reasons)
 
-    # Lanes that are ALWAYS no_evidence today (registered-but-stubbed, e.g.
-    # acoustic) are never picked as the PRIMARY reason unless they're the
-    # only lane present -- otherwise a permanent, unchanging fact would
-    # perpetually drown out whatever a real lane (optical/typing) actually
-    # did this window, which is the useful, dynamic diagnosis an operator
-    # or panel needs to see.
-    _PERMANENTLY_STUBBED_LANES = frozenset({"acoustic"})
-
     @classmethod
     def _summarize(cls, verdict: str, lane_results: list, contributions: dict, joint_score: float,
                     failing_contributors: list | None = None) -> str:
@@ -245,7 +251,15 @@ class Adjudicator:
         if verdict == "ACCEPT":
             return f"joint score {joint_score:.2f} across {n_contributing} coherent lane(s)"
 
-        real_lanes = [l for l in lane_results if l.lane_name not in cls._PERMANENTLY_STUBBED_LANES]
+        # A lane that never ran this session (is_stub=True, e.g. acoustic
+        # when --lanes excluded it) is never picked as the PRIMARY reason
+        # unless nothing else explains the verdict -- otherwise a
+        # permanent, unchanging non-fact would perpetually drown out
+        # whatever a real lane actually did this window. A lane that DID
+        # run and genuinely found nothing (is_stub=False, status=
+        # no_evidence/insufficient_signal) is a real, dynamic diagnosis
+        # and belongs in real_lanes like any other measured lane.
+        real_lanes = [l for l in lane_results if not l.is_stub]
 
         # Most informative first: a real lane that measured something (ok)
         # but got excluded for landing at an implausible lag -- a dynamic,
@@ -266,8 +280,8 @@ class Adjudicator:
         # acoustic stub instead of the actual joint score).
         if not np.isnan(joint_score):
             return f"joint score {joint_score:.2f} below the acceptance threshold"
-        # Then: any stubbed lane, only if nothing real explains the verdict.
+        # Then: any never-ran stub, only if nothing real explains the verdict.
         for lane in lane_results:
-            if lane.lane_name in cls._PERMANENTLY_STUBBED_LANES:
+            if lane.is_stub:
                 return _lane_reason(lane, False)
         return "no lane produced usable evidence this window"

@@ -115,7 +115,8 @@ def _record(optical_status="ok", optical_subscore=0.8, optical_lag=45.0,
                 {"lane_name": "typing", "subscore": typing_subscore, "status": typing_status,
                  "lag_ms": typing_lag, "confidence": 0.9, "diagnostics": ""},
                 {"lane_name": "acoustic", "subscore": None, "status": "no_evidence",
-                 "lag_ms": None, "confidence": 0.0, "diagnostics": "acoustic lane not implemented"},
+                 "lag_ms": None, "confidence": 0.0, "diagnostics": "acoustic lane not implemented",
+                 "is_stub": True},
             ],
         },
     }
@@ -279,6 +280,180 @@ def test_run_one_session_optical_plus_typing_opens_the_camera_exactly_once(tmp_p
     assert record["typing"] is not None
     assert record["fusion"]["verdict"] in ("ACCEPT", "RE-CHALLENGE", "REJECT")
     assert "score" in record and "snr_db" in record  # pre-existing schema fields still present
+
+    # acoustic wasn't requested -- must fall back to the stub, and the
+    # stub's is_stub flag must survive into the saved record (this is
+    # what keeps it correctly hidden in print_clean_block, see
+    # test_print_clean_block_accept_both_lanes_pass).
+    assert record["acoustic"] is None
+    acoustic_entry = next(l for l in record["fusion"]["lanes"] if l["lane_name"] == "acoustic")
+    assert acoustic_entry["is_stub"] is True
+
+
+# ---------------------------------------------------------------------------
+# Acoustic lane wiring -- --lanes optical+typing+acoustic. run_acoustic_session
+# itself is mocked (it does real sounddevice I/O, out of scope for a unit
+# test); what's under test here is session.py's OWN wiring: the exact bug
+# fixed after code review (typing_enabled == "optical+typing" excluded the
+# 3-lane string, silently dropping typing whenever acoustic was requested
+# alongside it), the acoustic thread reaching the shared start_time, and a
+# crashed acoustic thread degrading to the stub rather than the session.
+# ---------------------------------------------------------------------------
+
+def _base_three_lane_config(extra_fusion=None):
+    cfg = {
+        "optical": {"camera_index": 0, "model_path": "models/face_landmarker.task",
+                     "auto_chip_rate": False, "detect_every_n_frames": 1, "adaptive_window_s": 999.0},
+        "capture": {},
+        "challenge": {"chip_rate_hz": 10.0, "duration_s": 0.2},
+        "emitter": {"emitter_enabled": True},
+        "typing": {"n_words": 3, "generative": False, "hand_model_path": "models/hand_landmarker.task",
+                    "passive_decay_half_life_s": 5.0},
+        "acoustic": {"sample_rate_hz": 44100, "carrier_hz": 18000.0},
+        "fusion": {"accept_threshold": 0.6, "reject_threshold": 0.3, "min_contributing_lanes": 1},
+    }
+    if extra_fusion:
+        cfg["fusion"].update(extra_fusion)
+    return cfg
+
+
+def _patched_three_lane_session(cap, fake_acoustic_session):
+    """Shared patch context for the tests below -- same mocks as the
+    2-lane test above, plus run_acoustic_session swapped for a fake that
+    never touches real audio hardware."""
+    fake_emitter = MagicMock()
+    fake_emitter.get_log.return_value = []
+    fake_emitter.adaptive_boost_applied.return_value = False
+    fake_emitter.config.max_modulation_depth = 110.0
+
+    fake_keystroke = MagicMock()
+    fake_keystroke.chars_matched = 0
+    fake_keystroke.get_events.return_value = []
+    fake_keystroke.inter_key_intervals.return_value = np.array([])
+    fake_keystroke.last_keystroke_time.return_value = None
+    fake_keystroke.phrase_complete = False
+
+    return patch.object(session_mod, "open_camera", return_value=cap), \
+        patch.object(session_mod, "configure_capture_format"), \
+        patch.object(session_mod, "lock_camera", return_value=True), \
+        patch.object(session_mod, "measure_capture_fps", return_value=16.0), \
+        patch.object(session_mod, "check_nyquist", return_value=None), \
+        patch.object(session_mod, "create_hand_landmarker", return_value=_fake_hand_landmarker()), \
+        patch("praesens.optical.create_landmarker", return_value=_fake_face_landmarker()), \
+        patch.object(session_mod, "Emitter", return_value=fake_emitter), \
+        patch.object(session_mod, "KeystrokeCapture", return_value=fake_keystroke), \
+        patch.object(session_mod, "run_acoustic_session", side_effect=fake_acoustic_session)
+
+
+def test_three_lane_mode_still_runs_typing_not_just_optical_and_acoustic(tmp_path):
+    """Regression test for the exact bug found in code review: lanes ==
+    "optical+typing+acoustic" != "optical+typing", so the ORIGINAL
+    typing_enabled check silently disabled typing whenever acoustic was
+    also requested. This asserts typing actually ran (frames seen,
+    keystroke listener started), not just that the session completed."""
+    from praesens.acoustic import AcousticResult
+    cap, frame = _fake_cap()
+    typing_frames_seen = []
+
+    def fake_typing_process_frame(self, frame_arg, t, start_time):
+        typing_frames_seen.append(frame_arg)
+
+    def fake_acoustic_session(challenge, aconfig):
+        return AcousticResult(status="ok", score=0.9, lag_ms=8.0, snr_db=20.0, diagnostics="snr_db=20.00")
+
+    patches = _patched_three_lane_session(cap, fake_acoustic_session)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
+         patches[7], patches[8], patches[9], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
+         patch.object(session_mod.TypingFrameProcessor, "process_frame", fake_typing_process_frame):
+
+        record, out_path = run_one_session(
+            "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
+            lanes="optical+typing+acoustic", output_dir=tmp_path,
+        )
+
+    assert len(typing_frames_seen) > 0, (
+        "typing lane produced no frames in 3-lane mode -- the typing_enabled "
+        "== \"optical+typing\" bug is back"
+    )
+    assert record["typing"] is not None
+
+
+def test_three_lane_mode_wires_a_real_acoustic_result_into_record_and_fusion(tmp_path):
+    from praesens.acoustic import AcousticResult
+    cap, frame = _fake_cap()
+    seen_challenges = []
+
+    def fake_acoustic_session(challenge, aconfig):
+        seen_challenges.append(challenge)
+        return AcousticResult(status="ok", score=0.93, lag_ms=7.5, snr_db=22.0, diagnostics="snr_db=22.00")
+
+    patches = _patched_three_lane_session(cap, fake_acoustic_session)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
+         patches[7], patches[8], patches[9], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
+         patch.object(session_mod.TypingFrameProcessor, "process_frame", lambda *a, **k: None):
+
+        record, out_path = run_one_session(
+            "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
+            lanes="optical+typing+acoustic", output_dir=tmp_path,
+        )
+
+    # Same challenge object optical/typing already answer -- see
+    # praesens/acoustic.py's module docstring on this being the point of
+    # reusing Challenge's own chip sequence rather than a second seed.
+    assert len(seen_challenges) == 1
+
+    assert record["acoustic"] == {
+        "status": "ok", "score": 0.93, "lag_ms": 7.5, "snr_db": 22.0, "diagnostics": "snr_db=22.00",
+    }
+    acoustic_entry = next(l for l in record["fusion"]["lanes"] if l["lane_name"] == "acoustic")
+    assert acoustic_entry["is_stub"] is False
+    assert acoustic_entry["status"] == "ok"
+    assert acoustic_entry["subscore"] == 0.93
+    assert acoustic_entry["lag_ms"] == 7.5
+    assert acoustic_entry["confidence"] == pytest.approx(np.clip(22.0 / 20.0, 0.05, 1.0))  # acoustic_lane_result's own formula
+
+
+def test_three_lane_mode_acoustic_thread_crash_degrades_to_stub_not_a_session_failure(tmp_path):
+    """An exception inside the acoustic worker thread (e.g. a real
+    sounddevice/PortAudio error on unfamiliar hardware) must not take the
+    whole session down -- optical/typing results are already valid and
+    must still be saved. See session.py's acoustic_box error handling."""
+    cap, frame = _fake_cap()
+
+    def fake_acoustic_session(challenge, aconfig):
+        raise RuntimeError("PortAudio device unavailable")
+
+    patches = _patched_three_lane_session(cap, fake_acoustic_session)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
+         patches[7], patches[8], patches[9], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
+         patch.object(session_mod.TypingFrameProcessor, "process_frame", lambda *a, **k: None):
+
+        record, out_path = run_one_session(
+            "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
+            lanes="optical+typing+acoustic", output_dir=tmp_path,
+        )
+
+    assert record["acoustic"] is None
+    acoustic_entry = next(l for l in record["fusion"]["lanes"] if l["lane_name"] == "acoustic")
+    assert acoustic_entry["is_stub"] is True
+    assert record["fusion"]["verdict"] in ("ACCEPT", "RE-CHALLENGE", "REJECT")  # session still produced a verdict
+
+
+def test_print_clean_block_shows_acoustic_lane_when_it_really_ran(capsys):
+    """Mirror of test_print_clean_block_accept_both_lanes_pass, which
+    checks acoustic stays HIDDEN when it's a stub -- this checks the
+    opposite case, that it's shown once is_stub is False."""
+    record = _record()
+    record["fusion"]["lanes"][2] = {
+        "lane_name": "acoustic", "subscore": 0.9, "status": "ok",
+        "lag_ms": 8.0, "confidence": 0.9, "diagnostics": "snr_db=20.00", "is_stub": False,
+    }
+    print_clean_block(record)
+    out = capsys.readouterr().out
+    assert "Acoustic lane : PASS" in out
 
 
 def test_run_one_session_optical_only_never_touches_typing(tmp_path):

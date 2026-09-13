@@ -62,6 +62,7 @@ from praesens.typing import (
     TypingConfig, TypingResult, TypingFrameProcessor, KeystrokeCapture,
     finalize_typing_result, create_hand_landmarker,
 )
+from praesens.acoustic import AcousticConfig, run_acoustic_session
 from mediapipe.tasks.python import vision as mp_vision
 
 VALID_CONDITIONS = {
@@ -71,7 +72,7 @@ VALID_CONDITIONS = {
     "inject_static", "inject_swap", "inject_reenact", "inject_adaptive",
 }
 
-VALID_LANES = ("optical", "optical+typing")
+VALID_LANES = ("optical", "optical+typing", "optical+typing+acoustic")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -125,6 +126,13 @@ def typing_lane_result(result: TypingResult, decay_half_life_s: float) -> LaneRe
                        diagnostics=(f"n_keystrokes={result.n_keystrokes}, "
                                     f"coherence_lag_ms={result.coherence_lag_ms:.0f}"))
 
+def acoustic_lane_result(result) -> LaneResult:
+    if result.status != "ok":
+        return LaneResult(lane_name="acoustic", subscore=None, status=result.status,
+                           lag_ms=None, confidence=0.0, diagnostics=result.diagnostics)
+    confidence = float(np.clip(result.snr_db / 20.0, 0.05, 1.0))
+    return LaneResult(lane_name="acoustic", subscore=result.score, status="ok",
+                       lag_ms=result.lag_ms, confidence=confidence, diagnostics=result.diagnostics)
 
 def _draw_phrase_overlay(frame: np.ndarray, phrase: str, chars_matched: int) -> np.ndarray:
     """A COPY of frame with the challenge phrase drawn across the top --
@@ -328,7 +336,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         emitter = Emitter(challenge, econfig)
         session_id = generate_session_id()
 
-        typing_enabled = lanes == "optical+typing"
+        typing_enabled = lanes in ("optical+typing", "optical+typing+acoustic")
+        acoustic_enabled = lanes == "optical+typing+acoustic"
         tconfig = None
         expected_phrase = None
         if typing_enabled:
@@ -341,6 +350,29 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
 
         start_time = time.perf_counter()
         typing_result: TypingResult | None = None
+
+        # Acoustic doesn't touch the camera, so it can't slot into
+        # _run_concurrent_lanes()'s shared grab/retrieve loop the way
+        # optical+typing do -- but for the joint-temporal-coherence claim
+        # to mean anything, it must still answer the SAME challenge in
+        # the SAME window as whichever camera path runs below, not
+        # before or after it. Started on its own thread at the same
+        # shared start_time; run_acoustic_session() blocks internally
+        # for its own duration via sd.sleep(), so this thread finishes
+        # on its own without the camera path needing to wait for it.
+        acoustic_thread: threading.Thread | None = None
+        acoustic_box: dict = {}
+        if acoustic_enabled:
+            aconfig = AcousticConfig.from_dict(raw_config.get("acoustic", {}))
+
+            def _acoustic_worker():
+                try:
+                    acoustic_box["result"] = run_acoustic_session(challenge, aconfig)
+                except Exception as exc:
+                    acoustic_box["error"] = exc
+
+            acoustic_thread = threading.Thread(target=_acoustic_worker, daemon=True)
+            acoustic_thread.start()
 
         if typing_enabled:
             optical_result, typing_result = _run_concurrent_lanes(
@@ -380,6 +412,17 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
                                               emitter=emitter)
             finally:
                 emitter.stop()
+
+        if acoustic_thread is not None:
+            acoustic_thread.join(timeout=challenge.duration_s + 5.0)
+            if "error" in acoustic_box:
+                # A crashed acoustic thread must not silently look like
+                # "no_evidence" (that's a different, honest claim -- see
+                # praesens/acoustic.py's own module docstring on this
+                # point) or take down a session whose optical/typing
+                # results are already valid; log it and fall through to
+                # acoustic_lane_stub() below via acoustic_result staying None.
+                print(f"WARNING: acoustic lane thread raised: {acoustic_box['error']}")
     finally:
         cap.release()
 
@@ -391,7 +434,11 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     lane_results = [optical_lane_result(optical_result)]
     if typing_result is not None:
         lane_results.append(typing_lane_result(typing_result, tconfig.passive_decay_half_life_s))
-    lane_results.append(acoustic_lane_stub())
+    acoustic_result = acoustic_box.get("result") if acoustic_enabled else None
+    if acoustic_result is not None:
+        lane_results.append(acoustic_lane_result(acoustic_result))
+    else:
+        lane_results.append(acoustic_lane_stub())
 
     fusion_config = AdjudicatorConfig.from_dict(raw_config.get("fusion", {}))
     joint_result = Adjudicator(fusion_config).adjudicate(lane_results)
@@ -431,6 +478,11 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             "seconds_since_last_keystroke": typing_result.seconds_since_last_keystroke,
             "events": typing_result.events,  # t_down/t_up/matched_expected ONLY -- see praesens/typing.py's privacy contract
         } if typing_result is not None else None),
+        "acoustic": ({
+            "status": acoustic_result.status, "score": acoustic_result.score,
+            "lag_ms": acoustic_result.lag_ms, "snr_db": acoustic_result.snr_db,
+            "diagnostics": acoustic_result.diagnostics,
+        } if acoustic_result is not None else None),
         "fusion": {
             "verdict": joint_result.verdict,
             "joint_score": (None if math.isnan(joint_result.joint_score) else joint_result.joint_score),
@@ -440,7 +492,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             "reject_threshold": fusion_config.reject_threshold,
             "lanes": [
                 {"lane_name": l.lane_name, "subscore": l.subscore, "status": l.status,
-                 "lag_ms": l.lag_ms, "confidence": l.confidence, "diagnostics": l.diagnostics}
+                 "lag_ms": l.lag_ms, "confidence": l.confidence, "diagnostics": l.diagnostics,
+                 "is_stub": l.is_stub}
                 for l in lane_results
             ],
         },
@@ -462,7 +515,7 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
 # are always in the JSON log, see run_one_session's record dict above).
 # ---------------------------------------------------------------------------
 
-_LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane "}
+_LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane ", "acoustic": "Acoustic lane"}
 
 
 def _lane_display_rows(record: dict) -> tuple[list, list]:
@@ -480,22 +533,33 @@ def _lane_display_rows(record: dict) -> tuple[list, list]:
     reject_threshold = fusion["reject_threshold"]
     lanes_for_contrib = [
         LaneResult(lane_name=l["lane_name"], subscore=l["subscore"], status=l["status"],
-                   lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"])
+                   lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"],
+                   is_stub=l.get("is_stub", False))
         for l in lane_dicts
     ]
     _, contributions = compute_joint_score(lanes_for_contrib, LANE_LAG_BOUNDS_MS)
 
     rows, passing = [], []
     for l in lane_dicts:
-        if l["lane_name"] not in _LANE_DISPLAY_NAMES:
-            continue  # acoustic is a permanently-stubbed no-op lane, not shown in the panel-style summary
+        # is_stub (default False) is what actually gates display now, not
+        # merely appearing in _LANE_DISPLAY_NAMES -- acoustic is IN that
+        # dict unconditionally (see above), because it needs a label for
+        # the sessions where it DID run for real. Defaulting missing
+        # is_stub to False assumes "real lane" for any dict that predates
+        # this field (correct for optical/typing, which were never
+        # stubs); the one case this doesn't cover -- replaying a
+        # pre-patch acoustic-stub log through this function -- isn't how
+        # print_clean_block is actually used (always called on a
+        # freshly-built same-run record, never a reloaded historical one).
+        if l["lane_name"] not in _LANE_DISPLAY_NAMES or l.get("is_stub", False):
+            continue
         label = _LANE_DISPLAY_NAMES[l["lane_name"]]
         contributes = contributions[l["lane_name"]]["contributes"]
         if l["status"] != "ok":
             status_word, detail = "NO EVIDENCE", f"({l['diagnostics']})" if l["diagnostics"] else ""
         elif contributes and l["subscore"] >= reject_threshold:
             status_word = "PASS"
-            metric = "score" if l["lane_name"] == "optical" else "coherence"
+            metric = "coherence" if l["lane_name"] == "typing" else "score"
             detail = f"({metric} {l['subscore']:.2f})"
             passing.append(l["lane_name"])
         elif contributes:

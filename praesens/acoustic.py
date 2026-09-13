@@ -258,15 +258,31 @@ def estimate_snr_db(recorded: np.ndarray, probe_start_idx: int, probe_len: int) 
     the acoustic equivalent of optical.estimate_snr_db's in-band/
     out-of-band split, but simpler here since we know exactly where in
     time the "should be quiet" region is (pre-playback), rather than
-    needing a bandpass filter."""
+    needing a bandpass filter.
+
+    Bug fixed after live hardware testing: with DuplexProbePlayer's
+    shared playback/capture clock, there IS no genuine pre-roll silence
+    in the buffer (recording starts at the same instant as playback) --
+    "pre_roll" here is really just "the start of the recording, before
+    wherever the correlation search's best-guess lag landed." When the
+    mic captures near-zero energy at the carrier frequency throughout
+    (e.g. carrier_hz above the mic's usable range), BOTH windows are
+    just digital silence, and the old 1e-12 threshold was too permissive
+    to tell that apart from a genuinely clean detection -- it reported
+    snr_db=inf for a session that had actually captured nothing.
+    REAL_SIGNAL_FLOOR requires the signal window to be meaningfully
+    above the noise floor of a typical float32 recording (~1e-9), not
+    merely nonzero, before "no noise" is allowed to mean "inf," not
+    "indeterminate." """
     pre_roll = recorded[:max(0, probe_start_idx)]
     signal_window = recorded[probe_start_idx:probe_start_idx + probe_len]
     if len(pre_roll) < 100 or len(signal_window) < 100:
         return float("nan")
     signal_power = float(np.mean(signal_window.astype(np.float64) ** 2))
     noise_power = float(np.mean(pre_roll.astype(np.float64) ** 2))
+    REAL_SIGNAL_FLOOR = 1e-6
     if noise_power < 1e-12:
-        return float("inf") if signal_power > 1e-12 else float("nan")
+        return float("inf") if signal_power > REAL_SIGNAL_FLOOR else float("nan")
     return float(10 * np.log10(signal_power / noise_power))
 
 

@@ -215,3 +215,72 @@ def test_re_challenge_names_the_real_joint_score_not_the_acoustic_stub():
     assert result.verdict == "RE-CHALLENGE"
     assert "joint score" in result.reason_text
     assert "acoustic" not in result.reason_text
+
+
+# ---------------------------------------------------------------------------
+# is_stub -- replaces the old name-based _PERMANENTLY_STUBBED_LANES set.
+# Needed once acoustic became a real lane that SOMETIMES runs
+# (--lanes optical+typing+acoustic) and sometimes doesn't (--lanes
+# optical+typing): status alone can no longer tell "this lane never ran"
+# apart from "this lane ran and genuinely found nothing," since both read
+# as no_evidence/insufficient_signal. is_stub is the only thing that
+# still can.
+# ---------------------------------------------------------------------------
+
+def test_acoustic_stub_has_is_stub_true():
+    assert acoustic_lane_stub().is_stub is True
+
+
+def test_real_lane_constructions_default_is_stub_false():
+    assert _ok("acoustic", subscore=0.9, lag_ms=8.0).is_stub is False
+    assert _no_evidence("acoustic").is_stub is False
+
+
+def test_a_never_ran_stub_is_not_named_even_when_a_real_lane_genuinely_has_no_evidence():
+    """The case the old frozenset-based check got right by construction
+    (acoustic was ALWAYS the stub, so it was always safe to exclude by
+    name): a real lane's genuine no_evidence gap must still be named
+    ahead of a never-ran stub sitting alongside it."""
+    config = AdjudicatorConfig(min_contributing_lanes=2)  # so 1 passing lane can't short-circuit to ACCEPT
+    adj = Adjudicator(config)
+    result = adj.adjudicate([
+        _ok("optical", subscore=0.9, lag_ms=40.0),
+        _no_evidence("typing", diagnostics="n_keystrokes=0"),
+        acoustic_lane_stub(),
+    ])
+    assert "typing" in result.reason_text
+    assert "acoustic" not in result.reason_text
+
+
+def test_a_real_acoustic_gap_is_named_once_it_actually_ran():
+    """The case is_stub exists FOR: once acoustic runs for real
+    (is_stub=False) and finds nothing, that's a genuine, informative
+    measurement gap and must be nameable -- unlike the stub case above,
+    where the exact same status/diagnostics shape must stay silent."""
+    config = AdjudicatorConfig(min_contributing_lanes=2)
+    adj = Adjudicator(config)
+    real_acoustic_gap = LaneResult(lane_name="acoustic", subscore=None, status="insufficient_signal",
+                                    lag_ms=None, confidence=0.0, diagnostics="snr_db=1.20", is_stub=False)
+    result = adj.adjudicate([_ok("optical", subscore=0.9, lag_ms=40.0), real_acoustic_gap])
+    assert "acoustic" in result.reason_text
+    assert "insufficient signal" in result.reason_text
+
+
+def test_a_real_acoustic_lane_can_veto_an_otherwise_accepting_session():
+    """A real, contributing acoustic lane must be able to pull back an
+    ACCEPT the same way optical/typing already can -- it's a genuine
+    third vote now, not a permanently-silent placeholder."""
+    config = AdjudicatorConfig(accept_threshold=0.6, reject_threshold=0.3)
+    adj = Adjudicator(config)
+    optical = _ok("optical", subscore=0.95, lag_ms=40.0, confidence=2.0)
+    typing = _ok("typing", subscore=0.95, lag_ms=-10.0, confidence=2.0)
+    # Low confidence so it barely moves the weighted mean -- isolates the
+    # veto property from the mean simply dragging the score down anyway.
+    real_acoustic_fail = LaneResult(lane_name="acoustic", subscore=0.05, status="ok", lag_ms=15.0,
+                                     confidence=0.1, is_stub=False)
+
+    result = adj.adjudicate([optical, typing, real_acoustic_fail])
+
+    assert result.verdict == "REJECT"
+    assert "acoustic" in result.reason_text
+    assert "0.05" in result.reason_text

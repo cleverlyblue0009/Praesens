@@ -1,0 +1,12 @@
+capture format: requested fourcc='MJPG' 640x480 @30fps -> actual fourcc='?' 640x480 reported_fps=30.0 measured_fps=33.8
+auto_chip_rate: measured preflight FPS=30.1 -> chip_rate_hz=3.01, duration_s=20.0
+W0000 00:00:1789311678.050588 5264716 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default.
+I0000 00:00:1789311678.137431 5264716 gl_context.cc:407] GL version: 2.1 (2.1 Metal - 90.5), renderer: Apple M1
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1789311678.145109 5264721 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1789311678.182565 5264723 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+I0000 00:00:1789311678.230121 5264729 gl_context.cc:407] GL version: 2.1 (2.1 Metal - 90.5), renderer: Apple M1
+W0000 00:00:1789311678.265404 5264731 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1789311678.359998 5264735 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+This process is not trusted! Input event monitoring will not be possible until it is added to accessibility clients.
+W0000 00:00:1789311678.761662 5264737 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE_DIMENSIONS or use PROJECTION_MATRIX.

@@ -186,7 +186,7 @@ demo:
 
 acoustic:
   sample_rate_hz: 44100
-  carrier_hz: 18000.0
+  carrier_hz: 4000.0
   amplitude: 0.6
   lag_search_max_ms: 60.0
   snr_floor_db: 6.0
