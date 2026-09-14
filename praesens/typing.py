@@ -36,6 +36,7 @@ capture handles instead of reopening them).
 """
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections import Counter, deque
@@ -308,6 +309,51 @@ def passive_confidence(last_keystroke_time: float | None, now: float, decay_half
 
 
 # ---------------------------------------------------------------------------
+# Keystroke-TIMING-ONLY scoring (2026-09-03) -- no camera/hand-tracking
+# dependency at all. Added because keystroke_hand_coherence() above,
+# while real and tested, requires the camera to see BOTH the face (for
+# the optical lane) and the hands (for this one) at once -- not physically
+# realistic for a webcam framed on the face during normal typing, which
+# made this lane read as no_evidence in practice regardless of whether
+# genuine typing happened. This scores two things instead, both derivable
+# from keystroke timing alone: did the operator correctly type THIS
+# SESSION'S freshly-generated, unpredictable phrase (proves live
+# engagement with a challenge that couldn't have been pre-recorded), and
+# was the keystroke rhythm within a plausible human range (catches a
+# naive scripted/replayed keystroke injection, which types with
+# unnaturally uniform, fast timing). Still keystroke-TIMING only, per the
+# module's privacy contract -- events already never carry characters.
+# ---------------------------------------------------------------------------
+
+def keystroke_normality_score(events: list, expected_phrase: str | None, config: "TypingConfig") -> tuple:
+    """Returns (status, subscore, diagnostics). status is "ok" or
+    "no_evidence" (never "insufficient_signal" -- that status belongs to
+    optical's SNR concept, not applicable here). subscore is None unless
+    status=="ok", matching LaneResult's own contract."""
+    if len(events) < config.min_keystrokes:
+        return "no_evidence", None, f"n_keystrokes={len(events)} (need >= {config.min_keystrokes})"
+
+    n_matched = sum(1 for e in events if e["matched_expected"] is True)
+    n_expected = len(expected_phrase) if expected_phrase else len(events)
+    match_fraction = (n_matched / n_expected) if n_expected else 0.0
+
+    t_downs = sorted(e["t_down"] for e in events)
+    intervals = [b - a for a, b in zip(t_downs, t_downs[1:])]
+    mean_interval = (sum(intervals) / len(intervals)) if intervals else float("nan")
+
+    timing_plausible = (not math.isnan(mean_interval)
+                         and config.min_inter_key_s <= mean_interval <= config.max_inter_key_s)
+
+    subscore = match_fraction if timing_plausible else match_fraction * config.implausible_timing_penalty
+
+    interval_str = f"{mean_interval:.3f}s" if not math.isnan(mean_interval) else "n/a"
+    diagnostics = f"matched {n_matched}/{n_expected}, mean_inter_key={interval_str}"
+    if not timing_plausible:
+        diagnostics += " (timing outside plausible human range)"
+    return "ok", float(subscore), diagnostics
+
+
+# ---------------------------------------------------------------------------
 # Config + standalone session runner
 # ---------------------------------------------------------------------------
 
@@ -323,6 +369,12 @@ class TypingConfig:
     passive_decay_half_life_s: float = 5.0
     passive_no_evidence_after_s: float = 10.0
     camera_index: int = 0
+    # -- 2026-09-03: keystroke-timing-only scoring, see keystroke_normality_score()
+    min_keystrokes: int = 3
+    min_inter_key_s: float = 0.03
+    max_inter_key_s: float = 3.0
+    implausible_timing_penalty: float = 0.3
+    pass_match_fraction: float = 0.7
 
     @classmethod
     def from_dict(cls, d: dict) -> "TypingConfig":

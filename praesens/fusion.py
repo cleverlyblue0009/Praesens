@@ -1,10 +1,9 @@
 """Milestone 11: fusion and adjudication.
 
-Combines LaneResults from however many lanes actually ran (today: optical,
-typing; acoustic is a registered-but-permanently-no_evidence stub, see
-acoustic_lane_stub -- rule: no acoustic capture or audio I/O exists
-anywhere in this repo) into a single three-way verdict: ACCEPT,
-RE-CHALLENGE, or REJECT.
+Combines LaneResults from however many lanes actually ran (optical,
+typing, and -- when requested -- acoustic, see praesens/acoustic.py;
+acoustic_lane_stub stands in whenever it didn't run) into a single
+three-way verdict: ACCEPT, RE-CHALLENGE, or REJECT.
 
 The claim being made is JOINT TEMPORAL COHERENCE, not an averaged
 classifier score. A lane's subscore only counts toward the joint score if
@@ -285,3 +284,140 @@ class Adjudicator:
             if lane.is_stub:
                 return _lane_reason(lane, False)
         return "no lane produced usable evidence this window"
+
+
+# ---------------------------------------------------------------------------
+# Binary gate (2026-09-03; acoustic added as a second secondary lane
+# 2026-09-14) -- the actual policy the concurrent session
+# (praesens/session.py) verdicts against. This is
+# a SEPARATE, additional adjudication path, not a replacement for
+# Adjudicator above: Adjudicator's confidence-weighted-mean-with-lag-
+# coherence remains what it always was (used by eval/ablate.py, its own
+# tests, and any future N-lane/joint-coherence work); this function
+# instead implements an explicit, asymmetric decision table for the
+# specific two real lanes this project has today, requested directly:
+#
+#   optical PASS + typing PASS  -> ACCEPT
+#   optical PASS + typing FAIL  -> RE-CHALLENGE ("try typing again" --
+#       typing not clearing its bar is treated as INCONCLUSIVE, not a
+#       hard failure, when the PRIMARY liveness signal (optical, which
+#       defeats video injection) is solid on its own)
+#   optical FAIL (either way)   -> REJECT (a passing typing lane must
+#       NEVER rescue a failing optical lane -- this project's core
+#       "faking one lane doesn't help" claim, the same property
+#       Adjudicator's own downgrade rule above enforces for the general
+#       weighted-mean case)
+#
+# The asymmetry (typing failing is soft, optical failing is hard) is
+# deliberate: optical is what the whole system exists to measure against
+# video injection; typing is a secondary confirmation that the operator
+# is presently, actively engaged with THIS session's unpredictable
+# challenge, not the primary defence.
+#
+# With --lanes optical+typing+acoustic, acoustic joins typing as a
+# SECONDARY lane under the same rule: ACCEPT needs optical AND every
+# secondary lane to pass; optical passing with any secondary failing is
+# RE-CHALLENGE; optical failing is REJECT whatever the others say.
+# ---------------------------------------------------------------------------
+
+def lane_passes(lane: LaneResult, pass_threshold: float) -> bool:
+    """A lane 'passes' on its own terms: status=='ok' and its subscore
+    clears pass_threshold. Deliberately simpler than lane_contributes()
+    above (no lag-window check) -- lag-based joint coherence isn't the
+    applicable concept for a lane with no camera-correlated timing to
+    check against (e.g. keystroke_normality_score has no lag at all)."""
+    return lane.status == "ok" and lane.subscore is not None and lane.subscore >= pass_threshold
+
+
+def _secondary_fail_reason(lane: LaneResult, retry_hint: str) -> str:
+    if lane.status != "ok":
+        label = "no evidence" if lane.status == "no_evidence" else "insufficient signal"
+        return f"{lane.lane_name} lane: {label} ({lane.diagnostics or 'nothing to measure'}) -- {retry_hint}"
+    if lane.lag_ms is not None and not lane_contributes(lane, LANE_LAG_BOUNDS_MS):
+        return (f"{lane.lane_name} lane: subscore {lane.subscore:.2f} but implausible lag "
+                f"({lane.lag_ms:.0f}ms) -- {retry_hint}")
+    return (f"{lane.lane_name} lane: subscore {lane.subscore:.2f} below pass threshold "
+            f"({lane.diagnostics}) -- {retry_hint}")
+
+
+def _per_lane_reason(lane: LaneResult) -> str:
+    if lane.status != "ok":
+        return f"{lane.lane_name} lane: {lane.diagnostics or lane.status}"
+    if lane.lane_name == "optical":
+        return f"optical lane: subscore {lane.subscore:.2f}"
+    if lane.lag_ms is None:
+        return f"{lane.lane_name} lane: subscore {lane.subscore:.2f} ({lane.diagnostics})"
+    return f"{lane.lane_name} lane: subscore {lane.subscore:.2f} at lag {lane.lag_ms:.0f}ms"
+
+
+def adjudicate_two_lane(optical: LaneResult, typing: LaneResult | None,
+                         optical_pass_threshold: float, typing_pass_threshold: float,
+                         acoustic: LaneResult | None = None,
+                         acoustic_pass_threshold: float = 0.3) -> JointResult:
+    """typing=None (--lanes optical) collapses to a plain two-way gate:
+    ACCEPT if optical passes, REJECT if not -- there is no secondary
+    signal to ask the operator to retry, so RE-CHALLENGE doesn't apply.
+
+    optical "passing" additionally requires lane_contributes() (its
+    measured lag against the emitted light stimulus falls in its
+    plausible window, LANE_LAG_BOUNDS_MS) on top of clearing
+    optical_pass_threshold -- unlike typing (which has no equivalent
+    stimulus-response lag left to check now that keystroke_normality_score
+    is timing-only, see praesens/typing.py), optical still measures a
+    real physical lag every session, and a high subscore at an
+    implausible lag is exactly the "lucky magnitude, wrong timing"
+    scenario the joint-temporal-coherence claim exists to catch (see
+    module docstring) -- worth keeping even in this simpler binary gate.
+
+    acoustic (optional, despite this function's name): a secondary lane
+    like typing, but it DOES measure a physical lag against the emitted
+    probe, so passing needs lane_contributes() as well as clearing
+    acoustic_pass_threshold."""
+    def _optical_fail_reason() -> str:
+        if optical.status != "ok":
+            return f"optical lane: {optical.diagnostics or 'insufficient signal'}"
+        if not lane_contributes(optical, LANE_LAG_BOUNDS_MS):
+            return f"optical lane: subscore {optical.subscore:.2f} but implausible lag ({optical.lag_ms}ms)"
+        return f"optical lane failed -- scored {optical.subscore:.2f}, below pass threshold"
+
+    optical_ok = lane_passes(optical, optical_pass_threshold) and lane_contributes(optical, LANE_LAG_BOUNDS_MS)
+
+    if typing is None and acoustic is None:
+        verdict = "ACCEPT" if optical_ok else "REJECT"
+        reason = (f"optical lane passes (score {optical.subscore:.2f})" if optical_ok
+                   else _optical_fail_reason())
+        lane_results = [optical]
+        per_lane_reasons = {"optical": reason}
+        joint_score = optical.subscore if optical.subscore is not None else float("nan")
+        return JointResult(verdict=verdict, joint_score=joint_score, lane_results=lane_results,
+                            reason_text=reason, per_lane_reasons=per_lane_reasons)
+
+    # (lane, passes, retry hint) for each secondary lane that ran
+    secondaries = []
+    if typing is not None:
+        secondaries.append((typing, lane_passes(typing, typing_pass_threshold), "try typing again"))
+    if acoustic is not None:
+        acoustic_ok = (lane_passes(acoustic, acoustic_pass_threshold)
+                       and lane_contributes(acoustic, LANE_LAG_BOUNDS_MS))
+        secondaries.append((acoustic, acoustic_ok, "check the speaker/microphone and try again"))
+    lane_results = [optical] + [lane for lane, _, _ in secondaries]
+    failing = [(lane, hint) for lane, ok, hint in secondaries if not ok]
+
+    if optical_ok and not failing:
+        verdict = "ACCEPT"
+        scores = ", ".join(f"{l.lane_name} {l.subscore:.2f}" for l in lane_results)
+        reason = (f"both lanes agree: {scores}" if len(lane_results) == 2
+                  else f"all {len(lane_results)} lanes agree: {scores}")
+        joint_score = float(np.mean([l.subscore for l in lane_results]))
+    elif optical_ok:
+        verdict = "RE-CHALLENGE"
+        reason = "; ".join(_secondary_fail_reason(lane, hint) for lane, hint in failing)
+        joint_score = optical.subscore  # what actually carries this verdict is optical's own number
+    else:
+        verdict = "REJECT"
+        reason = _optical_fail_reason()
+        joint_score = optical.subscore if optical.subscore is not None else float("nan")
+
+    per_lane_reasons = {lane.lane_name: _per_lane_reason(lane) for lane in lane_results}
+    return JointResult(verdict=verdict, joint_score=joint_score, lane_results=lane_results,
+                        reason_text=reason, per_lane_reasons=per_lane_reasons)

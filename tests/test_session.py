@@ -19,7 +19,7 @@ from praesens.session import (
 )
 from praesens.fusion import LaneResult
 from praesens.optical import OpticalConfig, OpticalResult
-from praesens.typing import TypingConfig, TypingResult
+from praesens.typing import TypingConfig
 
 
 # ---------------------------------------------------------------------------
@@ -61,38 +61,48 @@ def test_optical_lane_result_no_frames_is_no_evidence_not_insufficient_signal():
 
 
 # ---------------------------------------------------------------------------
-# LaneResult wrapping -- typing
+# LaneResult wrapping -- typing (2026-09-03: keystroke-timing only, no
+# camera/hand dependency -- see praesens.typing.keystroke_normality_score
+# and typing_lane_result's own docstring for why the hand-coherence-based
+# version this replaced is gone from this path)
 # ---------------------------------------------------------------------------
 
-def _typing_result(**overrides) -> TypingResult:
-    base = dict(mode="active", status="ok", n_keystrokes=12, n_matched=12, n_expected=15,
-                inter_key_mean_s=0.3, inter_key_std_s=0.05, coherence_score=0.7,
-                coherence_lag_ms=-20.0, seconds_since_last_keystroke=0.5, events=[])
+def _typing_config(**overrides) -> TypingConfig:
+    base = dict(min_keystrokes=3, min_inter_key_s=0.03, max_inter_key_s=3.0,
+                implausible_timing_penalty=0.3, pass_match_fraction=0.7)
     base.update(overrides)
-    return TypingResult(**base)
+    return TypingConfig(**base)
 
 
-def test_typing_lane_result_ok_case_uses_recency_decay_confidence():
-    result = _typing_result(coherence_score=0.7, coherence_lag_ms=-20.0, seconds_since_last_keystroke=0.0)
-    lane = typing_lane_result(result, decay_half_life_s=5.0)
+def _keystroke_events(n=5, dt=0.2, matched=True):
+    return [{"t_down": i * dt, "t_up": i * dt + 0.05, "matched_expected": matched} for i in range(n)]
+
+
+def test_typing_lane_result_ok_case_scores_from_timing_alone():
+    events = _keystroke_events(n=5, dt=0.2, matched=True)
+    lane = typing_lane_result(events, expected_phrase="abcde", tconfig=_typing_config())
     assert lane.status == "ok"
-    assert lane.subscore == 0.7
-    assert lane.lag_ms == -20.0
-    assert lane.confidence == pytest.approx(1.0)  # dt=0 -> 2**0 = 1.0
+    assert lane.subscore == pytest.approx(1.0)  # all 5 matched, all 5 expected
+    assert lane.lag_ms is None  # no camera/hand signal left to measure a lag against
+    assert lane.confidence == pytest.approx(1.0)
 
 
-def test_typing_lane_result_confidence_decays_with_silence():
-    result = _typing_result(seconds_since_last_keystroke=5.0)  # exactly one half-life
-    lane = typing_lane_result(result, decay_half_life_s=5.0)
-    assert lane.confidence == pytest.approx(0.5)
-
-
-def test_typing_lane_result_no_evidence_passthrough():
-    result = _typing_result(status="no_evidence", coherence_score=float("nan"), coherence_lag_ms=float("nan"))
-    lane = typing_lane_result(result, decay_half_life_s=5.0)
+def test_typing_lane_result_below_min_keystrokes_is_no_evidence():
+    events = _keystroke_events(n=2, dt=0.2, matched=True)
+    lane = typing_lane_result(events, expected_phrase="ab", tconfig=_typing_config(min_keystrokes=3))
     assert lane.status == "no_evidence"
     assert lane.subscore is None
-    assert lane.lag_ms is None
+    assert lane.confidence == 0.0
+
+
+def test_typing_lane_result_wrong_phrase_is_ok_status_with_low_subscore():
+    """Typing the WRONG thing is a real, scored attempt (status='ok'), not
+    no_evidence -- a low subscore is how it fails, exactly matching
+    keystroke_normality_score's own contract."""
+    events = _keystroke_events(n=5, dt=0.2, matched=False)
+    lane = typing_lane_result(events, expected_phrase="abcde", tconfig=_typing_config())
+    assert lane.status == "ok"
+    assert lane.subscore == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +111,8 @@ def test_typing_lane_result_no_evidence_passthrough():
 
 def _record(optical_status="ok", optical_subscore=0.8, optical_lag=45.0,
             typing_status="ok", typing_subscore=0.75, typing_lag=-20.0,
-            verdict="ACCEPT", joint_score=0.78, reason_text="joint score 0.78 across 2 coherent lane(s)",
+            verdict="ACCEPT", joint_score=0.78,
+            reason_text="both lanes agree: optical 0.80, typing 0.75",
             accept_threshold=0.6, reject_threshold=0.3):
     return {
         "session": "20260902T000000_deadbeef", "condition": "bonafide",
@@ -185,14 +196,6 @@ def _fake_face_landmarker():
     return lm
 
 
-def _fake_hand_landmarker():
-    lm = MagicMock()
-    result = MagicMock()
-    result.hand_landmarks = []  # no hand -- same reasoning
-    lm.detect_for_video.return_value = result
-    return lm
-
-
 def _fake_cap(n_frames: int = 6):
     """grab()/retrieve() succeed n_frames times then fail forever, so the
     shared loop's frame budget is bounded without relying on wall-clock
@@ -206,6 +209,13 @@ def _fake_cap(n_frames: int = 6):
 
 
 def test_run_one_session_optical_plus_typing_opens_the_camera_exactly_once(tmp_path):
+    """2026-09-03: the typing lane no longer processes any frame at all
+    (see praesens.typing.keystroke_normality_score) -- what this test now
+    verifies is narrower but still the make-or-break property: exactly
+    ONE cv2.VideoCapture opened, and the shared loop's grab()/retrieve()
+    pairs are consumed by exactly one frame-based consumer (optical). The
+    keystroke listener runs off its own independent thread for the same
+    window, started/stopped around the loop, never handed a frame."""
     cap, frame = _fake_cap()
     raw_config = {
         "optical": {"camera_index": 0, "model_path": "models/face_landmarker.task",
@@ -219,8 +229,9 @@ def test_run_one_session_optical_plus_typing_opens_the_camera_exactly_once(tmp_p
         # keeping the test fast.
         "challenge": {"chip_rate_hz": 10.0, "duration_s": 0.2},
         "emitter": {"emitter_enabled": True},
-        "typing": {"n_words": 3, "generative": False, "hand_model_path": "models/hand_landmarker.task",
-                    "passive_decay_half_life_s": 5.0},
+        "typing": {"n_words": 3, "generative": False, "min_keystrokes": 3,
+                    "min_inter_key_s": 0.03, "max_inter_key_s": 3.0,
+                    "implausible_timing_penalty": 0.3, "pass_match_fraction": 0.7},
         "fusion": {"accept_threshold": 0.6, "reject_threshold": 0.3, "min_contributing_lanes": 1},
     }
 
@@ -237,42 +248,39 @@ def test_run_one_session_optical_plus_typing_opens_the_camera_exactly_once(tmp_p
     fake_keystroke.phrase_complete = False
 
     optical_frames_seen = []
-    typing_frames_seen = []
 
     def fake_optical_process_frame(self, frame_arg, t, start_time, challenge, emitter):
         optical_frames_seen.append(frame_arg)
         return None
-
-    def fake_typing_process_frame(self, frame_arg, t, start_time):
-        typing_frames_seen.append(frame_arg)
 
     with patch.object(session_mod, "open_camera", return_value=cap) as mock_open_camera, \
          patch.object(session_mod, "configure_capture_format"), \
          patch.object(session_mod, "lock_camera", return_value=True), \
          patch.object(session_mod, "measure_capture_fps", return_value=16.0), \
          patch.object(session_mod, "check_nyquist", return_value=None), \
-         patch.object(session_mod, "create_hand_landmarker", return_value=_fake_hand_landmarker()), \
          patch("praesens.optical.create_landmarker", return_value=_fake_face_landmarker()), \
          patch.object(session_mod, "Emitter", return_value=fake_emitter), \
          patch.object(session_mod, "KeystrokeCapture", return_value=fake_keystroke), \
-         patch.object(session_mod.OpticalFrameProcessor, "process_frame", fake_optical_process_frame), \
-         patch.object(session_mod.TypingFrameProcessor, "process_frame", fake_typing_process_frame):
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", fake_optical_process_frame):
 
         record, out_path = run_one_session(
             "bonafide", meta={"lighting": "normal"}, raw_config=raw_config,
             lanes="optical+typing", output_dir=tmp_path,
         )
 
-    # The make-or-break check.
+    # The make-or-break check: exactly one camera open, exactly one
+    # frame-based consumer of the shared grab()/retrieve() loop.
     mock_open_camera.assert_called_once()
     assert cap.isOpened.called
-
-    # Exactly one grab()/retrieve() pair per loop iteration -- both lanes
-    # were fed from the SAME shared loop, not two independent ones.
     assert len(optical_frames_seen) > 0, "the loop must have run at least one real iteration"
-    assert len(optical_frames_seen) == len(typing_frames_seen) == cap.grab.call_count
-    for a, b in zip(optical_frames_seen, typing_frames_seen):
-        assert a is b is frame  # the literal same array object, not a copy each lane grabbed itself
+    assert len(optical_frames_seen) == cap.grab.call_count
+    for f in optical_frames_seen:
+        assert f is frame  # the literal same array object, not a copy
+
+    # Typing's keystroke listener runs independently, for the same window,
+    # never touching a frame.
+    fake_keystroke.start.assert_called_once()
+    fake_keystroke.stop.assert_called_once()
 
     # The record carries both lanes and a real fusion verdict, add-only
     # (original fields untouched).
@@ -307,8 +315,9 @@ def _base_three_lane_config(extra_fusion=None):
         "capture": {},
         "challenge": {"chip_rate_hz": 10.0, "duration_s": 0.2},
         "emitter": {"emitter_enabled": True},
-        "typing": {"n_words": 3, "generative": False, "hand_model_path": "models/hand_landmarker.task",
-                    "passive_decay_half_life_s": 5.0},
+        "typing": {"n_words": 3, "generative": False, "min_keystrokes": 3,
+                    "min_inter_key_s": 0.03, "max_inter_key_s": 3.0,
+                    "implausible_timing_penalty": 0.3, "pass_match_fraction": 0.7},
         "acoustic": {"sample_rate_hz": 44100, "carrier_hz": 18000.0},
         "fusion": {"accept_threshold": 0.6, "reject_threshold": 0.3, "min_contributing_lanes": 1},
     }
@@ -338,7 +347,6 @@ def _patched_three_lane_session(cap, fake_acoustic_session):
         patch.object(session_mod, "lock_camera", return_value=True), \
         patch.object(session_mod, "measure_capture_fps", return_value=16.0), \
         patch.object(session_mod, "check_nyquist", return_value=None), \
-        patch.object(session_mod, "create_hand_landmarker", return_value=_fake_hand_landmarker()), \
         patch("praesens.optical.create_landmarker", return_value=_fake_face_landmarker()), \
         patch.object(session_mod, "Emitter", return_value=fake_emitter), \
         patch.object(session_mod, "KeystrokeCapture", return_value=fake_keystroke), \
@@ -349,33 +357,28 @@ def test_three_lane_mode_still_runs_typing_not_just_optical_and_acoustic(tmp_pat
     """Regression test for the exact bug found in code review: lanes ==
     "optical+typing+acoustic" != "optical+typing", so the ORIGINAL
     typing_enabled check silently disabled typing whenever acoustic was
-    also requested. This asserts typing actually ran (frames seen,
-    keystroke listener started), not just that the session completed."""
+    also requested. This asserts typing actually ran (its keystroke
+    listener started and stopped around the shared loop -- since
+    2026-09-03 typing is keystroke-timing only and never sees a frame),
+    not just that the session completed."""
     from praesens.acoustic import AcousticResult
     cap, frame = _fake_cap()
-    typing_frames_seen = []
-
-    def fake_typing_process_frame(self, frame_arg, t, start_time):
-        typing_frames_seen.append(frame_arg)
 
     def fake_acoustic_session(challenge, aconfig):
         return AcousticResult(status="ok", score=0.9, lag_ms=8.0, snr_db=20.0, diagnostics="snr_db=20.00")
 
     patches = _patched_three_lane_session(cap, fake_acoustic_session)
     with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
-         patches[7], patches[8], patches[9], \
-         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
-         patch.object(session_mod.TypingFrameProcessor, "process_frame", fake_typing_process_frame):
+         patches[7] as mock_keystroke_cls, patches[8], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None):
 
         record, out_path = run_one_session(
             "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
             lanes="optical+typing+acoustic", output_dir=tmp_path,
         )
 
-    assert len(typing_frames_seen) > 0, (
-        "typing lane produced no frames in 3-lane mode -- the typing_enabled "
-        "== \"optical+typing\" bug is back"
-    )
+    mock_keystroke_cls.return_value.start.assert_called_once()
+    mock_keystroke_cls.return_value.stop.assert_called_once()
     assert record["typing"] is not None
 
 
@@ -390,9 +393,8 @@ def test_three_lane_mode_wires_a_real_acoustic_result_into_record_and_fusion(tmp
 
     patches = _patched_three_lane_session(cap, fake_acoustic_session)
     with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
-         patches[7], patches[8], patches[9], \
-         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
-         patch.object(session_mod.TypingFrameProcessor, "process_frame", lambda *a, **k: None):
+         patches[7], patches[8], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None):
 
         record, out_path = run_one_session(
             "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
@@ -414,6 +416,13 @@ def test_three_lane_mode_wires_a_real_acoustic_result_into_record_and_fusion(tmp
     assert acoustic_entry["lag_ms"] == 7.5
     assert acoustic_entry["confidence"] == pytest.approx(np.clip(22.0 / 20.0, 0.05, 1.0))  # acoustic_lane_result's own formula
 
+    # acoustic now gates the verdict as a secondary lane: it passed here, but
+    # the mocked keystroke listener recorded nothing, so typing is what asks
+    # for a retry -- and the reason must say so, not blame acoustic.
+    assert record["fusion"]["verdict"] in ("RE-CHALLENGE", "REJECT")
+    assert record["fusion"]["acoustic_pass_threshold"] == 0.3
+    assert "acoustic" not in record["fusion"]["reason_text"]
+
 
 def test_three_lane_mode_acoustic_thread_crash_degrades_to_stub_not_a_session_failure(tmp_path):
     """An exception inside the acoustic worker thread (e.g. a real
@@ -427,9 +436,8 @@ def test_three_lane_mode_acoustic_thread_crash_degrades_to_stub_not_a_session_fa
 
     patches = _patched_three_lane_session(cap, fake_acoustic_session)
     with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
-         patches[7], patches[8], patches[9], \
-         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None), \
-         patch.object(session_mod.TypingFrameProcessor, "process_frame", lambda *a, **k: None):
+         patches[7], patches[8], \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None):
 
         record, out_path = run_one_session(
             "bonafide", meta={"lighting": "normal"}, raw_config=_base_three_lane_config(),
@@ -458,9 +466,9 @@ def test_print_clean_block_shows_acoustic_lane_when_it_really_ran(capsys):
 
 def test_run_one_session_optical_only_never_touches_typing(tmp_path):
     """--lanes optical (the backward-compatible default for THIS function,
-    see its own docstring) must not construct a hand landmarker, a
-    keystroke listener, or a typing_phrase -- the flag genuinely gates the
-    lane, not just its display."""
+    see its own docstring) must not construct a keystroke listener or a
+    typing_phrase -- the flag genuinely gates the lane, not just its
+    display."""
     cap, frame = _fake_cap()
     raw_config = {
         "optical": {"camera_index": 0, "model_path": "models/face_landmarker.task",
@@ -482,7 +490,6 @@ def test_run_one_session_optical_only_never_touches_typing(tmp_path):
          patch("praesens.optical.check_nyquist", return_value=None), \
          patch("praesens.optical.create_landmarker", return_value=_fake_face_landmarker()), \
          patch.object(session_mod, "Emitter", return_value=fake_emitter), \
-         patch.object(session_mod, "create_hand_landmarker") as mock_hand_landmarker, \
          patch.object(session_mod, "KeystrokeCapture") as mock_keystroke:
 
         record, out_path = run_one_session(
@@ -490,7 +497,6 @@ def test_run_one_session_optical_only_never_touches_typing(tmp_path):
             lanes="optical", output_dir=tmp_path,
         )
 
-    mock_hand_landmarker.assert_not_called()
     mock_keystroke.assert_not_called()
     assert record["lanes"] == "optical"
     assert record["typing"] is None

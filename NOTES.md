@@ -907,3 +907,138 @@ every time. Worth the operator checking what's generating them on this
 machine, independent of this project.
 
 **Config added:** `demo.verdict_banner_hold_s` (default 4.0).
+
+---
+
+## Keystroke-timing-only typing lane + explicit binary-gate verdict (2026-09-03)
+
+**Why:** the operator was explicit that the typing lane's design so far
+was unrealistic for its own stated demo setup -- a webcam framed on the
+face physically cannot ALSO see the hands during normal typing, so
+requiring keystroke-hand coherence (Milestone 10) meant this lane read as
+`NO EVIDENCE` in practice regardless of whether genuine typing happened
+(confirmed repeatedly, see the previous two milestones' notes). Their
+exact spec: "keyboard test should show pass when the keystrokes and
+typing speed everything is normal, it shouldnt take hand visibility as an
+input"; and the joint verdict should be a specific asymmetric table --
+both lanes pass -> ACCEPT; optical passes but typing doesn't -> a
+re-challenge, not a hard reject; either both fail, or optical alone
+fails, -> REJECT.
+
+**What was built:**
+- `praesens.typing.keystroke_normality_score(events, expected_phrase,
+  config)` -- scores PURELY from keystroke timing, no camera/hand
+  dependency at all: `match_fraction` (did the operator correctly type
+  THIS session's freshly-generated, unpredictable phrase -- proves live
+  engagement, can't be pre-recorded) times a soft penalty
+  (`implausible_timing_penalty`, default 0.3) if the mean inter-key
+  interval falls outside a plausible human range
+  (`min_inter_key_s`=0.03s, `max_inter_key_s`=3.0s -- catches naive
+  scripted/replayed keystroke injection, which types with unnaturally
+  uniform, fast timing). Still keystroke-TIMING only, same privacy
+  contract as always (events never carry characters). The Milestone 10
+  hand-coherence code (`keystroke_hand_coherence`,
+  `HandActivityTracker`, `run_typing_session`'s own PASSIVE/ACTIVE hand-
+  tracking path) is untouched and still available for its own standalone
+  use (`python -m praesens.typing`) -- this is additive, not a rip-out.
+- `praesens.fusion.adjudicate_two_lane(optical, typing,
+  optical_pass_threshold, typing_pass_threshold)` + `lane_passes(lane,
+  pass_threshold)` -- a SEPARATE, explicit binary-gate policy alongside
+  (not replacing) the generic confidence-weighted `Adjudicator` (still
+  used by `eval/ablate.py`, unaffected). Considered reusing `Adjudicator`
+  with `min_contributing_lanes=2`, but traced through the math: a typing
+  lane that genuinely typed the WRONG phrase is `status=="ok"` with a low
+  subscore, still "contributes" under the existing lag-window
+  definition, and would trigger the Milestone 11 downgrade-to-REJECT fix
+  -- producing REJECT where the spec calls for RE-CHALLENGE. A dedicated
+  function matching the literal truth table was the faithful, low-risk
+  choice. optical still requires `lane_contributes()` (a plausible lag
+  against the emitted light stimulus) on top of clearing its threshold --
+  typing has no lag concept left to check (see above), but optical does,
+  and a high subscore at an implausible lag is exactly the "lucky
+  magnitude, wrong timing" scenario the joint-temporal-coherence claim
+  exists to catch.
+- `praesens/session.py`'s `_run_concurrent_lanes()` no longer creates a
+  `HandLandmarker` or feeds frames to a typing processor at all -- the
+  shared capture loop now has exactly ONE frame-based consumer (optical);
+  the keystroke listener runs on its own independent thread for the same
+  `start_time`/`duration_s` window, started/stopped around the loop,
+  never touching a frame. This still satisfies the make-or-break "one
+  shared capture loop" property from the milestone that introduced
+  concurrency -- typing was never a second CAMERA consumer, only its
+  former hand-tracking piece was, and that's what's removed.
+  `typing_lane_result()`, `_lane_display_rows()`, and `_friendly_reason()`
+  were all rewritten to match: PASS/FAIL/NO EVIDENCE on the terminal and
+  the on-screen banner now reflect `adjudicate_two_lane`'s own per-lane
+  pass/fail decision, not the old weighted-mean "contributes" concept.
+- JSON schema: add-only, per the standing rule. `typing.coherence_score`/
+  `coherence_lag_ms` are now always `null` (hand-tracking no longer runs
+  in this path -- the fields stay, the values are honest about what's no
+  longer measured); new fields `typing.subscore`/`diagnostics`/
+  `pass_threshold` and `fusion.policy`/`optical_pass_threshold`/
+  `typing_pass_threshold` record the new gate's actual inputs.
+
+**What was measured:** `tests/test_fusion.py` gained 8 new tests covering
+the full 4-way truth table plus the `--lanes optical` (typing=None)
+2-way collapse, including the implausible-lag-despite-high-score REJECT
+case. `tests/test_typing.py` gained 6 new tests for
+`keystroke_normality_score` (genuine typing, too-few-keystrokes,
+robotic/too-fast timing, wrong-phrase, partial-match linearity, and a
+structural check that the scoring function's own event dicts never carry
+a character). `tests/test_session.py`'s typing/session tests were
+rewritten for the new signatures (hand-landmarker mocking removed
+entirely from the "make-or-break" concurrency test, which now checks
+exactly one frame-based consumer of the shared loop instead of two).
+Full suite: 115/115 pass. Real hardware run: see below.
+
+**Config added:** `typing.min_keystrokes` (3), `typing.min_inter_key_s`
+(0.03), `typing.max_inter_key_s` (3.0), `typing.implausible_timing_penalty`
+(0.3), `typing.pass_match_fraction` (0.7).
+
+---
+
+## Acoustic lane working on real hardware + joined to the binary gate (2026-09-14)
+
+**Why:** the acoustic lane (praesens/acoustic.py, from the `suhaani`
+branch) scored ~0.00005 on every real 3-lane session
+(`logs/20260913T20*.json`) yet reported `status=ok`, `snr_db=inf`,
+confidence 1.0 -- dragging genuine sessions to RE-CHALLENGE/REJECT.
+
+**Root causes found:** (1) one 20s coherent correlation at a 4kHz carrier
+is cancelled to ~0 by speaker/mic clock drift or a single dropped buffer
+(simulated: 50ppm -> 0.013, one 512-sample drop -> 0.12); (2) the SNR
+"noise" window was the recording before the peak, i.e. the input stream's
+start-up zeros -> `inf`; (3) `lag_search_max_ms` was 60ms, the real
+round trip measured here is ~330ms (Windows MME); (4) on the test laptop
+the speakers were muted at 0% and the default output was Bluetooth
+earbuds -- the mic heard no tone at all, confirmed with pure 1/2/4kHz
+tones on MME, DirectSound and WASAPI.
+
+**What was built:** complex-baseband, 1s-segment differential matched
+filter; noise floor = the same statistic at off-carrier frequencies AND
+for decoy (shifted) codes; 0-500ms lag search with edge rejection;
+20ms-smoothed chip transitions (abrupt BPSK flips leaked probe energy
+into the noise channels, capping SNR near 9dB); non-finite SNR -> minimum
+confidence; `input_device`/`output_device` config (falls back to the OS
+default when the named device doesn't exist on the current host),
+headphone-output warning, "tone not heard" / silent-capture diagnostics.
+In `adjudicate_two_lane`, acoustic is a second SECONDARY lane: ACCEPT
+needs optical + typing + acoustic to pass; optical passing with either
+secondary failing -> RE-CHALLENGE; optical failing -> REJECT. Acoustic
+also needs a plausible lag (`LANE_LAG_BOUNDS_MS["acoustic"]`).
+
+**What was measured:** `tests/test_acoustic.py` (synthetic recordings:
+heard/inverted/drift/xrun/250ms/out-of-window/unheard+typing/silent,
+spectral leakage, device fallback) plus 5 three-lane gate tests in
+`tests/test_fusion.py`; full suite 142/142. Real hardware (Windows
+laptop, Realtek speakers 74% + mic array): 20s probe alone -> ok, score
+0.93, snr 11.1dB, lag 331ms. Full live bonafide session
+`logs/20260914T115241_5ef66054.json`, `--lanes optical+typing+acoustic`:
+optical PASS 0.75 (lag 25ms), typing PASS 1.00 (27/27), acoustic PASS
+0.93 (lag 332ms, snr 10.8dB) -> ACCEPT, joint 0.89.
+
+**Config added:** `acoustic.lag_step_ms` (1.0), `acoustic.transition_ms`
+(20), `acoustic.baseband_bandwidth_hz` (10), `acoustic.segment_s` (1.0),
+`acoustic.noise_offsets_hz`, `acoustic.n_decoy_codes` (3),
+`acoustic.input_device`/`output_device`; `acoustic.lag_search_max_ms`
+60 -> 500.

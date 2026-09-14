@@ -126,6 +126,23 @@ typing:
   passive_decay_half_life_s: 5.0    # PASSIVE-mode confidence halves every this many seconds of silence
   passive_no_evidence_after_s: 10.0 # no keystrokes at all for this long -> no_evidence, triggers re-challenge
   camera_index: 0
+  # -- 2026-09-03: keystroke-TIMING-only scoring (praesens.typing.keystroke_normality_score),
+  # used by the concurrent session's actual verdict (praesens/session.py). The
+  # hand-coherence settings above are UNCHANGED and still power run_typing_session()'s
+  # own standalone path (python -m praesens.typing) -- most webcams framed on the
+  # face can't also keep the hands in frame while typing, so the demo verdict no
+  # longer depends on hand visibility at all; this scores ONLY whether the operator
+  # typed THIS session's freshly-generated phrase correctly, at a plausible human pace.
+  min_keystrokes: 3                 # fewer than this -> no_evidence, not enough to judge timing at all
+  min_inter_key_s: 0.03             # faster average than this is not plausible manual typing (30ms/key
+                                     # is already very fast) -- catches a naive scripted/replayed injection
+  max_inter_key_s: 3.0              # slower average than this suggests disengagement, not just a careful typist
+  implausible_timing_penalty: 0.3   # multiplies match_fraction when timing falls outside the bounds above,
+                                     # rather than a hard zero -- a real but oddly-paced attempt still counts for something
+  pass_match_fraction: 0.7          # fraction of the phrase that must be typed correctly (matched_expected=True)
+                                     # for the typing lane to PASS -- this project's own reject_threshold (0.3,
+                                     # tuned for optical's correlation scale) isn't the right bar for "typed the
+                                     # right phrase," so typing gets its own, higher, more literal threshold
 
 fusion:
   accept_threshold: 0.6             # joint score >= this -> ACCEPT
@@ -204,6 +221,9 @@ acoustic:
   noise_offsets_hz: [-600.0, -300.0, 300.0, 600.0]
   n_decoy_codes: 3               # shifted copies of the session m-sequence -- the "heard, wrong alignment"
                                   # floor, so a probe arriving past lag_search_max_ms can't pass at a sidelobe
-  input_device: null             # null = OS default. MUST be a device the mic can hear from: earbuds/
-  output_device: null            # AirPods as the default output make the lane silently fail -- list
-                                  # devices with: python -m praesens.acoustic --list-devices
+  input_device: "Microphone Array Realtek MME"   # null = OS default. Set for this Windows laptop,
+  output_device: "Speakers Realtek MME"          # whose default output is realme Buds -- earbuds/
+                                  # AirPods as the output make the lane fail (the mic can't hear them).
+                                  # Space-separated words that must all appear in "<device name>, <host
+                                  # API>" (sounddevice matching); list devices with:
+                                  # python -m praesens.acoustic --list-devices

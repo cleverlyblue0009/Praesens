@@ -10,6 +10,7 @@ import pytest
 from praesens.fusion import (
     LaneResult, Adjudicator, AdjudicatorConfig, acoustic_lane_stub,
     compute_joint_score, lane_contributes, LANE_LAG_BOUNDS_MS,
+    adjudicate_two_lane, lane_passes,
 )
 
 
@@ -284,3 +285,144 @@ def test_a_real_acoustic_lane_can_veto_an_otherwise_accepting_session():
     assert result.verdict == "REJECT"
     assert "acoustic" in result.reason_text
     assert "0.05" in result.reason_text
+
+
+# ---------------------------------------------------------------------------
+# adjudicate_two_lane / lane_passes (2026-09-03) -- the explicit, asymmetric
+# binary gate praesens/session.py's concurrent optical+typing demo actually
+# verdicts against, requested directly: optical is PRIMARY (defeats video
+# injection), typing is SECONDARY confirmation of live engagement. A
+# SEPARATE, additional path from Adjudicator above (which remains what it
+# always was for eval/ablate.py and any future N-lane work) -- these tests
+# cover the exact 4-way truth table plus the --lanes optical (typing=None)
+# 2-way collapse.
+# ---------------------------------------------------------------------------
+
+_OPT_THR, _TYP_THR = 0.3, 0.7
+
+
+def test_lane_passes_requires_ok_status_and_subscore_above_threshold():
+    assert lane_passes(_ok("optical", subscore=0.5, lag_ms=50.0), 0.3) is True
+    assert lane_passes(_ok("optical", subscore=0.2, lag_ms=50.0), 0.3) is False
+    assert lane_passes(_no_evidence("optical"), 0.3) is False
+
+
+def test_adjudicate_two_lane_both_pass_accepts():
+    optical = _ok("optical", subscore=0.8, lag_ms=100.0)
+    typing = _ok("typing", subscore=0.9, lag_ms=None)
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "ACCEPT"
+    assert "both lanes agree" in result.reason_text
+
+
+def test_adjudicate_two_lane_optical_pass_typing_fail_score_is_re_challenge():
+    """User's exact spec: 'if optical passes and keyboard strokes doesnt
+    pass, it should say fail with an option to try again' -- RE-CHALLENGE,
+    not REJECT, when typing is the one that's weak."""
+    optical = _ok("optical", subscore=0.8, lag_ms=100.0)
+    typing = _ok("typing", subscore=0.2, lag_ms=None)  # typed, but scored low
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "RE-CHALLENGE"
+    assert "try typing again" in result.reason_text
+
+
+def test_adjudicate_two_lane_optical_pass_typing_no_evidence_is_re_challenge():
+    """'it shouldnt take hand visibility as an input' -- no keystrokes at
+    all (typing lane genuinely has nothing to score) must ALSO be
+    RE-CHALLENGE, not REJECT: optical alone being solid is enough to ask
+    for a retry rather than hard-reject."""
+    optical = _ok("optical", subscore=0.8, lag_ms=100.0)
+    typing = _no_evidence("typing", diagnostics="n_keystrokes=1 (need >= 3)")
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "RE-CHALLENGE"
+
+
+def test_adjudicate_two_lane_optical_fail_typing_pass_is_reject():
+    """'faking one lane doesn't help': a passing typing lane must never
+    rescue a failing optical lane."""
+    optical = _ok("optical", subscore=0.05, lag_ms=100.0)
+    typing = _ok("typing", subscore=0.95, lag_ms=None)
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "REJECT"
+
+
+def test_adjudicate_two_lane_both_fail_rejects():
+    optical = _ok("optical", subscore=0.1, lag_ms=100.0)
+    typing = _ok("typing", subscore=0.1, lag_ms=None)
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "REJECT"
+
+
+def test_adjudicate_two_lane_optical_high_score_but_implausible_lag_rejects():
+    """Same joint-temporal-coherence property the generic Adjudicator
+    enforces (see test_high_score_at_implausible_lag_does_not_contribute
+    above): a high optical subscore at a lag outside its plausible window
+    must not count as passing, even with typing passing too."""
+    optical = _ok("optical", subscore=0.9, lag_ms=-50.0)  # outside optical's (0, 300) window
+    typing = _ok("typing", subscore=0.9, lag_ms=None)
+    result = adjudicate_two_lane(optical, typing, _OPT_THR, _TYP_THR)
+    assert result.verdict == "REJECT"
+    assert "implausible lag" in result.reason_text
+
+
+def test_adjudicate_two_lane_typing_none_collapses_to_optical_only_gate():
+    """--lanes optical: no secondary lane to ask for a retry on, so this
+    is a plain two-way ACCEPT/REJECT, never RE-CHALLENGE."""
+    passing_optical = _ok("optical", subscore=0.8, lag_ms=100.0)
+    failing_optical = _ok("optical", subscore=0.1, lag_ms=100.0)
+
+    accept_result = adjudicate_two_lane(passing_optical, None, _OPT_THR, _TYP_THR)
+    reject_result = adjudicate_two_lane(failing_optical, None, _OPT_THR, _TYP_THR)
+
+    assert accept_result.verdict == "ACCEPT"
+    assert reject_result.verdict == "REJECT"
+    assert accept_result.lane_results == [passing_optical]
+
+
+# ---------------------------------------------------------------------------
+# adjudicate_two_lane with acoustic (2026-09-14): acoustic is a second
+# SECONDARY lane -- all three must pass for ACCEPT, a failing acoustic lane
+# asks for a retry, and passing secondaries never rescue a failing optical.
+# ---------------------------------------------------------------------------
+
+_ACO_THR = 0.3
+
+
+def test_three_lanes_all_pass_accepts():
+    result = adjudicate_two_lane(_ok("optical", 0.8, 100.0), _ok("typing", 0.9, None), _OPT_THR, _TYP_THR,
+                                 acoustic=_ok("acoustic", 0.93, 331.0), acoustic_pass_threshold=_ACO_THR)
+    assert result.verdict == "ACCEPT"
+    assert "all 3 lanes agree" in result.reason_text
+    assert [l.lane_name for l in result.lane_results] == ["optical", "typing", "acoustic"]
+
+
+def test_three_lanes_acoustic_insufficient_signal_is_re_challenge_naming_acoustic():
+    acoustic = LaneResult(lane_name="acoustic", subscore=None, status="insufficient_signal", lag_ms=None,
+                          confidence=0.0, diagnostics="snr_db=0.32, tone not heard")
+    result = adjudicate_two_lane(_ok("optical", 0.8, 100.0), _ok("typing", 0.9, None), _OPT_THR, _TYP_THR,
+                                 acoustic=acoustic, acoustic_pass_threshold=_ACO_THR)
+    assert result.verdict == "RE-CHALLENGE"
+    assert "acoustic lane: insufficient signal" in result.reason_text
+    assert "typing" not in result.reason_text
+
+
+def test_three_lanes_acoustic_at_implausible_lag_does_not_pass():
+    result = adjudicate_two_lane(_ok("optical", 0.8, 100.0), _ok("typing", 0.9, None), _OPT_THR, _TYP_THR,
+                                 acoustic=_ok("acoustic", 0.9, 800.0), acoustic_pass_threshold=_ACO_THR)
+    assert result.verdict == "RE-CHALLENGE"
+    assert "implausible lag" in result.reason_text
+
+
+def test_three_lanes_typing_and_acoustic_both_failing_names_both():
+    result = adjudicate_two_lane(_ok("optical", 0.8, 100.0), _no_evidence("typing", "n_keystrokes=0"),
+                                 _OPT_THR, _TYP_THR, acoustic=_ok("acoustic", 0.1, 300.0),
+                                 acoustic_pass_threshold=_ACO_THR)
+    assert result.verdict == "RE-CHALLENGE"
+    assert "try typing again" in result.reason_text
+    assert "acoustic lane" in result.reason_text
+
+
+def test_three_lanes_passing_secondaries_never_rescue_failing_optical():
+    result = adjudicate_two_lane(_ok("optical", 0.05, 100.0), _ok("typing", 0.95, None), _OPT_THR, _TYP_THR,
+                                 acoustic=_ok("acoustic", 0.95, 300.0), acoustic_pass_threshold=_ACO_THR)
+    assert result.verdict == "REJECT"

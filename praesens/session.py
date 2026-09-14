@@ -15,18 +15,39 @@ conditions more than others.
 
 `--lanes optical+typing` (the default) runs the optical and typing lanes
 CONCURRENTLY off ONE shared capture loop -- each frame is grabbed exactly
-once and fed to both lanes' per-frame processors, answering the SAME
-session challenge (including a displayed typing phrase) in the SAME
-window. That concurrency IS the joint-temporal-coherence claim fusion.py
-makes: two lanes measured over the same window, not two sequential passes
-that could each be satisfied independently. `--lanes optical` skips
-typing entirely and keeps the exact single-lane path this module has
-always used (praesens.optical.run_session, which owns its own loop).
-Either way, both lanes' raw numbers feed praesens.fusion.Adjudicator for
-one joint verdict, which prints as a short clean block on the terminal
-(scores/lag/SNR/every raw field still go to the JSON log in full --
-`fusion`/`typing` are ADDED fields, nothing existing is removed or
-renamed).
+once and fed to the optical lane's per-frame processor, answering the
+SAME session challenge (including a displayed typing phrase) in the SAME
+window. `--lanes optical` skips typing entirely and keeps the exact
+single-lane path this module has always used (praesens.optical.
+run_session, which owns its own loop).
+
+2026-09-03: the typing lane's verdict is keystroke-TIMING only (see
+praesens.typing.keystroke_normality_score) -- it no longer depends on the
+camera seeing the operator's hands at all, since a webcam framed on the
+face for the optical lane physically cannot also frame the hands during
+normal typing. The keystroke listener thread still runs for the same
+start_time/duration_s window as the shared capture loop (so both lanes
+still answer the SAME session challenge concurrently), it just no longer
+needs any frame handed to it.
+
+Both lanes' raw numbers feed praesens.fusion.adjudicate_two_lane for one
+joint verdict -- an explicit, asymmetric binary gate (not the generic
+confidence-weighted Adjudicator used elsewhere in this repo, e.g.
+eval/ablate.py): optical is the PRIMARY signal (defeats video injection)
+and typing is SECONDARY confirmation of live engagement with this
+session's unpredictable challenge, so
+  optical PASS + typing PASS  -> ACCEPT
+  optical PASS + typing FAIL  -> RE-CHALLENGE (ask them to type again)
+  optical FAIL (either way)   -> REJECT (typing can never rescue a
+                                  failing optical lane)
+2026-09-14: `--lanes optical+typing+acoustic` adds praesens/acoustic.py's
+speaker->microphone probe (same session m-sequence, its own thread, same
+start_time) as a second SECONDARY lane under the same rule -- ACCEPT
+needs all three to pass; optical passing with typing or acoustic failing
+is RE-CHALLENGE; optical failing is REJECT.
+This prints as a short clean block on the terminal (scores/lag/SNR/every
+raw field still go to the JSON log in full -- `fusion`/`typing` are ADDED
+fields, nothing existing is removed or renamed).
 """
 from __future__ import annotations
 
@@ -51,19 +72,15 @@ from praesens.capture import CaptureConfig, configure_capture_format, measure_st
 from praesens.challenge import Challenge, generate_challenge_phrase, pick_auto_chip_rate
 from praesens.emit import Emitter, EmitterConfig
 from praesens.fusion import (
-    LaneResult, Adjudicator, AdjudicatorConfig, acoustic_lane_stub,
-    compute_joint_score, LANE_LAG_BOUNDS_MS,
+    LaneResult, AdjudicatorConfig, acoustic_lane_stub,
+    adjudicate_two_lane, lane_passes, lane_contributes, LANE_LAG_BOUNDS_MS,
 )
 from praesens.optical import (
     OpticalConfig, OpticalFrameProcessor, OpticalResult, run_session,
     lock_camera, measure_capture_fps, check_nyquist,
 )
-from praesens.typing import (
-    TypingConfig, TypingResult, TypingFrameProcessor, KeystrokeCapture,
-    finalize_typing_result, create_hand_landmarker,
-)
+from praesens.typing import TypingConfig, KeystrokeCapture, keystroke_normality_score
 from praesens.acoustic import AcousticConfig, run_acoustic_session, acoustic_confidence
-from mediapipe.tasks.python import vision as mp_vision
 
 VALID_CONDITIONS = {
     "bonafide", "emitter_off",
@@ -94,11 +111,7 @@ def load_config(config_path: str | Path = "config.yaml") -> dict:
 # not invented fresh here. Optical: identical to eval/ablate.py's
 # optical_lane_result_from_log() (SNR margin above zero, clipped to
 # [0.05, 1.0]) -- same formula, reused, so a live session and an offline-
-# analysed log agree on what "confidence" means for this lane. Typing:
-# praesens.typing.passive_confidence()'s own recency-decay formula
-# (2**(-dt/half_life)), applied to the dt TypingResult already computes
-# (seconds_since_last_keystroke) -- not re-derived, just reused with the
-# one input available here.
+# analysed log agree on what "confidence" means for this lane.
 # ---------------------------------------------------------------------------
 
 def optical_lane_result(result: OpticalResult) -> LaneResult:
@@ -115,16 +128,64 @@ def optical_lane_result(result: OpticalResult) -> LaneResult:
                        diagnostics=f"snr_db={snr_db:.1f}" if not math.isnan(snr_db) else "snr_db=nan")
 
 
-def typing_lane_result(result: TypingResult, decay_half_life_s: float) -> LaneResult:
-    if result.status != "ok":
-        return LaneResult(lane_name="typing", subscore=None, status=result.status,
-                           lag_ms=None, confidence=0.0,
-                           diagnostics=f"n_keystrokes={result.n_keystrokes}")
-    confidence = float(2 ** (-result.seconds_since_last_keystroke / decay_half_life_s))
-    return LaneResult(lane_name="typing", subscore=result.coherence_score, status="ok",
-                       lag_ms=result.coherence_lag_ms, confidence=confidence,
-                       diagnostics=(f"n_keystrokes={result.n_keystrokes}, "
-                                    f"coherence_lag_ms={result.coherence_lag_ms:.0f}"))
+def typing_lane_result(events: list, expected_phrase: str | None, tconfig: TypingConfig) -> LaneResult:
+    """2026-09-03: keystroke-TIMING only (see
+    praesens.typing.keystroke_normality_score) -- replaced the earlier
+    hand-coherence-based version (Milestone 10/2026-09-02) because a
+    webcam framed on the face for the optical lane cannot also see the
+    hands during normal typing, which made this lane read as no_evidence
+    in practice regardless of whether genuine typing happened (see the
+    module docstring's 2026-09-03 note). confidence is fixed at 1.0 when
+    status=='ok' -- there's no per-session signal-quality measure for
+    pure keystroke timing the way SNR is for optical; the subscore itself
+    already reflects both match correctness and timing plausibility, so
+    a confident-but-low subscore is exactly how a badly-typed or
+    suspiciously-timed attempt is expressed. lag_ms is always None: this
+    lane no longer measures anything against a camera-observed stimulus,
+    so there is no lag to report (see LANE_LAG_BOUNDS_MS's "typing" entry,
+    which now only applies to praesens.fusion.Adjudicator's generic path,
+    not this lane's own binary-gate result)."""
+    status, subscore, diagnostics = keystroke_normality_score(events, expected_phrase, tconfig)
+    if status != "ok":
+        return LaneResult(lane_name="typing", subscore=None, status=status,
+                           lag_ms=None, confidence=0.0, diagnostics=diagnostics)
+    return LaneResult(lane_name="typing", subscore=subscore, status="ok",
+                       lag_ms=None, confidence=1.0, diagnostics=diagnostics)
+
+
+def _typing_record_dict(events: list, expected_phrase: str | None, tconfig: TypingConfig,
+                         typing_lane: LaneResult, typing_pass_threshold: float,
+                         start_time: float, duration_s: float) -> dict:
+    """Builds the JSON log's "typing" field. Keeps every field NAME the
+    2026-09-02 schema already used (add-only, see module docstring) --
+    "coherence_score"/"coherence_lag_ms" are now always None because
+    hand-tracking no longer runs in this path (2026-09-03), not because
+    the fields were removed; "subscore"/"diagnostics"/"pass_threshold"
+    are the new fields this milestone adds."""
+    n_matched = sum(1 for e in events if e.get("matched_expected") is True)
+    n_expected = len(expected_phrase) if expected_phrase else None
+
+    t_downs = sorted(e["t_down"] for e in events)
+    intervals = [b - a for a, b in zip(t_downs, t_downs[1:])]
+    inter_key_mean_s = (sum(intervals) / len(intervals)) if intervals else float("nan")
+    inter_key_std_s = float(np.std(intervals)) if len(intervals) >= 2 else float("nan")
+
+    session_end = start_time + duration_s
+    last_kt = max(t_downs) if t_downs else None
+    seconds_since_last_keystroke = (session_end - last_kt) if last_kt is not None else float("inf")
+
+    return {
+        "mode": "active", "status": typing_lane.status,
+        "n_keystrokes": len(events), "n_matched": n_matched, "n_expected": n_expected,
+        "inter_key_mean_s": inter_key_mean_s, "inter_key_std_s": inter_key_std_s,
+        "coherence_score": None, "coherence_lag_ms": None,
+        "seconds_since_last_keystroke": seconds_since_last_keystroke,
+        "events": events,  # t_down/t_up/matched_expected ONLY -- see praesens/typing.py's privacy contract
+        # -- added 2026-09-03, ADD-ONLY: keystroke-timing-only scoring --
+        "subscore": typing_lane.subscore,
+        "diagnostics": typing_lane.diagnostics,
+        "pass_threshold": typing_pass_threshold,
+    }
 
 def acoustic_lane_result(result) -> LaneResult:
     if result.status != "ok":
@@ -160,13 +221,20 @@ def _draw_phrase_overlay(frame: np.ndarray, phrase: str, chars_matched: int) -> 
     return canvas
 
 
-def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig, tconfig: TypingConfig,
+def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig,
                            emitter: Emitter, start_time: float, duration_s: float,
-                           expected_phrase: str) -> tuple[OpticalResult, TypingResult]:
+                           expected_phrase: str) -> tuple[OpticalResult, list]:
     """ONE shared capture loop: grabs each frame exactly once and feeds it
-    to BOTH the optical ROI processor and the typing hand-tracking
-    processor, so both lanes answer the SAME session challenge in the
-    SAME window -- see module docstring. Mirrors run_one_session()'s own
+    to the optical ROI processor -- see module docstring. The typing lane
+    (2026-09-03: keystroke-timing only, see
+    praesens.typing.keystroke_normality_score) needs no frames at all any
+    more -- its keystroke listener runs independently on its own thread
+    for this same start_time/duration_s window, so it's started/stopped
+    around this loop but never touches a frame. This still satisfies the
+    "exactly one cv2.VideoCapture consumer, one grab per frame" rule this
+    function has always followed: typing was never a second CAMERA
+    consumer to begin with, only its former hand-tracking piece was, and
+    that piece is what's removed here. Mirrors run_one_session()'s own
     existing platform branch (macOS needs the emitter's HighGUI window on
     the main thread; Windows/Linux the reverse) since this replaces the
     single-lane run_session() call in that branch, not the branch itself."""
@@ -174,9 +242,6 @@ def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig, tco
     exposure_locked = lock_camera(cap, oconfig, warn_list)
 
     optical_processor = OpticalFrameProcessor(oconfig)  # owns its own FaceLandmarker
-    hand_landmarker = create_hand_landmarker(tconfig.hand_model_path, mp_vision.RunningMode.VIDEO,
-                                              tconfig.min_hand_confidence)
-    typing_processor = TypingFrameProcessor(hand_landmarker)  # landmarker lifecycle owned here, not by typing.py
 
     keystroke_capture = KeystrokeCapture(expected_phrase=expected_phrase)
     keystroke_unavailable_reason = None
@@ -213,8 +278,6 @@ def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig, tco
             if boost_msg:
                 warn_list.append(boost_msg)
 
-            typing_processor.process_frame(frame, t, start_time)
-
             preview = _draw_phrase_overlay(frame, expected_phrase, keystroke_capture.chars_matched)
             emitter.set_preview(preview)
 
@@ -239,24 +302,19 @@ def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig, tco
     finally:
         keystroke_capture.stop()
         optical_processor.close()
-        hand_landmarker.close()
 
     optical_result = optical_processor.finalize(challenge, emitter, exposure_locked, warn_list)
 
-    typing_warn = ([f"keystroke listener unavailable: {keystroke_unavailable_reason}"]
-                    if keystroke_unavailable_reason else [])
-    typing_result = finalize_typing_result(
-        keystroke_capture, typing_processor.hand_ts, typing_processor.hand_activity,
-        "active", tconfig, start_time, duration_s, expected_phrase,
-    )
-    if typing_warn:
-        # finalize_typing_result already decided status from the real
-        # data (an unstarted listener means zero events -> "no_evidence"
-        # via compute_typing_status already); this just makes WHY visible
-        # in the log's warnings, without touching optical_result at all.
-        optical_result.warnings = optical_result.warnings + typing_warn
+    events = keystroke_capture.get_events()
+    if keystroke_unavailable_reason:
+        # keystroke_normality_score already decides "no_evidence" from
+        # zero events on its own; this just makes WHY visible in the
+        # log's warnings, without touching optical_result otherwise.
+        optical_result.warnings = optical_result.warnings + [
+            f"keystroke listener unavailable: {keystroke_unavailable_reason}"
+        ]
 
-    return optical_result, typing_result
+    return optical_result, events
 
 
 def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
@@ -349,7 +407,7 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             )
 
         start_time = time.perf_counter()
-        typing_result: TypingResult | None = None
+        typing_events: list | None = None
 
         # Acoustic doesn't touch the camera, so it can't slot into
         # _run_concurrent_lanes()'s shared grab/retrieve loop the way
@@ -375,8 +433,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             acoustic_thread.start()
 
         if typing_enabled:
-            optical_result, typing_result = _run_concurrent_lanes(
-                cap, challenge, oconfig, tconfig, emitter, start_time, challenge.duration_s, expected_phrase
+            optical_result, typing_events = _run_concurrent_lanes(
+                cap, challenge, oconfig, emitter, start_time, challenge.duration_s, expected_phrase
             )
         elif platform.system() == "Darwin":
             # macOS requires the emitter's OpenCV window to run on the main
@@ -427,22 +485,49 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     finally:
         cap.release()
 
-    # -- fusion: build LaneResults and adjudicate, regardless of lanes -- a
-    # single-lane session still gets a real verdict from optical+acoustic
-    # (acoustic never contributes, so this reduces to "does optical alone
-    # clear the bar," the same three-way ACCEPT/RE-CHALLENGE/REJECT logic
-    # either way, no special-cased single-lane verdict rule invented here.
-    lane_results = [optical_lane_result(optical_result)]
-    if typing_result is not None:
-        lane_results.append(typing_lane_result(typing_result, tconfig.passive_decay_half_life_s))
+    # -- fusion: build LaneResults and adjudicate. 2026-09-03: the verdict
+    # comes from adjudicate_two_lane(), an explicit binary gate (see module
+    # docstring), not the generic confidence-weighted Adjudicator used
+    # elsewhere in this repo (e.g. eval/ablate.py, still available and
+    # unaffected). --lanes optical passes typing=None through, which
+    # collapses to a plain optical-only ACCEPT/REJECT (no RE-CHALLENGE --
+    # there's no secondary lane to ask the operator to retry on).
+    optical_lane = optical_lane_result(optical_result)
+    typing_lane = None
+    typing_pass_threshold = (tconfig.pass_match_fraction if tconfig is not None
+                              else raw_config.get("typing", {}).get("pass_match_fraction", 0.7))
+    if typing_events is not None:
+        typing_lane = typing_lane_result(typing_events, expected_phrase, tconfig)
+
+    # 2026-09-14: acoustic is a real secondary lane when --lanes includes
+    # it. A crashed acoustic thread (requested, but no result) never ran,
+    # so it doesn't gate the verdict -- it's logged as the is_stub
+    # fallback below, and the WARNING printed above says why.
     acoustic_result = acoustic_box.get("result") if acoustic_enabled else None
-    if acoustic_result is not None:
-        lane_results.append(acoustic_lane_result(acoustic_result))
-    else:
-        lane_results.append(acoustic_lane_stub())
+    acoustic_lane = acoustic_lane_result(acoustic_result) if acoustic_result is not None else None
 
     fusion_config = AdjudicatorConfig.from_dict(raw_config.get("fusion", {}))
-    joint_result = Adjudicator(fusion_config).adjudicate(lane_results)
+    # optical's own pass bar reuses reject_threshold -- the same bar this
+    # module's terminal/banner display has always required an optical
+    # subscore to clear (see _lane_display_rows, below). Acoustic's subscore
+    # is on the same [0, 1] correlation scale (noise-floor corrected, see
+    # praesens.acoustic.detect_probe), so it reuses that bar.
+    optical_pass_threshold = fusion_config.reject_threshold
+    acoustic_pass_threshold = fusion_config.reject_threshold
+    joint_result = adjudicate_two_lane(
+        optical_lane, typing_lane,
+        optical_pass_threshold=optical_pass_threshold,
+        typing_pass_threshold=typing_pass_threshold,
+        acoustic=acoustic_lane,
+        acoustic_pass_threshold=acoustic_pass_threshold,
+    )
+
+    # lane_results feeds the JSON log's "fusion.lanes" list below (unchanged
+    # shape); acoustic falls back to the is_stub entry whenever it didn't run.
+    lane_results = [optical_lane]
+    if typing_lane is not None:
+        lane_results.append(typing_lane)
+    lane_results.append(acoustic_lane if acoustic_lane is not None else acoustic_lane_stub())
 
     record = {
         "session": session_id,
@@ -470,15 +555,9 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         # -- added 2026-09-02, ADD-ONLY: concurrent typing lane + fusion verdict --
         "lanes": lanes,
         "typing_phrase": expected_phrase,  # not secret -- seed-derived and shown on screen; keystrokes are what's never logged
-        "typing": ({
-            "mode": typing_result.mode, "status": typing_result.status,
-            "n_keystrokes": typing_result.n_keystrokes, "n_matched": typing_result.n_matched,
-            "n_expected": typing_result.n_expected,
-            "inter_key_mean_s": typing_result.inter_key_mean_s, "inter_key_std_s": typing_result.inter_key_std_s,
-            "coherence_score": typing_result.coherence_score, "coherence_lag_ms": typing_result.coherence_lag_ms,
-            "seconds_since_last_keystroke": typing_result.seconds_since_last_keystroke,
-            "events": typing_result.events,  # t_down/t_up/matched_expected ONLY -- see praesens/typing.py's privacy contract
-        } if typing_result is not None else None),
+        "typing": (_typing_record_dict(typing_events, expected_phrase, tconfig, typing_lane,
+                                        typing_pass_threshold, start_time, challenge.duration_s)
+                   if typing_events is not None else None),
         "acoustic": ({
             "status": acoustic_result.status, "score": acoustic_result.score,
             "lag_ms": acoustic_result.lag_ms, "snr_db": acoustic_result.snr_db,
@@ -497,6 +576,11 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
                  "is_stub": l.is_stub}
                 for l in lane_results
             ],
+            # -- added 2026-09-03, ADD-ONLY: the actual binary-gate policy --
+            "policy": "adjudicate_two_lane",
+            "optical_pass_threshold": optical_pass_threshold,
+            "typing_pass_threshold": typing_pass_threshold,
+            "acoustic_pass_threshold": acoustic_pass_threshold,
         },
     }
 
@@ -522,23 +606,20 @@ _LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane ", "aco
 def _lane_display_rows(record: dict) -> tuple[list, list]:
     """Shared by print_clean_block() and the on-screen verdict banner, so
     the terminal and the screen never disagree. Returns
-    ([(label, status_word, detail), ...], passing_lane_names). PASS
-    requires BOTH a plausible lag (fusion.py's own "contributes") AND a
-    subscore that itself clears reject_threshold -- "contributes" alone
-    is not enough (a lane can be plausibly-timed AND still read as an
-    attack, e.g. subscore 0.17 against reject_threshold 0.3; that must
-    show as FAIL, matching fusion.py's own downgrade rule that a low
-    subscore is disqualifying regardless of confidence/lag)."""
+    ([(label, status_word, detail), ...], passing_lane_names). 2026-09-03:
+    PASS is exactly what adjudicate_two_lane() itself requires for each
+    lane (see praesens/fusion.py) -- for optical, lane_passes() (subscore
+    clears optical_pass_threshold) AND lane_contributes() (measured lag
+    against the emitted light stimulus falls in its plausible window,
+    LANE_LAG_BOUNDS_MS); for typing, lane_passes() alone (subscore clears
+    typing_pass_threshold) -- typing has no lag left to check now that
+    its scoring is keystroke-timing-only (see praesens/typing.py's
+    keystroke_normality_score)."""
     fusion = record["fusion"]
     lane_dicts = fusion["lanes"]
-    reject_threshold = fusion["reject_threshold"]
-    lanes_for_contrib = [
-        LaneResult(lane_name=l["lane_name"], subscore=l["subscore"], status=l["status"],
-                   lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"],
-                   is_stub=l.get("is_stub", False))
-        for l in lane_dicts
-    ]
-    _, contributions = compute_joint_score(lanes_for_contrib, LANE_LAG_BOUNDS_MS)
+    optical_pass_threshold = fusion.get("optical_pass_threshold", fusion["reject_threshold"])
+    typing_pass_threshold = fusion.get("typing_pass_threshold", 0.7)
+    acoustic_pass_threshold = fusion.get("acoustic_pass_threshold", optical_pass_threshold)
 
     rows, passing = [], []
     for l in lane_dicts:
@@ -555,31 +636,39 @@ def _lane_display_rows(record: dict) -> tuple[list, list]:
         if l["lane_name"] not in _LANE_DISPLAY_NAMES or l.get("is_stub", False):
             continue
         label = _LANE_DISPLAY_NAMES[l["lane_name"]]
-        contributes = contributions[l["lane_name"]]["contributes"]
+        lane = LaneResult(lane_name=l["lane_name"], subscore=l["subscore"], status=l["status"],
+                           lag_ms=l["lag_ms"], confidence=l["confidence"], diagnostics=l["diagnostics"])
+
+        if l["lane_name"] == "typing":
+            lag_plausible = True  # not applicable -- typing has no lag concept any more
+            passes = lane_passes(lane, typing_pass_threshold)
+        else:
+            # optical and acoustic both measure a physical lag against the emitted challenge
+            lag_plausible = lane_contributes(lane, LANE_LAG_BOUNDS_MS)
+            threshold = optical_pass_threshold if l["lane_name"] == "optical" else acoustic_pass_threshold
+            passes = lane_passes(lane, threshold) and lag_plausible
+
         if l["status"] != "ok":
             status_word, detail = "NO EVIDENCE", f"({l['diagnostics']})" if l["diagnostics"] else ""
-        elif contributes and l["subscore"] >= reject_threshold:
+        elif passes:
             status_word = "PASS"
-            metric = "coherence" if l["lane_name"] == "typing" else "score"
+            metric = "match" if l["lane_name"] == "typing" else "score"
             detail = f"({metric} {l['subscore']:.2f})"
             passing.append(l["lane_name"])
-        elif contributes:
-            status_word, detail = "FAIL", f"(subscore {l['subscore']:.2f}, below reject_threshold)"
-        else:
+        elif not lag_plausible:
             status_word, detail = "FAIL", f"(subscore {l['subscore']:.2f}, implausible lag)"
+        else:
+            status_word, detail = "FAIL", f"(subscore {l['subscore']:.2f}, below pass threshold)"
         rows.append((label, status_word, detail))
     return rows, passing
 
 
-def _friendly_reason(record: dict, passing: list) -> str:
-    fusion = record["fusion"]
-    verdict = fusion["verdict"]
-    if verdict == "ACCEPT" and len(passing) >= 2:
-        return ("both lanes agree with this session's challenge" if len(passing) == 2
-                else f"all {len(passing)} lanes agree with this session's challenge")
-    if verdict == "ACCEPT" and len(passing) == 1:
-        return f"{passing[0]} lane agrees with this session's challenge"
-    return fusion["reason_text"]  # REJECT/RE-CHALLENGE: the adjudicator's own reason, verbatim -- nothing invented
+def _friendly_reason(record: dict) -> str:
+    """adjudicate_two_lane()'s own reason_text, verbatim -- nothing
+    invented here (see praesens/fusion.py: it already produces a clean
+    sentence for every case, ACCEPT included, e.g. "both lanes agree:
+    optical 0.80, typing 0.90" or "optical lane passes (score 0.80)")."""
+    return record["fusion"]["reason_text"]
 
 
 def print_clean_block(record: dict) -> None:
@@ -600,7 +689,7 @@ def print_clean_block(record: dict) -> None:
     print("  " + "-" * (width - 4))
     js = f"{joint_score:.2f}" if joint_score is not None else "n/a"
     print(f"  VERDICT      : {verdict:<12s} (joint {js})")
-    print(f"  Reason       : {_friendly_reason(record, passing)}")
+    print(f"  Reason       : {_friendly_reason(record)}")
     print("=" * width)
 
 
@@ -622,7 +711,7 @@ def show_verdict_banner(record: dict, hold_seconds: float) -> None:
         fusion = record["fusion"]
         verdict = fusion["verdict"]
         rows, passing = _lane_display_rows(record)
-        reason = _friendly_reason(record, passing)
+        reason = _friendly_reason(record)
 
         colors = {"ACCEPT": (60, 180, 60), "REJECT": (40, 40, 200), "RE-CHALLENGE": (30, 170, 220)}  # BGR
         color = colors.get(verdict, (90, 90, 90))
@@ -733,7 +822,7 @@ if __name__ == "__main__":
     }
 
     raw_config = load_config()
-    typing_note = " -- type the on-screen phrase while it plays" if args.lanes == "optical+typing" else ""
+    typing_note = " -- type the on-screen phrase while it plays" if "typing" in args.lanes else ""
     print(f"Starting {args.condition} session, lanes={args.lanes} "
           f"({raw_config['challenge']['duration_s']}s)... look at the screen{typing_note}.")
 

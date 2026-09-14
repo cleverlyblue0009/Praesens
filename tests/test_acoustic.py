@@ -126,8 +126,10 @@ def test_acoustic_confidence_never_rewards_non_finite_snr():
 
 class _FakePlayer:
     recording = None
+    last_config = None
 
     def __init__(self, probe, config, record_extra_s=None):
+        _FakePlayer.last_config = config
         self.stream_offset_ms = float("nan")
 
     def run(self):
@@ -156,6 +158,25 @@ def test_run_acoustic_session_insufficient_for_unheard_probe(setup):
     assert result.status == "insufficient_signal"
     assert result.score is None
     assert "tone not heard" in result.diagnostics
+
+
+def test_configured_device_missing_on_this_host_falls_back_to_default(setup):
+    """config.yaml names one host's devices; on another host (Windows
+    Realtek names on a Mac) the lane must fall back to the OS default and
+    say so, not fail the stream."""
+    config, challenge, probe = setup
+    import dataclasses
+    other_host = dataclasses.replace(config, output_device="Speakers Realtek MME",
+                                     input_device="Microphone Array Realtek MME")
+    _FakePlayer.recording = _recording(probe, config, delay_ms=30.0)
+    with patch.object(acoustic_mod, "DuplexProbePlayer", _FakePlayer), \
+         patch.object(acoustic_mod, "_device_name", return_value="MacBook Speakers"), \
+         patch.object(acoustic_mod.sd, "query_devices", side_effect=ValueError("No device matching")):
+        result = run_acoustic_session(challenge, other_host)
+    assert result.status == "ok", result.diagnostics
+    assert _FakePlayer.last_config.output_device is None
+    assert _FakePlayer.last_config.input_device is None
+    assert "not usable on this host" in result.diagnostics
 
 
 def test_run_acoustic_session_all_zero_capture_is_no_evidence(setup):

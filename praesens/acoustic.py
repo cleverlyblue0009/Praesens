@@ -68,6 +68,7 @@ loopback floor," not an absolute time-of-flight.
 """
 from __future__ import annotations
 
+import dataclasses
 import threading
 import time
 import warnings
@@ -175,6 +176,20 @@ def synthesize_probe(challenge: Challenge, config: AcousticConfig) -> np.ndarray
 # ---------------------------------------------------------------------------
 
 _HEADPHONE_HINTS = ("buds", "airpods", "headphone", "headset", "hands-free", "bluetooth")
+
+
+def _resolve_device(device, kind: str) -> tuple:
+    """(device_to_use, warning). config.yaml names one host's devices, so a
+    configured device that doesn't exist on THIS host (e.g. a Windows
+    laptop's "Speakers Realtek MME" on a Mac) falls back to the OS default
+    with a warning, instead of failing the stream outright."""
+    if device is None or sd is None:
+        return device, ""
+    try:
+        sd.query_devices(device=device, kind=kind)
+        return device, ""
+    except Exception as e:
+        return None, f"configured {kind}_device {device!r} not usable on this host ({e}); using the OS default"
 
 
 def _device_name(device, kind: str) -> str:
@@ -433,12 +448,20 @@ def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> Acoust
         return AcousticResult(status="no_evidence",
                                diagnostics=f"sounddevice unavailable: {_SD_IMPORT_ERROR}")
 
+    input_device, in_warning = _resolve_device(config.input_device, "input")
+    output_device, out_warning = _resolve_device(config.output_device, "output")
+    device_notes = [w for w in (in_warning, out_warning) if w]
+    if device_notes:
+        config = dataclasses.replace(config, input_device=input_device, output_device=output_device)
+        for note in device_notes:
+            print(f"WARNING: acoustic lane: {note}")
+
     out_name = _device_name(config.output_device, "output")
     in_name = _device_name(config.input_device, "input")
-    device_warning = ""
+    device_warning = "".join(f", WARNING {note}" for note in device_notes)
     if any(h in out_name.lower() for h in _HEADPHONE_HINTS):
-        device_warning = (f", WARNING output '{out_name}' looks like headphones -- the mic can't hear "
-                          f"the probe; set acoustic.output_device")
+        device_warning += (f", WARNING output '{out_name}' looks like headphones -- the mic can't hear "
+                           f"the probe; set acoustic.output_device")
         print(f"WARNING: acoustic lane output device '{out_name}' looks like headphones/earbuds; "
               f"the microphone cannot hear the probe. Set acoustic.output_device in config.yaml "
               f"(python -m praesens.acoustic --list-devices).")

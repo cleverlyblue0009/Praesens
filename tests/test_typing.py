@@ -11,7 +11,7 @@ from pynput.keyboard import KeyCode, Key
 
 from praesens.typing import (
     KeystrokeCapture, keystroke_hand_coherence, keystroke_impulse_density,
-    passive_confidence, compute_typing_status,
+    passive_confidence, compute_typing_status, keystroke_normality_score, TypingConfig,
 )
 
 
@@ -168,3 +168,74 @@ def test_passive_confidence_decays_and_absent_gives_zero():
     assert c0 == pytest.approx(1.0)
     assert c_half == pytest.approx(0.5, abs=0.01)
     assert c_decayed < 0.01
+
+
+# ---------------------------------------------------------------------------
+# keystroke_normality_score -- keystroke-TIMING-only scoring (2026-09-03),
+# no camera/hand dependency. See the function's own docstring and
+# praesens/session.py's module docstring for why this exists: a webcam
+# framed on the face for the optical lane cannot also see the hands during
+# normal typing, so the earlier hand-coherence-based typing lane read as
+# no_evidence in practice regardless of whether genuine typing happened.
+# ---------------------------------------------------------------------------
+
+def _tconfig(**overrides) -> TypingConfig:
+    base = dict(min_keystrokes=3, min_inter_key_s=0.03, max_inter_key_s=3.0,
+                implausible_timing_penalty=0.3, pass_match_fraction=0.7)
+    base.update(overrides)
+    return TypingConfig(**base)
+
+
+def _events(n=5, dt=0.2, matched=True):
+    return [{"t_down": i * dt, "t_up": i * dt + 0.05, "matched_expected": matched} for i in range(n)]
+
+
+def test_keystroke_normality_score_genuine_typing_scores_high():
+    events = _events(n=20, dt=0.2, matched=True)
+    status, subscore, diagnostics = keystroke_normality_score(events, "x" * 20, _tconfig())
+    assert status == "ok"
+    assert subscore == pytest.approx(1.0)
+    assert "20/20" in diagnostics
+
+
+def test_keystroke_normality_score_too_few_keystrokes_is_no_evidence():
+    events = _events(n=2, dt=0.2, matched=True)
+    status, subscore, diagnostics = keystroke_normality_score(events, "ab", _tconfig(min_keystrokes=3))
+    assert status == "no_evidence"
+    assert subscore is None
+    assert "n_keystrokes=2" in diagnostics
+
+
+def test_keystroke_normality_score_penalizes_implausibly_fast_robotic_timing():
+    """A naive scripted/replayed keystroke injection types with unnaturally
+    uniform, fast timing -- caught even when every character matches."""
+    events = _events(n=20, dt=0.005, matched=True)  # 5ms/key, well under min_inter_key_s
+    status, subscore, diagnostics = keystroke_normality_score(events, "x" * 20, _tconfig())
+    assert status == "ok"
+    assert subscore == pytest.approx(1.0 * 0.3)  # match_fraction * implausible_timing_penalty
+    assert "implausible" in diagnostics or "outside plausible" in diagnostics
+
+
+def test_keystroke_normality_score_wrong_phrase_scores_low_but_still_ok():
+    events = _events(n=20, dt=0.2, matched=False)
+    status, subscore, diagnostics = keystroke_normality_score(events, "x" * 20, _tconfig())
+    assert status == "ok"
+    assert subscore == pytest.approx(0.0)
+    assert "0/20" in diagnostics
+
+
+def test_keystroke_normality_score_partial_match_scales_linearly():
+    events = _events(n=10, dt=0.2, matched=True) + _events(n=10, dt=0.2, matched=False)
+    status, subscore, diagnostics = keystroke_normality_score(events, "x" * 20, _tconfig())
+    assert status == "ok"
+    assert subscore == pytest.approx(0.5)  # 10/20 matched, plausible timing
+
+
+def test_keystroke_normality_score_never_sees_a_character():
+    """Structural privacy check: the function's only inputs are timing +
+    a boolean match flag -- confirm no event dict passed in needs (or is
+    given) a pressed-character field for this to work at all."""
+    events = _events(n=5, dt=0.2, matched=True)
+    assert all(set(e.keys()) == {"t_down", "t_up", "matched_expected"} for e in events)
+    status, subscore, diagnostics = keystroke_normality_score(events, "abcde", _tconfig())
+    assert status == "ok"
