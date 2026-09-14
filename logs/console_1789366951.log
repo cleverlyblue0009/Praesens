@@ -1,0 +1,8 @@
+WARNING: Logging before InitGoogle() is written to STDERR
+W0000 00:00:1789366963.521593   32824 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1789366963.560304   30068 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1789366963.575774   32844 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+capture format: requested fourcc='MJPG' 640x480 @30fps -> actual fourcc='YUY2' 640x480 reported_fps=30.0 measured_fps=17.1
+WARNING: measured capture FPS (17.1) is below warn_below_fps (20) -- fourcc negotiated as 'YUY2' (requested 'MJPG'). This camera/format is under-delivering; auto_chip_rate will pick a low chip rate, or measurement may fall to insufficient_signal.
+auto_chip_rate: measured preflight FPS=15.7 -> chip_rate_hz=1.57, duration_s=38.3
