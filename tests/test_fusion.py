@@ -398,12 +398,17 @@ def test_three_lanes_all_pass_accepts():
 
 def test_three_lanes_acoustic_insufficient_signal_is_re_challenge_naming_acoustic():
     acoustic = LaneResult(lane_name="acoustic", subscore=None, status="insufficient_signal", lag_ms=None,
-                          confidence=0.0, diagnostics="snr_db=0.32, tone not heard")
+                          confidence=0.0,
+                          diagnostics="snr_db=0.32, tone_db=-0.1, peak=0.19, decoy_floor=0.16, tone not heard")
     result = adjudicate_two_lane(_ok("optical", 0.8, 100.0), _ok("typing", 0.9, None), _OPT_THR, _TYP_THR,
                                  acoustic=acoustic, acoustic_pass_threshold=_ACO_THR)
     assert result.verdict == "RE-CHALLENGE"
     assert "acoustic lane: insufficient signal" in result.reason_text
     assert "typing" not in result.reason_text
+    # the reason is shown fullscreen: the actionable headline, not every raw diagnostic field
+    assert "tone not heard" in result.reason_text
+    assert "decoy_floor" not in result.reason_text
+    assert "try again" in result.reason_text
 
 
 def test_three_lanes_acoustic_at_implausible_lag_does_not_pass():

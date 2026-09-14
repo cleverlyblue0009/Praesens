@@ -693,47 +693,89 @@ def print_clean_block(record: dict) -> None:
     print("=" * width)
 
 
+# Verdict -> (background, text) colour, BGR. For an audience the colour IS
+# the message, and it follows praesens.fusion.adjudicate_two_lane exactly:
+#   green  ACCEPT        every lane that ran passed (optical + typing + acoustic)
+#   yellow RE-CHALLENGE  optical passed but a secondary lane (typing or
+#                        acoustic) didn't -- retry, not a rejection
+#   red    REJECT        optical failed; no other lane can rescue that
+# Dark text on yellow: white on yellow is unreadable from across a room.
+_BANNER_STYLES = {
+    "ACCEPT": ((60, 180, 60), (255, 255, 255)),
+    "RE-CHALLENGE": ((0, 215, 255), (20, 20, 20)),
+    "REJECT": ((40, 40, 200), (255, 255, 255)),
+}
+
+
+def _wrap_text(text: str, font: int, scale: float, thickness: int, max_width: int,
+               max_lines: int = 3) -> list:
+    """Greedy word wrap to max_width pixels -- a RE-CHALLENGE reason can
+    carry a lane's full diagnostics (acoustic's run long) and would
+    otherwise run off both edges of the screen."""
+    lines, current = [], ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if current and cv2.getTextSize(candidate, font, scale, thickness)[0][0] > max_width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip(".,;") + " ..."
+    return lines
+
+
+def render_verdict_banner(record: dict, width: int, height: int) -> np.ndarray:
+    """The banner image itself, with no window -- so tests can check
+    exactly what the audience sees. Verdict/rows/reason come from the SAME
+    helpers print_clean_block() uses, so the screen and the terminal never
+    disagree."""
+    verdict = record["fusion"]["verdict"]
+    rows, _passing = _lane_display_rows(record)
+    reason = _friendly_reason(record)
+    background, text_color = _BANNER_STYLES.get(verdict, ((90, 90, 90), (255, 255, 255)))
+    frame = np.full((height, width, 3), background, dtype=np.uint8)
+
+    title_scale = height / 220.0
+    (tw, _th), _ = cv2.getTextSize(verdict, cv2.FONT_HERSHEY_DUPLEX, title_scale, 8)
+    cv2.putText(frame, verdict, ((width - tw) // 2, int(height * 0.40)), cv2.FONT_HERSHEY_DUPLEX,
+                title_scale, text_color, 8, cv2.LINE_AA)
+
+    row_step = int(height * 0.06)
+    for i, (label, status_word, _detail) in enumerate(rows):
+        line = f"{label.strip()}: {status_word}"
+        scale = height / 700.0
+        (lw, _lh), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, scale, 3)
+        cv2.putText(frame, line, ((width - lw) // 2, int(height * 0.53) + i * row_step),
+                    cv2.FONT_HERSHEY_SIMPLEX, scale, text_color, 3, cv2.LINE_AA)
+
+    reason_scale = height / 900.0
+    reason_y = int(height * 0.53) + len(rows) * row_step + int(height * 0.05)
+    for j, line in enumerate(_wrap_text(reason, cv2.FONT_HERSHEY_SIMPLEX, reason_scale, 2, int(width * 0.9))):
+        (rw, _rh), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, reason_scale, 2)
+        cv2.putText(frame, line, ((width - rw) // 2, reason_y + j * int(height * 0.045)),
+                    cv2.FONT_HERSHEY_SIMPLEX, reason_scale, text_color, 2, cv2.LINE_AA)
+    return frame
+
+
 def show_verdict_banner(record: dict, hold_seconds: float) -> None:
-    """A big, fullscreen, colour-coded ACCEPT/REJECT/RE-CHALLENGE banner --
-    green/red/amber -- for demo purposes: an audience reads a fullscreen
-    colour instantly, they don't read a terminal. The verdict/colour/
-    wording all come straight from the SAME record print_clean_block()
-    prints (_lane_display_rows/_friendly_reason, shared, so the screen
-    and the terminal never disagree) -- this is presentation only, no new
-    pass/fail logic. Opens its own short-lived window (the emitter's own
-    challenge window has already closed by the time a verdict exists,
-    since fusion runs after the capture loop) using the same fullscreen
-    technique as praesens.emit.Emitter._run(); never raises on a
-    windowless/headless environment -- a demo failing to SHOW the verdict
-    must not crash the session that already computed and saved it."""
+    """A big, fullscreen, colour-coded ACCEPT/RE-CHALLENGE/REJECT banner --
+    green/yellow/red, see _BANNER_STYLES -- for demo purposes: an audience
+    reads a fullscreen colour instantly, they don't read a terminal. This
+    is presentation only, no new pass/fail logic (render_verdict_banner).
+    Opens its own short-lived window (the emitter's own challenge window
+    has already closed by the time a verdict exists, since fusion runs
+    after the capture loop) using the same fullscreen technique as
+    praesens.emit.Emitter._run(); never raises on a windowless/headless
+    environment -- a demo failing to SHOW the verdict must not crash the
+    session that already computed and saved it."""
     try:
         from praesens.emit import _screen_resolution
-        fusion = record["fusion"]
-        verdict = fusion["verdict"]
-        rows, passing = _lane_display_rows(record)
-        reason = _friendly_reason(record)
-
-        colors = {"ACCEPT": (60, 180, 60), "REJECT": (40, 40, 200), "RE-CHALLENGE": (30, 170, 220)}  # BGR
-        color = colors.get(verdict, (90, 90, 90))
         width, height = _screen_resolution(1920, 1080)
-        frame = np.full((height, width, 3), color, dtype=np.uint8)
-
-        title_scale = height / 220.0
-        (tw, _th), _ = cv2.getTextSize(verdict, cv2.FONT_HERSHEY_DUPLEX, title_scale, 8)
-        cv2.putText(frame, verdict, ((width - tw) // 2, int(height * 0.45)), cv2.FONT_HERSHEY_DUPLEX,
-                    title_scale, (255, 255, 255), 8, cv2.LINE_AA)
-
-        for i, (label, status_word, _detail) in enumerate(rows):
-            line = f"{label.strip()}: {status_word}"
-            scale = height / 700.0
-            (lw, _lh), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, scale, 3)
-            cv2.putText(frame, line, ((width - lw) // 2, int(height * 0.58) + i * int(height * 0.06)),
-                        cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), 3, cv2.LINE_AA)
-
-        reason_scale = height / 900.0
-        (rw, _rh), _ = cv2.getTextSize(reason, cv2.FONT_HERSHEY_SIMPLEX, reason_scale, 2)
-        cv2.putText(frame, reason, ((width - rw) // 2, int(height * 0.85)), cv2.FONT_HERSHEY_SIMPLEX,
-                    reason_scale, (255, 255, 255), 2, cv2.LINE_AA)
+        frame = render_verdict_banner(record, width, height)
 
         window_name = "praesens_verdict"
         cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)

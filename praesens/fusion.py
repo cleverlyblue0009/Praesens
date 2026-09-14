@@ -329,15 +329,26 @@ def lane_passes(lane: LaneResult, pass_threshold: float) -> bool:
     return lane.status == "ok" and lane.subscore is not None and lane.subscore >= pass_threshold
 
 
+def _short_diagnostics(lane: LaneResult) -> str:
+    """The headline of a lane's diagnostics for a one-sentence reason (it's
+    shown fullscreen on the verdict banner) -- the full string stays in
+    the log's fusion.lanes[].diagnostics. Acoustic diagnostics run to a
+    dozen fields; "tone not heard" is the one an operator can act on."""
+    diag = lane.diagnostics or ""
+    if "tone not heard" in diag:
+        return "tone not heard -- speaker muted or too quiet, or output is headphones"
+    return diag.split(", ")[0]
+
+
 def _secondary_fail_reason(lane: LaneResult, retry_hint: str) -> str:
     if lane.status != "ok":
         label = "no evidence" if lane.status == "no_evidence" else "insufficient signal"
-        return f"{lane.lane_name} lane: {label} ({lane.diagnostics or 'nothing to measure'}) -- {retry_hint}"
+        return f"{lane.lane_name} lane: {label} ({_short_diagnostics(lane) or 'nothing to measure'}) -- {retry_hint}"
     if lane.lag_ms is not None and not lane_contributes(lane, LANE_LAG_BOUNDS_MS):
         return (f"{lane.lane_name} lane: subscore {lane.subscore:.2f} but implausible lag "
                 f"({lane.lag_ms:.0f}ms) -- {retry_hint}")
     return (f"{lane.lane_name} lane: subscore {lane.subscore:.2f} below pass threshold "
-            f"({lane.diagnostics}) -- {retry_hint}")
+            f"({_short_diagnostics(lane)}) -- {retry_hint}")
 
 
 def _per_lane_reason(lane: LaneResult) -> str:

@@ -540,6 +540,73 @@ def test_show_verdict_banner_uses_the_real_verdict_and_holds_briefly():
     assert int(frame[0, 0, 2]) > int(frame[0, 0, 1])  # R channel > G channel in the background fill
 
 
+def _gate_record(optical, typing, acoustic):
+    """A record whose verdict comes from the REAL gate
+    (fusion.adjudicate_two_lane), not a hand-written verdict string -- so
+    the banner tests below check lane outcomes -> colour end to end."""
+    from praesens.fusion import adjudicate_two_lane
+    joint = adjudicate_two_lane(optical, typing, 0.3, 0.7, acoustic=acoustic, acoustic_pass_threshold=0.3)
+    return {
+        "session": "20260914T000000_deadbeef", "condition": "bonafide",
+        "fusion": {
+            "verdict": joint.verdict, "joint_score": joint.joint_score, "reason_text": joint.reason_text,
+            "per_lane_reasons": joint.per_lane_reasons, "accept_threshold": 0.6, "reject_threshold": 0.3,
+            "optical_pass_threshold": 0.3, "typing_pass_threshold": 0.7, "acoustic_pass_threshold": 0.3,
+            "lanes": [{"lane_name": l.lane_name, "subscore": l.subscore, "status": l.status, "lag_ms": l.lag_ms,
+                       "confidence": l.confidence, "diagnostics": l.diagnostics, "is_stub": l.is_stub}
+                      for l in joint.lane_results],
+        },
+    }
+
+
+_OPTICAL_PASS = LaneResult(lane_name="optical", subscore=0.75, status="ok", lag_ms=25.0, confidence=0.47)
+_OPTICAL_FAIL = LaneResult(lane_name="optical", subscore=0.05, status="ok", lag_ms=25.0, confidence=0.2)
+_TYPING_PASS = LaneResult(lane_name="typing", subscore=1.0, status="ok", lag_ms=None, confidence=1.0,
+                          diagnostics="matched 27/27, mean_inter_key=0.146s")
+_TYPING_FAIL = LaneResult(lane_name="typing", subscore=None, status="no_evidence", lag_ms=None, confidence=0.0,
+                          diagnostics="n_keystrokes=0 (need >= 3)")
+_ACOUSTIC_PASS = LaneResult(lane_name="acoustic", subscore=0.93, status="ok", lag_ms=332.0, confidence=0.54,
+                            diagnostics="snr_db=10.84")
+_ACOUSTIC_FAIL = LaneResult(lane_name="acoustic", subscore=None, status="insufficient_signal", lag_ms=None,
+                            confidence=0.0,
+                            diagnostics="snr_db=0.32, tone_db=-0.1, peak=0.19, off_carrier_floor=0.18, "
+                                        "decoy_floor=0.16, out='Speakers (Realtek(R) Audio)', "
+                                        "in='Microphone Array (Realtek(R) Au', tone not heard -- check the "
+                                        "output device isn't muted/at 0% volume and isn't headphones")
+
+_GREEN, _YELLOW, _RED = (60, 180, 60), (0, 215, 255), (40, 40, 200)  # BGR
+
+
+@pytest.mark.parametrize("optical, typing, acoustic, verdict, background", [
+    (_OPTICAL_PASS, _TYPING_PASS, _ACOUSTIC_PASS, "ACCEPT", _GREEN),
+    (_OPTICAL_FAIL, _TYPING_PASS, _ACOUSTIC_PASS, "REJECT", _RED),
+    (_OPTICAL_FAIL, _TYPING_FAIL, _ACOUSTIC_FAIL, "REJECT", _RED),
+    (_OPTICAL_PASS, _TYPING_FAIL, _ACOUSTIC_PASS, "RE-CHALLENGE", _YELLOW),
+    (_OPTICAL_PASS, _TYPING_PASS, _ACOUSTIC_FAIL, "RE-CHALLENGE", _YELLOW),
+], ids=["all_three_pass_green", "optical_fails_red", "everything_fails_red",
+        "typing_fails_yellow", "acoustic_fails_yellow"])
+def test_three_lane_banner_colour_follows_the_gate(optical, typing, acoustic, verdict, background):
+    from praesens.session import render_verdict_banner
+    record = _gate_record(optical, typing, acoustic)
+    assert record["fusion"]["verdict"] == verdict
+
+    frame = render_verdict_banner(record, 1280, 720)
+    assert tuple(int(c) for c in frame[0, 0]) == background
+    rows, _ = session_mod._lane_display_rows(record)
+    assert [label.strip() for label, _, _ in rows] == ["Optical lane", "Typing lane", "Acoustic lane"]
+
+
+def test_yellow_banner_uses_dark_text_and_long_reasons_stay_on_screen():
+    from praesens.session import render_verdict_banner
+    record = _gate_record(_OPTICAL_PASS, _TYPING_FAIL, _ACOUSTIC_FAIL)  # longest reason: both secondaries failing
+    frame = render_verdict_banner(record, 1280, 720)
+
+    assert np.any(np.all(frame == (20, 20, 20), axis=2))       # dark text is drawn...
+    assert not np.any(np.all(frame == (255, 255, 255), axis=2))  # ...and no white-on-yellow
+    margin = int(1280 * 0.03)
+    assert np.all(frame[:, :margin] == _YELLOW) and np.all(frame[:, -margin:] == _YELLOW)  # nothing runs off the edges
+
+
 def test_show_verdict_banner_accept_is_green_not_red():
     from praesens.session import show_verdict_banner
     record = _record(verdict="ACCEPT", joint_score=0.78)
