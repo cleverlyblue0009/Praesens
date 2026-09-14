@@ -188,6 +188,22 @@ acoustic:
   sample_rate_hz: 44100
   carrier_hz: 4000.0
   amplitude: 0.6
-  lag_search_max_ms: 60.0
-  snr_floor_db: 6.0
+  lag_search_max_ms: 500.0       # 2026-09-14: was 60 -- a real duplex round trip (output+input buffers)
+                                  # can exceed that on macOS, Bluetooth output alone is 150ms+. Matches
+                                  # fusion.LANE_LAG_BOUNDS_MS["acoustic"]; a peak on the edge is rejected
+  lag_step_ms: 1.0
+  snr_floor_db: 6.0              # peak statistic vs. the same statistic at off-carrier frequencies
+                                  # (see praesens/acoustic.py detect_probe) -- no longer "pre-roll" power,
+                                  # which was the start-up-zeros snr_db=inf bug in logs/20260913T20*.json
   ramp_ms: 5.0
+  transition_ms: 20.0            # smoothed chip edges -- abrupt BPSK flips leaked probe energy into the
+                                  # +/-300/600Hz noise channels on real speakers, capping snr_db near 9dB
+  baseband_bandwidth_hz: 10.0
+  segment_s: 1.0                 # coherent-integration length; the 2026-09-13 detector integrated the
+                                  # whole 20s coherently and speaker/mic clock drift cancelled it to ~0
+  noise_offsets_hz: [-600.0, -300.0, 300.0, 600.0]
+  n_decoy_codes: 3               # shifted copies of the session m-sequence -- the "heard, wrong alignment"
+                                  # floor, so a probe arriving past lag_search_max_ms can't pass at a sidelobe
+  input_device: null             # null = OS default. MUST be a device the mic can hear from: earbuds/
+  output_device: null            # AirPods as the default output make the lane silently fail -- list
+                                  # devices with: python -m praesens.acoustic --list-devices

@@ -62,7 +62,7 @@ from praesens.typing import (
     TypingConfig, TypingResult, TypingFrameProcessor, KeystrokeCapture,
     finalize_typing_result, create_hand_landmarker,
 )
-from praesens.acoustic import AcousticConfig, run_acoustic_session
+from praesens.acoustic import AcousticConfig, run_acoustic_session, acoustic_confidence
 from mediapipe.tasks.python import vision as mp_vision
 
 VALID_CONDITIONS = {
@@ -130,7 +130,7 @@ def acoustic_lane_result(result) -> LaneResult:
     if result.status != "ok":
         return LaneResult(lane_name="acoustic", subscore=None, status=result.status,
                            lag_ms=None, confidence=0.0, diagnostics=result.diagnostics)
-    confidence = float(np.clip(result.snr_db / 20.0, 0.05, 1.0))
+    confidence = acoustic_confidence(result.snr_db)
     return LaneResult(lane_name="acoustic", subscore=result.score, status="ok",
                        lag_ms=result.lag_ms, confidence=confidence, diagnostics=result.diagnostics)
 
@@ -414,7 +414,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
                 emitter.stop()
 
         if acoustic_thread is not None:
-            acoustic_thread.join(timeout=challenge.duration_s + 5.0)
+            # + lag-search tail recording, stream start-up and detection time
+            acoustic_thread.join(timeout=challenge.duration_s + 10.0)
             if "error" in acoustic_box:
                 # A crashed acoustic thread must not silently look like
                 # "no_evidence" (that's a different, honest claim -- see

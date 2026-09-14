@@ -40,6 +40,7 @@ import numpy as np
 import yaml
 
 from eval.analyse import load_sessions
+from praesens.acoustic import acoustic_confidence
 from praesens.fusion import (
     LaneResult, Adjudicator, AdjudicatorConfig, acoustic_lane_stub, LANE_LAG_BOUNDS_MS,
     lane_contributes,
@@ -97,8 +98,7 @@ def acoustic_lane_result_from_log(record: dict) -> LaneResult | None:
     if acoustic["status"] != "ok":
         return LaneResult(lane_name="acoustic", subscore=None, status=acoustic["status"],
                            lag_ms=None, confidence=0.0, diagnostics=acoustic.get("diagnostics", ""))
-    snr_db = acoustic.get("snr_db", float("nan"))
-    confidence = 0.3 if np.isnan(snr_db) else float(np.clip(snr_db / 20.0, 0.05, 1.0))
+    confidence = acoustic_confidence(acoustic.get("snr_db", float("nan")))
     return LaneResult(lane_name="acoustic", subscore=acoustic["score"], status="ok",
                        lag_ms=acoustic["lag_ms"], confidence=confidence,
                        diagnostics=acoustic.get("diagnostics", ""))
