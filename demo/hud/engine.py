@@ -354,19 +354,68 @@ class HudEngine:
         self._start_keys(None)
         self._enter_idle()
 
+    def _prime_camera(self, cap, tries: int = 25) -> bool:
+        """isOpened() is not proof of life: on Windows a second handle to a
+        camera that is already open reports True and then never delivers a
+        frame. Only an actual retrieved frame counts."""
+        for _ in range(tries):
+            if cap.grab():
+                ok, frame = cap.retrieve()
+                if ok and frame is not None:
+                    return True
+            time.sleep(0.04)
+        return False
+
+    def _configure_camera(self, cap) -> None:
+        from praesens.capture import CaptureConfig, configure_capture_format
+        configure_capture_format(cap, CaptureConfig.from_dict(self.raw.get("capture", {})), self.warnings)
+        self.exposure_locked = lock_camera(cap, self.oconfig, self.warnings)
+        # DSHOW needs several frames after an exposure change before fps and brightness settle;
+        # open_sensors() discards the same number, and lock verification is meaningless without them
+        for _ in range(int(self.raw.get("optical", {}).get("camera_warmup_frames", 30))):
+            cap.grab()
+            cap.retrieve()
+
     def switch_camera(self, index: int) -> str:
+        """Release the current camera BEFORE opening the next one. DirectShow
+        hands out exclusive access, so opening while the old handle is still
+        alive -- switching to the camera already in use, in particular --
+        returns a capture that reports isOpened() but never grabs a frame, and
+        the preview silently freezes on its last image (seen on the demo
+        laptop, 2026-10-17). The previous camera is restored if the new one
+        turns out to be dead."""
         if self.synthetic:
             return "synthetic mode has no cameras"
         from praesens.camera import open_camera
-        new = open_camera(int(index))
-        if not new.isOpened():
-            return f"camera {index} did not open"
+        index = int(index)
+        previous = self.oconfig.camera_index
+
         with self.lock:
-            old, self.cap = self.cap, new
-            self.oconfig.camera_index = int(index)
-        old.release()
-        self.exposure_locked = lock_camera(self.cap, self.oconfig, self.warnings)
-        return f"switched to camera {index}"
+            old, self.cap = self.cap, None      # capture_loop idles while cap is None
+        if old is not None:
+            old.release()
+
+        new = open_camera(index)
+        if new.isOpened() and self._prime_camera(new):
+            self._configure_camera(new)
+            with self.lock:
+                self.cap = new
+                self.oconfig.camera_index = index
+            if self.mode == "idle":
+                self._enter_idle()              # fresh processor: no history from the old camera
+            return f"switched to camera {index}"
+
+        new.release()
+        back = open_camera(previous)
+        if back.isOpened() and self._prime_camera(back):
+            self._configure_camera(back)
+            with self.lock:
+                self.cap = back
+                self.oconfig.camera_index = previous
+            return f"camera {index} delivered no frames -- still on camera {previous}"
+        back.release()
+        self.warnings.append(f"camera {index} failed and camera {previous} could not be reopened")
+        return f"camera {index} did not open, and camera {previous} could not be reopened"
 
     def set_sim(self, key: str, value: bool) -> None:
         if self.world is not None and key in ("attack_video", "attack_keys", "face_present"):

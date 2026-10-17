@@ -71,10 +71,15 @@ def _run_scan(tmp_path, **sim):
         time.sleep(1.0)
         assert e.start_scan() == "scan armed"
         t_end = time.time() + 30
+        samples = []
         while not results and time.time() < t_end:
+            samples.append(e.telemetry())
             time.sleep(0.1)
-        tele = e.telemetry()
-        json.dumps(tele)  # the websocket payload must always serialise
+        json.dumps(e.telemetry())  # the websocket payload must always serialise
+        # Sample from DURING the scan: once the scan ends the engine passes through
+        # mode "scoring", which deliberately blanks landmarks (engine.capture_loop),
+        # so a snapshot taken after the result lands reports None about half the time.
+        tele = next((x for x in reversed(samples) if x.get("landmarks")), e.telemetry())
     finally:
         stop.set()
         e.shutdown()
@@ -104,3 +109,95 @@ def test_synthetic_injected_keystrokes_rechallenge(tmp_path):
 def test_synthetic_injected_video_rejects(tmp_path):
     r, _ = _run_scan(tmp_path, attack_video=True)
     assert r["verdict"] == "REJECT"
+
+
+# ---------------------------------------------------------------------------
+# switch_camera: found on the demo laptop (2026-10-17). Clicking the camera
+# buttons froze the preview -- the engine opened the NEW capture before
+# releasing the old one, and DirectShow hands out exclusive access, so the
+# second handle to a camera that is still open reports isOpened() and then
+# never delivers a frame. grab() failed forever, the capture loop idled, and
+# the server kept re-broadcasting the last JPEG (77 identical frames measured
+# over the websocket) while measured_fps stayed frozen at its last value.
+# ---------------------------------------------------------------------------
+
+class _FakeCap:
+    """Mimics DirectShow exclusivity: a handle only delivers frames while it is
+    the only live handle on that index."""
+    live: dict = {}
+
+    def __init__(self, index, dead=False):
+        self.index, self.dead, self.released = index, dead, False
+        self.exclusive = _FakeCap.live.get(index, 0) == 0
+        _FakeCap.live[index] = _FakeCap.live.get(index, 0) + 1
+
+    def isOpened(self):
+        return not self.dead                    # dead cameras do not open at all
+    def grab(self):
+        return bool(self.exclusive and not self.dead and not self.released)
+    def retrieve(self):
+        import numpy as np
+        return (True, np.zeros((48, 64, 3), dtype=np.uint8)) if self.grab() else (False, None)
+    def set(self, *a, **k):
+        return True
+    def get(self, *a, **k):
+        return 0.0
+    def release(self):
+        if not self.released:
+            self.released = True
+            _FakeCap.live[self.index] = max(0, _FakeCap.live.get(self.index, 1) - 1)
+
+
+@pytest.fixture
+def camera_engine(monkeypatch):
+    import praesens.camera
+    import praesens.capture
+    import demo.hud.engine as eng
+
+    _FakeCap.live = {}
+    opened = []
+
+    def fake_open(index):
+        cap = _FakeCap(index, dead=(index >= 2))     # 0 and 1 exist, 2 does not
+        opened.append(cap)
+        return cap
+
+    monkeypatch.setattr(praesens.camera, "open_camera", fake_open)
+    monkeypatch.setattr(praesens.capture, "configure_capture_format", lambda *a, **k: None)
+    monkeypatch.setattr(eng, "lock_camera", lambda *a, **k: True)
+
+    raw = load_config()
+    raw["optical"]["camera_warmup_frames"] = 2
+    e = HudEngine(raw, synthetic=True)
+    e.synthetic = False                          # exercise the real camera path, no hardware
+    e.mode = "idle"
+    monkeypatch.setattr(e, "_enter_idle", lambda: None)   # isolate camera handling
+    e.cap = fake_open(0)
+    e.oconfig.camera_index = 0
+    return e, opened
+
+
+def test_switching_to_the_camera_already_in_use_keeps_delivering_frames(camera_engine):
+    """The exact click that froze the preview: camera 0 -> camera 0."""
+    e, _ = camera_engine
+    msg = e.switch_camera(0)
+    assert msg == "switched to camera 0"
+    assert e.cap.grab() is True, "preview frozen: the new handle never delivers a frame"
+    assert e.oconfig.camera_index == 0
+
+
+def test_switch_camera_releases_the_old_handle_before_opening_the_new_one(camera_engine):
+    e, opened = camera_engine
+    old = e.cap
+    e.switch_camera(1)
+    assert old.released is True
+    assert e.cap is not old and e.cap.grab() is True
+    assert e.oconfig.camera_index == 1
+
+
+def test_switch_to_a_missing_camera_falls_back_to_the_working_one(camera_engine):
+    e, _ = camera_engine
+    msg = e.switch_camera(2)                     # no such device
+    assert "camera 2" in msg and "2" in msg
+    assert e.cap is not None and e.cap.grab() is True, "fell back to a dead capture"
+    assert e.oconfig.camera_index == 0
