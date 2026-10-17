@@ -81,6 +81,11 @@ from praesens.optical import (
 )
 from praesens.typing import TypingConfig, KeystrokeCapture, keystroke_normality_score
 from praesens.acoustic import AcousticConfig, run_acoustic_session, acoustic_confidence
+from praesens.pressure import (
+    PressureConfig, MicRecorder, analyse_keystroke_impacts, pressure_confidence, pressure_record,
+    _probe_notches,
+)
+from praesens.pulse import PulseConfig, skin_rgb, estimate_pulse, pulse_record
 
 VALID_CONDITIONS = {
     "bonafide", "emitter_off",
@@ -89,7 +94,9 @@ VALID_CONDITIONS = {
     "inject_static", "inject_swap", "inject_reenact", "inject_adaptive",
 }
 
-VALID_LANES = ("optical", "optical+typing", "optical+typing+acoustic")
+VALID_LANES = ("optical", "optical+typing", "optical+typing+acoustic",
+               # 2026-10: keystroke-impact ("pressure") lane, see praesens/pressure.py
+               "optical+typing+pressure", "optical+typing+acoustic+pressure")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -195,6 +202,23 @@ def acoustic_lane_result(result) -> LaneResult:
     return LaneResult(lane_name="acoustic", subscore=result.score, status="ok",
                        lag_ms=result.lag_ms, confidence=confidence, diagnostics=result.diagnostics)
 
+def pressure_lane_result(result) -> LaneResult:
+    if result.status != "ok":
+        return LaneResult(lane_name="pressure", subscore=None, status=result.status,
+                           lag_ms=None, confidence=0.0, diagnostics=result.diagnostics)
+    return LaneResult(lane_name="pressure", subscore=result.score, status="ok", lag_ms=result.lag_ms,
+                       confidence=pressure_confidence(result), diagnostics=result.diagnostics)
+
+
+def pulse_lane_result(est) -> LaneResult:
+    if est.status != "ok":
+        return LaneResult(lane_name="pulse", subscore=None, status="no_evidence", lag_ms=None,
+                           confidence=0.0, diagnostics=est.diagnostics)
+    conf = float(np.clip(est.coverage, 0.1, 1.0))
+    return LaneResult(lane_name="pulse", subscore=est.subscore, status="ok", lag_ms=None,
+                       confidence=conf, diagnostics=est.diagnostics)
+
+
 def _draw_phrase_overlay(frame: np.ndarray, phrase: str, chars_matched: int) -> np.ndarray:
     """A COPY of frame with the challenge phrase drawn across the top --
     the caller already fed the UNMODIFIED frame to optical's ROI sampling
@@ -223,7 +247,7 @@ def _draw_phrase_overlay(frame: np.ndarray, phrase: str, chars_matched: int) -> 
 
 def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig,
                            emitter: Emitter, start_time: float, duration_s: float,
-                           expected_phrase: str) -> tuple[OpticalResult, list]:
+                           expected_phrase: str, skin_trace: list | None = None) -> tuple[OpticalResult, list]:
     """ONE shared capture loop: grabs each frame exactly once and feeds it
     to the optical ROI processor -- see module docstring. The typing lane
     (2026-09-03: keystroke-timing only, see
@@ -277,6 +301,9 @@ def _run_concurrent_lanes(cap, challenge: Challenge, oconfig: OpticalConfig,
             boost_msg = optical_processor.process_frame(frame, t, start_time, challenge, emitter)
             if boost_msg:
                 warn_list.append(boost_msg)
+            if skin_trace is not None:
+                # rPPG (praesens/pulse.py): mean skin RGB over the SAME ROI boxes optical just used
+                skin_trace.append((t, skin_rgb(frame, optical_processor.detector.last_boxes)))
 
             preview = _draw_phrase_overlay(frame, expected_phrase, keystroke_capture.chars_matched)
             emitter.set_preview(preview)
@@ -394,8 +421,12 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         emitter = Emitter(challenge, econfig)
         session_id = generate_session_id()
 
-        typing_enabled = lanes in ("optical+typing", "optical+typing+acoustic")
-        acoustic_enabled = lanes == "optical+typing+acoustic"
+        typing_enabled = lanes != "optical"
+        acoustic_enabled = "acoustic" in lanes.split("+")
+        pressure_enabled = "pressure" in lanes.split("+")
+        pconfig = PressureConfig.from_dict(raw_config.get("pressure", {}))
+        puconfig = PulseConfig.from_dict(raw_config.get("pulse", {}))
+        skin_trace: list | None = [] if typing_enabled else None
         tconfig = None
         expected_phrase = None
         if typing_enabled:
@@ -432,10 +463,27 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             acoustic_thread = threading.Thread(target=_acoustic_worker, daemon=True)
             acoustic_thread.start()
 
+        # pressure without acoustic: its own input-only mic stream for the
+        # same window (with acoustic, the duplex recording is reused instead)
+        mic: MicRecorder | None = None
+        mic_error = None
+        if pressure_enabled and not acoustic_enabled:
+            try:
+                mic = MicRecorder(pconfig)
+                mic.start()
+            except Exception as exc:
+                mic, mic_error = None, str(exc)
+                print(f"WARNING: pressure lane could not open the microphone: {exc}")
+
         if typing_enabled:
-            optical_result, typing_events = _run_concurrent_lanes(
-                cap, challenge, oconfig, emitter, start_time, challenge.duration_s, expected_phrase
-            )
+            try:
+                optical_result, typing_events = _run_concurrent_lanes(
+                    cap, challenge, oconfig, emitter, start_time, challenge.duration_s, expected_phrase,
+                    skin_trace=skin_trace,
+                )
+            finally:
+                if mic is not None:
+                    mic.stop()
         elif platform.system() == "Darwin":
             # macOS requires the emitter's OpenCV window to run on the main
             # thread (Cocoa raises an unrecoverable cv2.error otherwise), so we
@@ -506,6 +554,30 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     acoustic_result = acoustic_box.get("result") if acoustic_enabled else None
     acoustic_lane = acoustic_lane_result(acoustic_result) if acoustic_result is not None else None
 
+    # keystroke-impact lane: the SAME keystroke events as typing, against the mic
+    pressure_result = None
+    if pressure_enabled and typing_events is not None:
+        if acoustic_result is not None and acoustic_result.recording is not None:
+            pressure_result = analyse_keystroke_impacts(
+                acoustic_result.recording, acoustic_result.sample0_perf, aconfig.sample_rate_hz,
+                typing_events, pconfig, notch_freqs_hz=_probe_notches(aconfig.carrier_hz, aconfig.sample_rate_hz))
+        elif mic is not None:
+            audio, t0 = mic.get_audio()
+            pressure_result = analyse_keystroke_impacts(audio, t0, pconfig.sample_rate_hz, typing_events, pconfig)
+        else:
+            from praesens.pressure import PressureResult
+            pressure_result = PressureResult(
+                status="no_evidence", diagnostics=f"no microphone audio ({mic_error or 'acoustic lane gave none'})")
+    pressure_lane = pressure_lane_result(pressure_result) if pressure_result is not None else None
+
+    # rPPG: advisory unless pulse.gate -- logged either way
+    pulse_est = None
+    if skin_trace:
+        pulse_est = estimate_pulse([t for t, _ in skin_trace], [c for _, c in skin_trace],
+                                   PulseConfig(**{**puconfig.__dict__, "window_s": 0.0}),
+                                   emitter_log=emitter.get_log())
+    pulse_lane = pulse_lane_result(pulse_est) if pulse_est is not None else None
+
     fusion_config = AdjudicatorConfig.from_dict(raw_config.get("fusion", {}))
     # optical's own pass bar reuses reject_threshold -- the same bar this
     # module's terminal/banner display has always required an optical
@@ -520,6 +592,10 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
         typing_pass_threshold=typing_pass_threshold,
         acoustic=acoustic_lane,
         acoustic_pass_threshold=acoustic_pass_threshold,
+        pressure=pressure_lane,
+        pressure_pass_threshold=pconfig.pass_threshold,
+        pulse=(pulse_lane if puconfig.gate else None),
+        pulse_pass_threshold=puconfig.pass_threshold,
     )
 
     # lane_results feeds the JSON log's "fusion.lanes" list below (unchanged
@@ -528,6 +604,10 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     if typing_lane is not None:
         lane_results.append(typing_lane)
     lane_results.append(acoustic_lane if acoustic_lane is not None else acoustic_lane_stub())
+    if pressure_lane is not None:
+        lane_results.append(pressure_lane)
+    if pulse_lane is not None:
+        lane_results.append(pulse_lane)
 
     record = {
         "session": session_id,
@@ -563,6 +643,9 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             "lag_ms": acoustic_result.lag_ms, "snr_db": acoustic_result.snr_db,
             "diagnostics": acoustic_result.diagnostics,
         } if acoustic_result is not None else None),
+        # -- added 2026-10, ADD-ONLY: keystroke-impact + rPPG lanes --
+        "pressure": pressure_record(pressure_result),
+        "pulse": pulse_record(pulse_est),
         "fusion": {
             "verdict": joint_result.verdict,
             "joint_score": (None if math.isnan(joint_result.joint_score) else joint_result.joint_score),
@@ -581,6 +664,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
             "optical_pass_threshold": optical_pass_threshold,
             "typing_pass_threshold": typing_pass_threshold,
             "acoustic_pass_threshold": acoustic_pass_threshold,
+            "pressure_pass_threshold": pconfig.pass_threshold,
+            "pulse_gated": puconfig.gate,
         },
     }
 
@@ -600,7 +685,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
 # are always in the JSON log, see run_one_session's record dict above).
 # ---------------------------------------------------------------------------
 
-_LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane ", "acoustic": "Acoustic lane"}
+_LANE_DISPLAY_NAMES = {"optical": "Optical lane", "typing": "Typing lane ", "acoustic": "Acoustic lane",
+                       "pressure": "Impact lane ", "pulse": "Pulse lane  "}
 
 
 def _lane_display_rows(record: dict) -> tuple[list, list]:
@@ -620,6 +706,8 @@ def _lane_display_rows(record: dict) -> tuple[list, list]:
     optical_pass_threshold = fusion.get("optical_pass_threshold", fusion["reject_threshold"])
     typing_pass_threshold = fusion.get("typing_pass_threshold", 0.7)
     acoustic_pass_threshold = fusion.get("acoustic_pass_threshold", optical_pass_threshold)
+    pressure_pass_threshold = fusion.get("pressure_pass_threshold", 0.5)
+    pulse_gated = fusion.get("pulse_gated", False)
 
     rows, passing = [], []
     for l in lane_dicts:
@@ -642,6 +730,15 @@ def _lane_display_rows(record: dict) -> tuple[list, list]:
         if l["lane_name"] == "typing":
             lag_plausible = True  # not applicable -- typing has no lag concept any more
             passes = lane_passes(lane, typing_pass_threshold)
+        elif l["lane_name"] == "pulse":
+            lag_plausible = True  # rPPG has no stimulus lag
+            passes = lane_passes(lane, record.get("pulse_pass_threshold", 0.3))
+            if not pulse_gated and l["status"] == "ok":
+                rows.append((_LANE_DISPLAY_NAMES["pulse"], "INFO", f"({l['diagnostics']}, advisory)"))
+                continue
+        elif l["lane_name"] == "pressure":
+            lag_plausible = lane_contributes(lane, LANE_LAG_BOUNDS_MS)
+            passes = lane_passes(lane, pressure_pass_threshold) and lag_plausible
         else:
             # optical and acoustic both measure a physical lag against the emitted challenge
             lag_plausible = lane_contributes(lane, LANE_LAG_BOUNDS_MS)

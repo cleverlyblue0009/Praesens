@@ -227,3 +227,36 @@ acoustic:
                                   # Space-separated words that must all appear in "<device name>, <host
                                   # API>" (sounddevice matching); list devices with:
                                   # python -m praesens.acoustic --list-devices
+# 2026-10: keystroke-impact ("pressure") lane -- praesens/pressure.py.
+# Every real key strike is audible to the laptop mic; injected keystrokes are not.
+pressure:
+  sample_rate_hz: 44100
+  input_device: null             # null = OS default mic (same device the acoustic lane records from)
+  highpass_hz: 1500.0
+  match_tolerance_ms: 25.0
+  lag_search_min_ms: -100.0
+  lag_search_max_ms: 450.0       # = fusion.LANE_LAG_BOUNDS_MS["pressure"] upper bound
+  lag_step_ms: 2.0
+  min_keystrokes: 5
+  n_decoys: 12
+  pass_threshold: 0.5            # chance-corrected fraction of keystrokes with a matching impact
+
+# 2026-10: rPPG pulse lane -- praesens/pulse.py. Advisory (logged + shown) until a
+# threshold has been measured on real sessions; set gate: true to make it a secondary lane.
+pulse:
+  window_s: 10.0                 # live HUD window; a scored session always uses the whole session
+  snr_lo_db: -6.0
+  snr_hi_db: 4.0
+  gate: false
+  pass_threshold: 0.3
+
+# 2026-10: browser HUD -- python -m demo.hud
+hud:
+  host: 127.0.0.1
+  port: 8765
+  lanes: optical+typing+pressure   # what a SCAN runs; add +acoustic for the 4-lane session
+  stream_fps: 15                   # telemetry + camera preview rate to the browser
+  jpeg_quality: 70
+  border_fraction: 0.13            # emitter border width on the HUD page (fraction of each screen edge)
+  live_window_s: 8.0               # rolling window for the live optical score between scans
+  verdict_hold_s: 12.0

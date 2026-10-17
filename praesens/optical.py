@@ -214,6 +214,14 @@ class CadenceDetector:
         self._frame_i = 0
         self._last_boxes: list = []
         self._last_face_ok = False
+        # read-only taps for display/secondary consumers (demo/hud, the
+        # rPPG lane): the latest detection's landmarks and ROI boxes.
+        # Nothing in the scoring path reads these.
+        self.last_landmarks = None
+
+    @property
+    def last_boxes(self) -> list:
+        return list(self._last_boxes)
 
     def process(self, frame, ts_ms: int, margin_frac: float):
         do_detect = (self._frame_i % self.detect_every_n) == 0
@@ -234,9 +242,11 @@ class CadenceDetector:
                 landmarks = result.face_landmarks[0]
                 self._last_boxes = compute_roi_boxes(frame.shape, landmarks, margin_frac)
                 self._last_face_ok = True
+                self.last_landmarks = landmarks
             else:
                 self._last_boxes = []
                 self._last_face_ok = False
+                self.last_landmarks = None
 
         if not self._last_boxes:
             return float("nan"), False
@@ -250,6 +260,7 @@ class CadenceDetector:
         self._frame_i = 0
         self._last_boxes = []
         self._last_face_ok = False
+        self.last_landmarks = None
 
 
 def draw_roi_debug(frame, detection_result, margin_frac: float):

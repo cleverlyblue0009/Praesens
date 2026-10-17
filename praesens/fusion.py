@@ -92,6 +92,10 @@ LANE_LAG_BOUNDS_MS = {
     "spatial": (0.0, 300.0),
     "typing": (-300.0, 300.0),
     "acoustic": (-500.0, 500.0),
+    # keystroke impact heard by the mic vs. the OS key-down stamp: the
+    # key-down can be stamped a little after the physical strike, and the
+    # audio side carries the host's input buffering (Windows MME ~100-300 ms)
+    "pressure": (-100.0, 450.0),
 }
 
 
@@ -364,7 +368,11 @@ def _per_lane_reason(lane: LaneResult) -> str:
 def adjudicate_two_lane(optical: LaneResult, typing: LaneResult | None,
                          optical_pass_threshold: float, typing_pass_threshold: float,
                          acoustic: LaneResult | None = None,
-                         acoustic_pass_threshold: float = 0.3) -> JointResult:
+                         acoustic_pass_threshold: float = 0.3,
+                         pressure: LaneResult | None = None,
+                         pressure_pass_threshold: float = 0.5,
+                         pulse: LaneResult | None = None,
+                         pulse_pass_threshold: float = 0.3) -> JointResult:
     """typing=None (--lanes optical) collapses to a plain two-way gate:
     ACCEPT if optical passes, REJECT if not -- there is no secondary
     signal to ask the operator to retry, so RE-CHALLENGE doesn't apply.
@@ -383,7 +391,17 @@ def adjudicate_two_lane(optical: LaneResult, typing: LaneResult | None,
     acoustic (optional, despite this function's name): a secondary lane
     like typing, but it DOES measure a physical lag against the emitted
     probe, so passing needs lane_contributes() as well as clearing
-    acoustic_pass_threshold."""
+    acoustic_pass_threshold.
+
+    pressure (optional, praesens/pressure.py): keystroke impacts heard by
+    the microphone at a consistent lag behind each OS key-down. Secondary,
+    lag-checked the same way as acoustic. A typing session whose keystrokes
+    have no physical impact behind them (injection) lands on RE-CHALLENGE
+    here, never ACCEPT.
+
+    pulse (optional, praesens/pulse.py): rPPG. Advisory by default -- the
+    caller only passes it here when config pulse.gate is true; it has no
+    stimulus lag, so lane_passes() alone decides it."""
     def _optical_fail_reason() -> str:
         if optical.status != "ok":
             return f"optical lane: {optical.diagnostics or 'insufficient signal'}"
@@ -393,7 +411,7 @@ def adjudicate_two_lane(optical: LaneResult, typing: LaneResult | None,
 
     optical_ok = lane_passes(optical, optical_pass_threshold) and lane_contributes(optical, LANE_LAG_BOUNDS_MS)
 
-    if typing is None and acoustic is None:
+    if typing is None and acoustic is None and pressure is None and pulse is None:
         verdict = "ACCEPT" if optical_ok else "REJECT"
         reason = (f"optical lane passes (score {optical.subscore:.2f})" if optical_ok
                    else _optical_fail_reason())
@@ -411,6 +429,12 @@ def adjudicate_two_lane(optical: LaneResult, typing: LaneResult | None,
         acoustic_ok = (lane_passes(acoustic, acoustic_pass_threshold)
                        and lane_contributes(acoustic, LANE_LAG_BOUNDS_MS))
         secondaries.append((acoustic, acoustic_ok, "check the speaker/microphone and try again"))
+    if pressure is not None:
+        pressure_ok = (lane_passes(pressure, pressure_pass_threshold)
+                       and lane_contributes(pressure, LANE_LAG_BOUNDS_MS))
+        secondaries.append((pressure, pressure_ok, "type the phrase again on the laptop keyboard"))
+    if pulse is not None:
+        secondaries.append((pulse, lane_passes(pulse, pulse_pass_threshold), "hold still, face the screen"))
     lane_results = [optical] + [lane for lane, _, _ in secondaries]
     failing = [(lane, hint) for lane, ok, hint in secondaries if not ok]
 

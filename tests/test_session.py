@@ -10,6 +10,10 @@ whole module).
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import json
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 import pytest
 
@@ -618,3 +622,61 @@ def test_show_verdict_banner_accept_is_green_not_red():
 
     frame = shown_frames[0]
     assert int(frame[0, 0, 1]) > int(frame[0, 0, 2])  # G channel > R channel -- green background
+
+# ---------------------------------------------------------------------------
+# 2026-10: keystroke-impact ("pressure") + rPPG ("pulse") lanes
+# ---------------------------------------------------------------------------
+
+def _pressure_session(tmp_path, lanes, events, acoustic_result=None, mic=None):
+    cap, _frame = _fake_cap()
+
+    def fake_acoustic_session(challenge, aconfig):
+        return acoustic_result
+
+    cfg = _base_three_lane_config()
+    patches = _patched_three_lane_session(cap, fake_acoustic_session)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], \
+         patches[7] as mock_keystroke_cls, patches[8], \
+         patch.object(session_mod, "MicRecorder", return_value=mic) as mock_mic_cls, \
+         patch.object(session_mod.OpticalFrameProcessor, "process_frame", lambda *a, **k: None):
+        mock_keystroke_cls.return_value.get_events.return_value = events
+        record, _ = run_one_session("bonafide", meta={}, raw_config=cfg, lanes=lanes, output_dir=tmp_path)
+    return record, mock_mic_cls
+
+
+def test_four_lane_mode_reuses_the_acoustic_recording_for_pressure(tmp_path):
+    from praesens.acoustic import AcousticResult
+    from test_pressure import _recording, T0
+    audio, events = _recording()
+    ac = AcousticResult(status="ok", score=0.9, lag_ms=300.0, snr_db=12.0, diagnostics="snr_db=12.00",
+                        recording=audio, sample0_perf=T0)
+    record, mock_mic_cls = _pressure_session(tmp_path, "optical+typing+acoustic+pressure", events, ac)
+    mock_mic_cls.assert_not_called()  # one microphone stream per session: the duplex one
+    assert record["pressure"]["status"] == "ok"
+    assert record["pressure"]["score"] > 0.8
+    entry = next(l for l in record["fusion"]["lanes"] if l["lane_name"] == "pressure")
+    assert entry["status"] == "ok" and entry["subscore"] > 0.8
+    assert "audio" not in json.dumps(record["pressure"])  # raw audio never reaches the log
+    assert "recording" not in record["acoustic"]
+
+
+def test_pressure_without_acoustic_opens_its_own_mic_and_catches_injection(tmp_path):
+    from test_pressure import _recording, T0
+    audio, events = _recording(clicks=False)  # OS keystrokes, no physical impacts
+    mic = MagicMock()
+    mic.get_audio.return_value = (audio, T0)
+    record, mock_mic_cls = _pressure_session(tmp_path, "optical+typing+pressure", events, mic=mic)
+    mic.start.assert_called_once()
+    mic.stop.assert_called_once()
+    assert record["pressure"]["status"] == "ok" and record["pressure"]["score"] < 0.2
+    assert record["fusion"]["verdict"] != "ACCEPT"
+
+
+def test_pulse_is_logged_but_not_gated_by_default(tmp_path):
+    from test_pressure import _recording
+    _audio, events = _recording()
+    record, _ = _pressure_session(tmp_path, "optical+typing", events)
+    assert "pulse" in record  # no face in the fake frames -> honest no_evidence, not a number
+    assert record["pulse"]["status"] == "no_evidence"
+    assert record["fusion"]["pulse_gated"] is False
+    assert "pulse" not in record["fusion"]["reason_text"]

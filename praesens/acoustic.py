@@ -226,6 +226,11 @@ class DuplexProbePlayer:
         self._done = threading.Event()
         self._xrun_flags: list[str] = []
         self.stream_offset_ms: float | None = None
+        # (perf_counter at callback, samples recorded so far) -- lets the
+        # keystroke-impact lane (praesens/pressure.py) put this SAME
+        # recording on the keystroke listener's clock instead of opening a
+        # second microphone stream; see pressure.fit_sample_clock
+        self.clock_anchors: list = []
 
     def _callback(self, indata, outdata, frames, time_info, status):
         if status:
@@ -250,6 +255,7 @@ class DuplexProbePlayer:
         if n_rec > 0:
             self._recorded[self._rec_idx:self._rec_idx + n_rec] = indata[:n_rec, 0]
         self._rec_idx += n_rec
+        self.clock_anchors.append((time.perf_counter(), self._rec_idx))
         if self._rec_idx >= len(self._recorded):
             self._done.set()
 
@@ -441,6 +447,11 @@ class AcousticResult:
     lag_ms: float | None = None
     snr_db: float = float("nan")
     diagnostics: str = ""
+    # in-memory only, never serialised to the session log: the raw duplex
+    # recording and perf_counter() time of its first sample, reused by the
+    # keystroke-impact lane (praesens/pressure.py)
+    recording: np.ndarray | None = dataclasses.field(default=None, repr=False)
+    sample0_perf: float | None = None
 
 
 def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> AcousticResult:
@@ -481,6 +492,10 @@ def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> Acoust
                                diagnostics=f"silent capture from input '{in_name}' (all zeros) -- check "
                                            f"microphone permission / input device")
 
+    from praesens.pressure import fit_sample_clock  # local: pressure imports nothing from here
+    rec_extra = {"recording": recorded,
+                 "sample0_perf": fit_sample_clock(getattr(player, "clock_anchors", []), config.sample_rate_hz)}
+
     det = detect_probe(recorded, challenge, config)
     offset = player.stream_offset_ms
     diagnostics = (f"snr_db={det.snr_db:.2f}, tone_db={det.tone_db:.1f}, peak={det.peak:.2f}, "
@@ -497,12 +512,14 @@ def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> Acoust
                         "and isn't headphones")
     if det.peak_at_edge:
         return AcousticResult(status="insufficient_signal", snr_db=det.snr_db,
-                               diagnostics=f"peak at lag-search edge ({det.lag_ms:.0f}ms), {diagnostics}")
+                               diagnostics=f"peak at lag-search edge ({det.lag_ms:.0f}ms), {diagnostics}",
+                               **rec_extra)
     if not np.isfinite(det.snr_db) or det.snr_db < config.snr_floor_db:
-        return AcousticResult(status="insufficient_signal", snr_db=det.snr_db, diagnostics=diagnostics)
+        return AcousticResult(status="insufficient_signal", snr_db=det.snr_db, diagnostics=diagnostics,
+                               **rec_extra)
 
     return AcousticResult(status="ok", score=det.score, lag_ms=det.lag_ms, snr_db=det.snr_db,
-                           diagnostics=diagnostics)
+                           diagnostics=diagnostics, **rec_extra)
 
 
 if __name__ == "__main__":
