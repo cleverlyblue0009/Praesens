@@ -4,6 +4,8 @@ Each test builds a recording with impact transients (exponentially decaying
 broadband bursts) at known instants relative to a list of character-free
 keystroke events, then checks the lane separates genuine typing from
 keystrokes that have no physical impact behind them (injection)."""
+import dataclasses
+
 import numpy as np
 import pytest
 import scipy.signal
@@ -81,6 +83,36 @@ def test_soft_injection_still_fails():
     audio, events = _recording(clicks=False, amp=(0.012, 0.03))
     res = analyse_keystroke_impacts(audio, T0, FS, events, PressureConfig())
     assert res.score < 0.2
+
+
+def test_two_impacts_tens_of_ms_apart_are_both_reported():
+    """Detector RESOLUTION, which is what min_onset_separation_ms 35 -> 20 ms
+    actually changed (2026-10-17). A struck key produces more than one audible
+    event -- initial contact, bottom-out, release -- tens of ms apart, and on
+    the demo laptop the 35 ms dead time discarded the quieter one: 100 onsets
+    for 69 keys at 35 ms vs 118 at 20 ms, genuine score 0.491 -> 0.622 with an
+    injected capture at 0.000 either way (NOTES 2026-10-17).
+
+    This pins the resolution property only. The end-to-end gain was measured on
+    hardware, not here: the synthetic room does not reproduce the per-key
+    variation in which event is loudest.
+    """
+    rng = np.random.default_rng(5)
+    x = rng.normal(0, 0.002, int(1.0 * FS)).astype(np.float32)
+
+    def click(at, amp):
+        i, n = int(at * FS), int(0.012 * FS)
+        x[i:i + n] += amp * rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.002 * FS))
+
+    click(0.40, 0.10)          # contact
+    click(0.424, 0.14)         # a louder second event 24 ms later
+    cfg = PressureConfig()
+    assert cfg.min_onset_separation_ms <= 24.0
+    both = detect_impacts(x, FS, cfg)
+    assert len(both.times_s) == 2, f"expected both events, got {both.times_s}"
+
+    blind = dataclasses.replace(cfg, min_onset_separation_ms=35.0)
+    assert len(detect_impacts(x, FS, blind).times_s) == 1   # the quieter contact is swallowed
 
 
 def test_genuine_typing_survives_speech_in_the_room():

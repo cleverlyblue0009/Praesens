@@ -233,6 +233,10 @@ pressure:
   sample_rate_hz: 44100
   input_device: null             # null = OS default mic (same device the acoustic lane records from)
   highpass_hz: 1500.0
+  min_onset_separation_ms: 20.0  # 2026-10-17: at 35 ms a second event from the SAME key (release /
+                                  # bottom-out) could suppress the strike peak -- genuine 0.491 -> 0.622,
+                                  # injected unchanged at 0.000. Not a pass-bar change: pass_threshold,
+                                  # match_tolerance_ms and the lag window are untouched.
   onset_threshold_mad: 4.0       # 2026-10-17 measured on this laptop: at the old 5.0 / 6.0 dB the
   onset_min_rise_db: 4.0         # onset detector missed real (soft) key strikes entirely -- 8 of 17
                                   # unmatched keys had no onset within 60 ms. These values recover them

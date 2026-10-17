@@ -87,7 +87,13 @@ class PressureConfig:
                                           # -- real strikes it never saw. 4.0 / 4 dB recovered them
                                           # (78 -> 90 onsets, genuine hit fraction 0.754 -> 0.838)
                                           # while an injected capture stayed at score 0.000.
-    min_onset_separation_ms: float = 35.0
+    min_onset_separation_ms: float = 20.0  # 2026-10-17, real typing on the demo laptop: at 35 ms a
+                                          # SECOND acoustic event from the same key (release, or a
+                                          # bottom-out) within the dead time could win the peak and
+                                          # suppress the strike itself -- genuine hit fraction 0.746
+                                          # vs 0.821 at 20 ms (score 0.491 -> 0.622) on a capture whose
+                                          # fastest key gap was 62 ms, so no two STROKES were merging.
+                                          # Injected captures stayed at 0.000 either way.
     edge_guard_ms: float = 50.0          # onsets this close to the START or END of the capture are
                                           # discarded: the recording begins and ends abruptly, and the
                                           # high-pass/notch filters plus the envelope's rise window turn
