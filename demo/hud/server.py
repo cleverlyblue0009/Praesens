@@ -39,13 +39,26 @@ class HudServer:
         if self.loop is not None:
             self.loop.call_soon_threadsafe(asyncio.ensure_future, self._broadcast_json(msg))
 
+    @staticmethod
+    async def _send(ws, payload) -> bool:
+        """Every send has to tolerate a socket that is already closing: the page
+        can be refreshed or closed at any instant, including mid-scan or while a
+        toast is in flight, and on Windows that surfaces as
+        ClientConnectionResetError("Cannot write to closing transport"). Letting
+        it escape the handler took the whole server down (2026-10-17)."""
+        try:
+            if isinstance(payload, (bytes, bytearray)):
+                await ws.send_bytes(payload)
+            else:
+                await ws.send_str(payload if isinstance(payload, str) else json.dumps(payload))
+            return True
+        except Exception:
+            return False
+
     async def _broadcast_json(self, msg: dict) -> None:
         data = json.dumps(msg)
         for ws in list(self.clients):
-            try:
-                await ws.send_str(data)
-            except Exception:
-                pass
+            await self._send(ws, data)
 
     async def index(self, request):
         return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
@@ -55,14 +68,14 @@ class HudServer:
         await ws.prepare(request)
         self.clients[ws] = {"role": "viewer"}
         e = self.engine
-        await ws.send_str(json.dumps({
+        await self._send(ws, {
             "type": "hello", "synthetic": e.synthetic, "lanes": e.lanes,
             "border_fraction": float(e.hud.get("border_fraction", 0.13)),
             "base_luminance": e.econfig.base_luminance,
-        }))
+        })
         for em in (e.emitter, e.scan["emitter"] if e.scan else None):
             if em is not None:
-                await ws.send_str(json.dumps(em.describe()))
+                await self._send(ws, em.describe())
         try:
             async for msg in ws:
                 if msg.type != WSMsgType.TEXT:
@@ -71,7 +84,12 @@ class HudServer:
                     data = json.loads(msg.data)
                 except ValueError:
                     continue
-                await self._handle(ws, data)
+                try:
+                    await self._handle(ws, data)
+                except Exception as exc:      # one bad message never kills the connection
+                    print(f"WARNING: websocket message {data.get('type')!r} failed: {exc}")
+        except Exception as exc:              # ... and a dropped connection never kills the server
+            print(f"WARNING: websocket closed: {exc}")
         finally:
             self.clients.pop(ws, None)
             if self.master is ws:
@@ -82,7 +100,7 @@ class HudServer:
         kind = data.get("type")
         e = self.engine
         if kind == "ping":
-            await ws.send_str(json.dumps({"type": "pong", "c": data.get("c"), "s": time.perf_counter()}))
+            await self._send(ws, {"type": "pong", "c": data.get("c"), "s": time.perf_counter()})
         elif kind == "role" and data.get("role") == "emitter":
             self.master = ws  # latest page to claim it drives the log
             self.clients[ws]["role"] = "emitter"
@@ -92,12 +110,12 @@ class HudServer:
                 if em is not None and em.id == cid:
                     em.ingest(data.get("entries", []))
         elif kind == "scan":
-            await ws.send_str(json.dumps({"type": "toast", "text": e.start_scan()}))
+            await self._send(ws, {"type": "toast", "text": e.start_scan()})
         elif kind == "dismiss":
             e.dismiss()
         elif kind == "camera":
             text = await asyncio.get_running_loop().run_in_executor(None, e.switch_camera, int(data.get("index", 0)))
-            await ws.send_str(json.dumps({"type": "toast", "text": text}))
+            await self._send(ws, {"type": "toast", "text": text})
         elif kind == "sim":
             e.set_sim(str(data.get("key")), bool(data.get("value")))
 
@@ -113,12 +131,8 @@ class HudServer:
                 msg = json.dumps({"type": "toast", "text": f"telemetry error: {exc}"})
             jpeg = self.engine.frame_jpeg
             for ws in list(self.clients):
-                try:
-                    await ws.send_str(msg)
-                    if jpeg:
-                        await ws.send_bytes(jpeg)
-                except Exception:
-                    pass
+                if await self._send(ws, msg) and jpeg:
+                    await self._send(ws, jpeg)
 
     async def on_startup(self, app):
         self.loop = asyncio.get_running_loop()

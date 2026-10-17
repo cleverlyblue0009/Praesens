@@ -6,8 +6,8 @@
 import * as THREE from "/static/vendor/three.module.min.js";
 
 const $ = (id) => document.getElementById(id);
-const C = { holo: "#5cf2ff", plasma: "#ff3dcb", phos: "#3dff8a", amber: "#ffb547", alarm: "#ff4d5e",
-            dim: "#7c83b8", ghost: "#2a2f63", ink: "#e6ecff" };
+const C = { holo: "#7ec4d2", plasma: "#c489ae", phos: "#83c79d", amber: "#d8a96e", alarm: "#cf7680",
+            dim: "#767ca0", ghost: "#282d55", ink: "#d9dfee" };
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ------------------------------------------------------------------ websocket + clock
@@ -419,7 +419,7 @@ const target = new Float32Array(N * 3);
 const posAttr = new THREE.BufferAttribute(pos, 3);
 posAttr.setUsage(THREE.DynamicDrawUsage);
 
-const uniforms = { uTime: { value: 0 }, uScan: { value: 0 }, uSize: { value: 15 }, uPR: { value: renderer.getPixelRatio() },
+const uniforms = { uTime: { value: 0 }, uScan: { value: 0 }, uSize: { value: 9 }, uPR: { value: renderer.getPixelRatio() },
   uPxScale: { value: 0.5 },
   uBeat: { value: 0 }, uAlpha: { value: 1 }, uColA: { value: new THREE.Color(C.holo) }, uColB: { value: new THREE.Color(C.plasma) } };
 const pointVS = `
@@ -431,7 +431,7 @@ const pointVS = `
     vDepth = clamp(position.z * 2.2 + 0.5, 0.0, 1.0);
     vScan = exp(-pow((position.y - uScan) * 16.0, 2.0));
     vHl = aHl;
-    float s = uSize * (1.0 + 1.6 * vScan + aHl * (0.8 + 1.2 * uBeat));
+    float s = uSize * (1.0 + 0.7 * vScan + aHl * (0.45 + 0.7 * uBeat));
     gl_PointSize = s * uPR * uPxScale;
     gl_Position = projectionMatrix * mv;
   }`;
@@ -443,9 +443,9 @@ const pointFS = `
     float a = smoothstep(0.5, 0.0, d);
     float core = smoothstep(0.18, 0.0, d);
     vec3 col = mix(uColB, uColA, vDepth);
-    col = mix(col, vec3(1.0, 0.25, 0.8), vHl * (0.55 + 0.45 * uBeat));
-    col += vScan * vec3(0.9);
-    gl_FragColor = vec4(col * (0.55 + core), a * uAlpha * (0.55 + 0.45 * vDepth + vScan));
+    col = mix(col, vec3(0.80, 0.52, 0.70), vHl * (0.30 + 0.25 * uBeat));
+    col += vScan * vec3(0.22);
+    gl_FragColor = vec4(col * (0.42 + 0.5 * core), a * uAlpha * (0.38 + 0.3 * vDepth + 0.35 * vScan));
   }`;
 const hl = new Float32Array(N);
 // skin patches the optical + pulse lanes read: forehead and both cheeks (MediaPipe indices)
@@ -589,8 +589,8 @@ function frame() {
   // locked to a face: no spin, or the overlay would slide off the head
   group.rotation.y = haveFace ? 0 : (reduceMotion ? 0 : t * 0.35);
   floor.visible = scanRing.visible = !haveFace;
-  uniforms.uAlpha.value += ((haveFace ? 1 : 0.4) - uniforms.uAlpha.value) * 0.05;
-  lMat.opacity += ((haveFace ? 0.3 : 0.06) - lMat.opacity) * 0.08;
+  uniforms.uAlpha.value += ((haveFace ? 0.62 : 0.3) - uniforms.uAlpha.value) * 0.05;
+  lMat.opacity += ((haveFace ? 0.17 : 0.05) - lMat.opacity) * 0.08;
   mixMood(dt);
   const scanY = reduceMotion ? 0 : Math.sin(t * 0.9) * 0.78;
   uniforms.uScan.value = scanY; scanRing.position.y = scanY;

@@ -201,3 +201,49 @@ def test_switch_to_a_missing_camera_falls_back_to_the_working_one(camera_engine)
     assert "camera 2" in msg and "2" in msg
     assert e.cap is not None and e.cap.grab() is True, "fell back to a dead capture"
     assert e.oconfig.camera_index == 0
+
+
+# ---------------------------------------------------------------------------
+# A page can be refreshed or closed at any instant -- including mid-scan, or
+# while a toast is already in flight. On Windows that surfaces as
+# ClientConnectionResetError("Cannot write to closing transport"); unguarded,
+# it escaped the websocket handler and took the whole server down with it
+# (2026-10-17, while reloading during a camera switch).
+# ---------------------------------------------------------------------------
+
+def test_send_to_a_closing_socket_does_not_raise():
+    import asyncio
+    from demo.hud.server import HudServer
+
+    class DeadWS:
+        async def send_str(self, *_a):
+            raise ConnectionResetError("Cannot write to closing transport")
+        async def send_bytes(self, *_a):
+            raise ConnectionResetError("Cannot write to closing transport")
+
+    async def go():
+        ok_text = await HudServer._send(DeadWS(), {"type": "toast", "text": "switched to camera 0"})
+        ok_bytes = await HudServer._send(DeadWS(), b"\xff\xd8jpeg")
+        return ok_text, ok_bytes
+
+    assert asyncio.run(go()) == (False, False)
+
+
+def test_send_reports_success_on_a_live_socket():
+    import asyncio
+    from demo.hud.server import HudServer
+
+    sent = []
+
+    class LiveWS:
+        async def send_str(self, s):
+            sent.append(("str", s))
+        async def send_bytes(self, b):
+            sent.append(("bytes", b))
+
+    async def go():
+        return (await HudServer._send(LiveWS(), {"a": 1}), await HudServer._send(LiveWS(), b"xy"))
+
+    assert asyncio.run(go()) == (True, True)
+    assert sent[0][0] == "str" and json.loads(sent[0][1]) == {"a": 1}
+    assert sent[1] == ("bytes", b"xy")
