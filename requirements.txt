@@ -9,3 +9,5 @@ pynput        # keystroke timing capture, Milestone 10 typing lane
 mss           # screen-capture for attacks/adaptive_injector.py, Milestone 12
 pyvirtualcam  # virtual camera output for attacks/adaptive_injector.py, Milestone 12
 pytest        # unit tests, tests/
+sounddevice   # microphone/speaker I/O: acoustic lane + keystroke-impact (pressure) lane
+aiohttp       # demo/hud: browser dashboard server (python -m demo.hud)

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRAESENS presence check</title>
+<link rel="stylesheet" href="/static/hud.css">
+</head>
+<body>
+<!-- The four strips are the optical challenge emitter: they light your face with this session's pattern. -->
+<div class="emit top" aria-hidden="true"></div>
+<div class="emit bottom" aria-hidden="true"></div>
+<div class="emit left" aria-hidden="true"></div>
+<div class="emit right" aria-hidden="true"></div>
+<div class="emit-label" id="emitLabel">light challenge field</div>
+
+<main class="hud">
+  <header>
+    <div class="mark"><b>PRAESENS</b><span>multimodal proof of human presence</span></div>
+    <div class="status" id="status">Connecting to the sensor engine…</div>
+    <div class="chips">
+      <span class="chip synth" id="synthChip" hidden>Synthetic sensors — not a measurement</span>
+      <span class="chip live" id="liveChip">offline</span>
+      <span class="chip" id="fpsChip">— fps</span>
+      <span class="chip" id="syncChip">clock —</span>
+    </div>
+    <button class="scan" id="scanBtn" disabled>Start scan</button>
+  </header>
+
+  <section class="col left" aria-label="Optical and typing lanes">
+    <article class="lane" id="laneOptical">
+      <div class="lane-head"><h2>Optical<small>reflected screen light</small></h2><span class="state" id="optState">waiting</span></div>
+      <canvas id="optScope"></canvas>
+      <div class="readouts">
+        <div class="big" id="optScore">-.--</div>
+        <div class="kv">lag<b id="optLag">---</b> ms<br>snr<b id="optSnr">--.-</b> dB</div>
+        <canvas id="optMeter" style="flex:1;height:1.1rem;min-width:6rem"></canvas>
+      </div>
+    </article>
+    <article class="lane" id="laneTyping">
+      <div class="lane-head"><h2>Typing<small>challenge phrase, timing only</small></h2><span class="state" id="typState">waiting</span></div>
+      <canvas id="typRhythm"></canvas>
+      <div class="readouts">
+        <div class="big phos" id="typCount">--</div>
+        <div class="kv">keys this scan<br>characters are never stored</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="stage" aria-label="Face hologram">
+    <canvas id="holo"></canvas>
+    <canvas class="ring" id="ring"></canvas>
+    <div class="cam"><img id="camImg" alt="Camera preview"><span id="camLabel">camera</span></div>
+    <div class="tag"><span class="big" id="faceTag">----</span><span id="faceSub">478 landmarks</span></div>
+    <div class="prompt" id="prompt"><small>Type this on the laptop keyboard</small><div class="phrase" id="phrase"></div></div>
+    <div class="note" id="stageNote">Look at the screen. Sensors are warming up.</div>
+  </section>
+
+  <section class="col right" aria-label="Pulse and keystroke impact lanes">
+    <article class="lane" id="lanePulse">
+      <div class="lane-head"><h2>Pulse<small>skin colour, rPPG</small></h2><span class="state" id="pulState">waiting</span></div>
+      <canvas id="pulWave"></canvas>
+      <div class="readouts">
+        <div class="big plasma" id="pulBpm">---</div>
+        <div class="kv">bpm<br>snr<b id="pulSnr">--.-</b> dB</div>
+        <canvas id="pulSpec" style="flex:1;height:2rem;min-width:5rem"></canvas>
+      </div>
+    </article>
+    <article class="lane" id="lanePressure">
+      <div class="lane-head"><h2>Key impact<small>strike heard by the mic</small></h2><span class="state" id="preState">waiting</span></div>
+      <canvas id="preEnv"></canvas>
+      <div class="readouts">
+        <div class="big" id="preScore">-.--</div>
+        <div class="kv">lag<b id="preLag">---</b> ms<br>jitter<b id="preJit">--.-</b> ms</div>
+        <div class="why" id="preWhy" style="flex:1"></div>
+      </div>
+    </article>
+  </section>
+
+  <footer>
+    <div class="fuse" id="fuse"></div>
+    <div class="policy" id="policy">Accept needs every gated lane. Optical failing rejects; any other lane failing asks for a re-challenge.</div>
+    <div class="camsel" id="camSel">camera <button data-cam="0">0</button><button data-cam="1">1</button><button data-cam="2">2</button></div>
+    <div class="sim" id="sim">
+      <button data-sim="attack_video" aria-pressed="false">Inject video</button>
+      <button data-sim="attack_keys" aria-pressed="false">Inject keystrokes</button>
+      <button data-sim="face_present" aria-pressed="true">Face in view</button>
+    </div>
+  </footer>
+
+  <div class="verdict" id="verdict" role="dialog" aria-live="assertive">
+    <div class="box">
+      <h1 id="vWord">ACCEPT</h1>
+      <p id="vReason"></p>
+      <table id="vLanes"></table>
+      <canvas id="vTrace"></canvas>
+      <div class="foot"><span id="vLog"></span><button id="vClose">Back to live view</button></div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<script type="module" src="/static/hud.js"></script>
+</body>
+</html>

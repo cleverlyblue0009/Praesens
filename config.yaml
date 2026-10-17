@@ -257,6 +257,8 @@ hud:
   lanes: optical+typing+pressure   # what a SCAN runs; add +acoustic for the 4-lane session
   stream_fps: 15                   # telemetry + camera preview rate to the browser
   jpeg_quality: 70
-  border_fraction: 0.13            # emitter border width on the HUD page (fraction of each screen edge)
+  border_fraction: 0.18            # emitter strip width (fraction of each screen edge). The OpenCV emitter
+                                   # uses 0.25 (75% of the screen lit); 0.18 lights ~59% -- raise it if the
+                                   # live optical SNR is marginal on the demo laptop
   live_window_s: 8.0               # rolling window for the live optical score between scans
   verdict_hold_s: 12.0

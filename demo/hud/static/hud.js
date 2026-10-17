@@ -1,0 +1,553 @@
+// PRAESENS HUD -- browser side.
+// 1. Emitter: paints the challenge on the four edge strips every animation frame and reports
+//    exactly what it painted, stamped on the engine's clock (min-RTT offset), so the optical lane
+//    scores against the real display -- the same contract as the OpenCV emitter's redraw log.
+// 2. Telemetry: draws the live lanes (LED-style canvases) and the face hologram (Three.js).
+import * as THREE from "/static/vendor/three.module.min.js";
+
+const $ = (id) => document.getElementById(id);
+const C = { holo: "#5cf2ff", plasma: "#ff3dcb", phos: "#3dff8a", amber: "#ffb547", alarm: "#ff4d5e",
+            dim: "#7c83b8", ghost: "#2a2f63", ink: "#e6ecff" };
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ------------------------------------------------------------------ websocket + clock
+let ws = null, hello = null, T = null, lastResult = null;
+const sync = { samples: [], offset: null, rtt: null };   // engine_perf_s = performance.now()/1000 + offset
+
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function engineNow() { return sync.offset === null ? null : performance.now() / 1000 + sync.offset; }
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.binaryType = "blob";
+  ws.onopen = () => { send({ type: "role", role: "emitter" }); $("liveChip").textContent = "linked"; burstPings(); };
+  ws.onclose = () => { $("liveChip").textContent = "offline"; $("scanBtn").disabled = true; setTimeout(connect, 1000); };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== "string") { onFrame(ev.data); return; }
+    const m = JSON.parse(ev.data);
+    if (m.type === "pong") onPong(m);
+    else if (m.type === "hello") onHello(m);
+    else if (m.type === "challenge") onChallenge(m);
+    else if (m.type === "telemetry") onTelemetry(m);
+    else if (m.type === "result") onResult(m.result);
+    else if (m.type === "scan") onScan(m);
+    else if (m.type === "toast") toast(m.text);
+  };
+}
+function ping() { send({ type: "ping", c: performance.now() }); }
+function burstPings() { for (let i = 0; i < 20; i++) setTimeout(ping, i * 60); }
+setInterval(ping, 1500);
+function onPong(m) {
+  const c1 = performance.now(), rtt = c1 - m.c;
+  sync.samples.push({ rtt, off: m.s - (m.c + c1) / 2000 });
+  if (sync.samples.length > 40) sync.samples.shift();
+  const best = sync.samples.reduce((a, b) => (b.rtt < a.rtt ? b : a));
+  sync.offset = best.off; sync.rtt = best.rtt;
+  $("syncChip").textContent = `clock ±${(best.rtt / 2).toFixed(1)} ms`;
+}
+
+function onHello(m) {
+  hello = m;
+  const bf = m.border_fraction ?? 0.13;
+  document.documentElement.style.setProperty("--bf-x", `${bf * 100}vw`);
+  document.documentElement.style.setProperty("--bf-y", `${bf * 100}vh`);
+  $("synthChip").hidden = !m.synthetic;
+  $("sim").classList.toggle("on", !!m.synthetic);
+  $("camSel").style.display = m.synthetic ? "none" : "flex";
+  $("lanePressure").style.display = m.lanes.includes("pressure") ? "" : "none";
+}
+
+// ------------------------------------------------------------------ emitter
+const strips = [...document.querySelectorAll(".emit")];
+let current = null, pending = null, emitBuf = [];
+
+function onChallenge(m) {
+  const ch = { ...m, n: m.chips.length };
+  if (current && current.id === m.id) { current.depth = m.depth; return; }   // depth boost
+  if (pending && pending.id === m.id) { pending.depth = m.depth; return; }
+  if (!current) current = ch; else pending = ch;
+}
+function chipAt(ch, s) {
+  const el = s - ch.start_perf;
+  let i = Math.floor(el * ch.chip_rate_hz);
+  if (ch.loop) i = ((i % ch.n) + ch.n) % ch.n;
+  else i = Math.min(Math.max(i, 0), ch.n - 1);
+  return ch.chips[i];
+}
+function emitFrame() {
+  const s = engineNow();
+  if (s === null || !current) return;
+  if (pending && s >= pending.start_perf) { flushEmit(); current = pending; pending = null; }
+  const chip = chipAt(current, s);
+  const lum = Math.round(Math.min(255, Math.max(0, current.base + current.depth * chip)));
+  const col = `rgb(${lum},${lum},${lum})`;
+  for (const el of strips) el.style.backgroundColor = col;
+  // stamp: this rAF callback's time, mapped to the engine clock (display latency lands in the lag search)
+  emitBuf.push([+s.toFixed(5), chip, lum]);
+}
+function flushEmit() {
+  if (emitBuf.length && current) send({ type: "emitlog", id: current.id, entries: emitBuf });
+  emitBuf = [];
+}
+setInterval(flushEmit, 200);
+
+// ------------------------------------------------------------------ camera preview
+let camURL = null, camAspect = 4 / 3;
+function onFrame(blob) {
+  const url = URL.createObjectURL(blob);
+  const img = $("camImg");
+  img.onload = () => { if (img.naturalWidth) camAspect = img.naturalWidth / img.naturalHeight; };
+  img.src = url;
+  if (camURL) URL.revokeObjectURL(camURL);
+  camURL = url;
+}
+
+// ------------------------------------------------------------------ LED canvas kit
+function fit(cv) {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h, d };
+}
+function dotGrid(ctx, w, h, step, color = "rgba(92,242,255,.07)") {
+  ctx.fillStyle = color;
+  for (let y = step / 2; y < h; y += step) for (let x = step / 2; x < w; x += step) ctx.fillRect(x, y, 1.2, 1.2);
+}
+function led(ctx, x, y, r, color, a = 1) {
+  ctx.globalAlpha = a * 0.25; ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, 7); ctx.fill();
+  ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function ledTrace(ctx, data, w, h, color, { pad = 6, range = 3, r = 1.6, x0 = 0, x1 = 1 } = {}) {
+  const n = data.length; if (n < 2) return;
+  for (let i = 0; i < n; i++) {
+    const v = data[i]; if (v === null || v === undefined) continue;
+    const x = (x0 + (x1 - x0) * i / (n - 1)) * (w - 2 * pad) + pad;
+    const y = h / 2 - Math.max(-1, Math.min(1, v / range)) * (h / 2 - pad);
+    led(ctx, x, y, r, color, 0.9);
+  }
+}
+function ledMeter(cv, value, threshold, colorFor) {
+  const { ctx, w, h } = fit(cv);
+  const n = 24, gap = 2 * (devicePixelRatio || 1), sw = (w - gap * (n - 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const lit = value !== null && value !== undefined && (i + 0.5) / n <= value;
+    const col = colorFor((i + 0.5) / n);
+    ctx.fillStyle = lit ? col : "rgba(124,131,184,.14)";
+    if (lit) { ctx.shadowColor = col; ctx.shadowBlur = 8; } else ctx.shadowBlur = 0;
+    ctx.fillRect(i * (sw + gap), 0, sw, h);
+  }
+  ctx.shadowBlur = 0;
+  if (threshold !== null && threshold !== undefined) {
+    const x = threshold * w; ctx.fillStyle = C.ink; ctx.fillRect(x - 1, 0, 2, h);
+  }
+}
+const zone = (thr) => (v) => (v >= thr ? C.phos : v >= thr * 0.6 ? C.amber : C.alarm);
+const fmt = (v, d = 2, blank = "-.--") => (v === null || v === undefined ? blank : v.toFixed(d));
+function setState(id, text, cls) { const el = $(id); el.textContent = text; el.className = `state ${cls}`; }
+
+// ------------------------------------------------------------------ lanes
+function drawOptical(o) {
+  const { ctx, w, h, d } = fit($("optScope"));
+  dotGrid(ctx, w, h, 9 * d);
+  ctx.strokeStyle = "rgba(92,242,255,.18)"; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+  ledTrace(ctx, o.emitted || [], w, h, C.plasma, { r: 1.3 * d });
+  ledTrace(ctx, o.measured || [], w, h, C.holo, { r: 1.7 * d });
+  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.plasma; ctx.fillText("screen pattern", 6 * d, 13 * d);
+  ctx.fillStyle = C.holo; ctx.fillText("light off your face", 6 * d, 26 * d);
+  $("optScore").textContent = fmt(o.score);
+  $("optLag").textContent = o.lag_ms === null ? "---" : String(Math.round(o.lag_ms));
+  $("optSnr").textContent = fmt(o.snr_db, 1, "--.-");
+  ledMeter($("optMeter"), o.score === null ? null : Math.max(0, o.score), o.pass, zone(o.pass ?? 0.3));
+  if (o.score === null) setState("optState", o.face_frac < 0.3 ? "no face" : "acquiring", "idle");
+  else if (o.score >= o.pass && (o.snr_db ?? 0) >= 3) setState("optState", "coherent", "ok");
+  else setState("optState", "incoherent", "bad");
+}
+
+function drawTyping(t, p) {
+  const { ctx, w, h, d } = fit($("typRhythm"));
+  dotGrid(ctx, w, h, 9 * d);
+  const span = 6;
+  const keys = (p && p.recent_keys) || [];
+  // each key-down is a lit LED column; older keys fade out as they scroll left
+  for (const dt of keys) {
+    const x = (1 + dt / span) * (w - 8 * d) + 4 * d, age = Math.min(1, -dt / span);
+    const rows = 7;
+    for (let k = 0; k < rows; k++) led(ctx, x, h - 10 * d - k * ((h - 34 * d) / rows), 1.5 * d, C.phos, (1 - age) * (1 - k * 0.1));
+  }
+  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
+  ctx.fillText("key-down rhythm, last 6 s", 6 * d, 13 * d);
+  const scan = t.scan;
+  if (!(scan && t.mode === "scan") && !keys.length) {
+    ctx.font = `${13 * d}px Chakra Petch`; ctx.fillStyle = C.dim; ctx.textAlign = "center";
+    ctx.fillText("A scan shows a fresh phrase to type.", w / 2, h / 2);
+    ctx.fillText("Only key timing is kept, never the characters.", w / 2, h / 2 + 18 * d);
+    ctx.textAlign = "left";
+  }
+  if (scan && t.mode === "scan") {
+    $("typCount").textContent = String(scan.n_keys).padStart(2, "0");
+    const frac = scan.matched / Math.max(1, scan.phrase.length);
+    setState("typState", `${Math.round(frac * 100)}% typed`, frac >= 0.7 ? "ok" : "warn");
+  } else {
+    $("typCount").textContent = "--";
+    setState("typState", keys.length ? "listening" : "idle", "idle");
+  }
+}
+
+let beat = 0, lastBeatT = 0, bpmNow = null;
+function drawPulse(pu) {
+  const { ctx, w, h, d } = fit($("pulWave"));
+  dotGrid(ctx, w, h, 9 * d, "rgba(255,61,203,.07)");
+  if (pu.status === "ok") {
+    ledTrace(ctx, pu.wave || [], w, h, C.plasma, { r: 1.7 * d, range: 2.6 });
+    $("pulBpm").textContent = Math.round(pu.bpm).toString().padStart(3, "!");
+    $("pulSnr").textContent = fmt(pu.snr_db, 1, "--.-");
+    bpmNow = pu.bpm;
+    setState("pulState", (pu.subscore ?? 0) >= 0.3 ? "pulse found" : "weak", (pu.subscore ?? 0) >= 0.3 ? "ok" : "warn");
+  } else {
+    $("pulBpm").textContent = "---"; bpmNow = null;
+    ctx.font = `${12 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
+    ctx.fillText(pu.reason || "acquiring", 8 * d, h / 2);
+    setState("pulState", "acquiring", "idle");
+  }
+  const sp = fit($("pulSpec"));
+  const s = pu.spectrum || [];
+  const bw = sp.w / Math.max(1, s.length);
+  s.forEach((v, i) => {
+    const bh = (v || 0) * sp.h;
+    sp.ctx.fillStyle = C.plasma; sp.ctx.globalAlpha = 0.35 + 0.65 * (v || 0);
+    sp.ctx.fillRect(i * bw, sp.h - bh, Math.max(1, bw - 1), bh);
+  });
+  sp.ctx.globalAlpha = 1;
+}
+
+function drawPressure(p, now) {
+  const { ctx, w, h, d } = fit($("preEnv"));
+  dotGrid(ctx, w, h, 9 * d);
+  const env = p.env || [];
+  const n = env.length, cw = w / Math.max(1, n);
+  const top = h * 0.74;
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(0, Math.min(1, (env[i] || 0) / 40));
+    const segs = Math.round(v * 12);
+    for (let k = 0; k < segs; k++) {
+      ctx.fillStyle = k > 8 ? C.plasma : C.holo;
+      ctx.globalAlpha = 0.45 + 0.55 * (k / 12);
+      ctx.fillRect(i * cw, top - (k + 1) * (top / 13), Math.max(1, cw - 1), top / 13 - 1.5 * d);
+    }
+  }
+  ctx.globalAlpha = 1;
+  // key-downs reported by the OS (plasma ticks) -- their impacts should follow at a fixed lag
+  for (const dt of p.recent_keys || []) {
+    if (dt < -3) continue;
+    const x = (1 + dt / 3) * w;
+    ctx.fillStyle = C.plasma; ctx.beginPath(); ctx.moveTo(x - 4 * d, 0); ctx.lineTo(x + 4 * d, 0); ctx.lineTo(x, 7 * d); ctx.fill();
+  }
+  // per-key verdict row: did this keystroke have a physical strike behind it?
+  const keys = p.keys || [];
+  // one pip per recent keystroke: green = a strike was heard for it, red = none (height = strike force)
+  const base = h - 2 * d, pw = Math.min(9 * d, (w - 4 * d) / 26);
+  keys.forEach((k, i) => {
+    const col = k.matched ? C.phos : C.alarm;
+    const f = k.force_db === null ? 0.2 : Math.max(0.2, Math.min(1, k.force_db / 40));
+    const ph = f * (h - top - 6 * d);
+    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+    ctx.fillRect(2 * d + i * (pw + 2 * d), base - ph, pw, ph);
+  });
+  ctx.shadowBlur = 0;
+  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
+  ctx.fillText("mic, last 3 s  ▼ key-down", 6 * d, 20 * d);
+  $("preScore").textContent = fmt(p.score);
+  $("preLag").textContent = p.lag_ms === null || p.lag_ms === undefined ? "---" : String(Math.round(p.lag_ms));
+  $("preJit").textContent = fmt(p.jitter_ms, 1, "--.-");
+  if (p.status === "ok") {
+    const ok = p.score >= 0.5;
+    setState("preState", ok ? "strikes match" : "no strikes", ok ? "ok" : "bad");
+    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard · chance ${Math.round((p.chance || 0) * 100)}%`;
+  } else if (p.status === "stale") {
+    setState("preState", "last burst", "idle");
+    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard in the last burst`;
+  } else {
+    setState("preState", "waiting", "idle");
+    $("preWhy").textContent = p.reason || "type anything to see strikes";
+  }
+}
+
+function drawFuse(t) {
+  const items = [];
+  const o = t.optical;
+  items.push(["Optical", o.score === null ? "" : o.score >= o.pass ? "ok" : "bad"]);
+  if (t.lanes.includes("typing")) {
+    const s = t.scan; let st = "";
+    if (s && t.mode === "scan") st = s.matched / Math.max(1, s.phrase.length) >= 0.7 ? "ok" : "warn";
+    items.push(["Typing", st]);
+  }
+  if (t.lanes.includes("acoustic")) items.push(["Acoustic", t.mode === "scan" ? "warn" : ""]);
+  if (t.lanes.includes("pressure")) {
+    const p = t.pressure; items.push(["Key impact", p.status === "ok" ? (p.score >= 0.5 ? "ok" : "bad") : ""]);
+  }
+  items.push(["Pulse (advisory)", t.pulse.status === "ok" ? "info" : ""]);
+  $("fuse").innerHTML = items.map(([n, s]) => `<span class="led ${s}"><i></i>${n}</span>`).join("");
+}
+
+// ------------------------------------------------------------------ scan ring + prompt
+let scanInfo = null;
+function onScan(m) { scanInfo = m; $("verdict").classList.remove("on"); }
+function drawRing(t) {
+  const { ctx, w, h, d } = fit($("ring"));
+  const cx = w / 2, cy = h * 0.55, r = Math.min(w, h) * 0.42;
+  const s = t.scan, inScan = s && t.mode === "scan";
+  ctx.lineWidth = 2 * d;
+  // reticle corners
+  ctx.strokeStyle = "rgba(92,242,255,.45)";
+  const q = r * 0.95, k = r * 0.16;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    ctx.beginPath(); ctx.moveTo(cx + sx * q, cy + sy * (q - k)); ctx.lineTo(cx + sx * q, cy + sy * q); ctx.lineTo(cx + sx * (q - k), cy + sy * q); ctx.stroke();
+  }
+  if (inScan) {
+    const frac = Math.max(0, Math.min(1, s.elapsed / s.duration));
+    const ticks = 90;
+    for (let i = 0; i < ticks; i++) {
+      const a = -Math.PI / 2 + (i / ticks) * Math.PI * 2;
+      const on = i / ticks <= frac;
+      ctx.strokeStyle = on ? C.plasma : "rgba(124,131,184,.25)";
+      ctx.lineWidth = (on ? 3 : 1.5) * d;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r * 0.99, cy + Math.sin(a) * r * 0.99);
+      ctx.lineTo(cx + Math.cos(a) * r * 1.05, cy + Math.sin(a) * r * 1.05); ctx.stroke();
+    }
+    ctx.font = `600 ${13 * d}px Chakra Petch`; ctx.fillStyle = C.plasma; ctx.textAlign = "center";
+    const left = Math.max(0, s.duration - s.elapsed);
+    ctx.fillText(s.elapsed < 0 ? "Get ready" : `${left.toFixed(0)} s left`, cx, cy - r * 1.05 - 10 * d);
+    ctx.textAlign = "left";
+  }
+}
+function updatePrompt(t) {
+  const s = t.scan, on = !!(s && t.mode === "scan");
+  $("prompt").classList.toggle("on", on);
+  if (!on) return;
+  const p = s.phrase, m = Math.min(s.matched, p.length);
+  const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/ /g, "&nbsp;");
+  $("phrase").innerHTML = `<span class="done">${esc(p.slice(0, m))}</span><span class="next">${esc(p.slice(m, m + 1))}</span>${esc(p.slice(m + 1))}`;
+}
+
+// ------------------------------------------------------------------ verdict
+function onResult(r) {
+  lastResult = r;
+  const v = $("verdict");
+  v.className = `verdict on ${r.verdict}`;
+  $("vWord").textContent = r.verdict === "RE-CHALLENGE" ? "RE-CHALLENGE" : r.verdict;
+  $("vReason").textContent = r.reason || "";
+  const names = { optical: "Optical", typing: "Typing", acoustic: "Acoustic", pressure: "Key impact", pulse: "Pulse" };
+  $("vLanes").innerHTML = (r.lanes || []).map((l) => {
+    const verdict = l.status !== "ok" ? ["na", "No evidence"] : !l.gated ? ["na", "Advisory"] : l.passes ? ["ok", "Pass"] : ["bad", "Fail"];
+    const lag = l.lag_ms === null || !l.passes ? "" : `${Math.round(l.lag_ms)}<small> ms</small>`;
+    return `<tr><td>${names[l.name] || l.name}</td><td class="${verdict[0]}">${verdict[1]}</td>
+      <td class="n">${l.subscore === null ? "-.--" : l.subscore.toFixed(2)}</td><td class="n">${lag}</td>
+      <td class="diag">${(l.diagnostics || "").replace(/</g, "&lt;")}</td></tr>`;
+  }).join("");
+  $("vLog").textContent = `${r.synthetic ? "SYNTHETIC — " : ""}saved ${r.log || ""}`;
+  const tr = r.optical_trace || {};
+  const { ctx, w, h, d } = fit($("vTrace"));
+  dotGrid(ctx, w, h, 9 * d);
+  ledTrace(ctx, tr.emitted || [], w, h, C.plasma, { r: 1.1 * d });
+  ledTrace(ctx, tr.measured || [], w, h, C.holo, { r: 1.4 * d });
+  $("vClose").focus();
+}
+$("vClose").onclick = () => { $("verdict").classList.remove("on"); send({ type: "dismiss" }); };
+
+// ------------------------------------------------------------------ telemetry
+function onTelemetry(t) {
+  T = t;
+  $("status").innerHTML = `<i>${t.mode}</i> — ${String(t.status).replace(/</g, "&lt;")}`;
+  $("fpsChip").textContent = `${t.fps === null ? "—" : t.fps.toFixed(1)} fps`;
+  $("scanBtn").disabled = t.mode !== "idle";
+  $("scanBtn").textContent = t.mode === "idle" ? "Start scan" : t.mode === "scan" ? "Scanning" : t.mode === "result" ? "Done" : "Working";
+  $("camLabel").textContent = t.synthetic ? "synthetic source" : `camera ${t.camera}`;
+  $("faceTag").textContent = t.face ? "LOCKED" : "SEARCH";
+  $("faceSub").textContent = t.face ? "478 landmarks tracked" : "no face in view";
+  $("stageNote").textContent = t.mode === "scan" ? "Keep your face in the frame and type the phrase."
+    : t.face ? "Live. The edge light is today's challenge; your skin answers it." : "Face the screen to begin.";
+  drawOptical(t.optical);
+  drawTyping(t, t.pressure);
+  drawPulse(t.pulse);
+  if (t.lanes.includes("pressure")) drawPressure(t.pressure, t.now);
+  drawFuse(t);
+  updatePrompt(t);
+  if (t.sim) for (const b of document.querySelectorAll("[data-sim]")) b.setAttribute("aria-pressed", String(!!t.sim[b.dataset.sim]));
+  if (t.landmarks) setFaceTarget(t.landmarks); else faceTarget = null;
+  // the engine went back to live: close the verdict (unless it was replayed by hand via __hud)
+  if (t.mode === "idle" && $("verdict").classList.contains("on") && !window.__hud.hold) $("verdict").classList.remove("on");
+}
+
+$("scanBtn").onclick = () => send({ type: "scan" });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("verdict").classList.contains("on")) $("vClose").click();
+});
+for (const b of document.querySelectorAll("[data-sim]"))
+  b.onclick = () => send({ type: "sim", key: b.dataset.sim, value: b.getAttribute("aria-pressed") !== "true" });
+for (const b of document.querySelectorAll("[data-cam]"))
+  b.onclick = () => send({ type: "camera", index: Number(b.dataset.cam) });
+
+let toastTimer = null;
+function toast(text) {
+  const el = $("toast"); el.textContent = text; el.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("on"), 2200);
+}
+
+// ------------------------------------------------------------------ hologram
+const N = 478;
+const canvas = $("holo");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+const scene = new THREE.Scene();
+const camera3 = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
+camera3.position.set(0, 0.05, 3.3);
+const group = new THREE.Group();
+scene.add(group);
+
+const pos = new Float32Array(N * 3);
+const target = new Float32Array(N * 3);
+const posAttr = new THREE.BufferAttribute(pos, 3);
+posAttr.setUsage(THREE.DynamicDrawUsage);
+
+const uniforms = { uTime: { value: 0 }, uScan: { value: 0 }, uSize: { value: 15 }, uPR: { value: renderer.getPixelRatio() },
+  uBeat: { value: 0 }, uAlpha: { value: 1 }, uColA: { value: new THREE.Color(C.holo) }, uColB: { value: new THREE.Color(C.plasma) } };
+const pointVS = `
+  uniform float uSize, uPR, uScan, uBeat, uTime;
+  attribute float aHl;
+  varying float vDepth, vScan, vHl;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vDepth = clamp(position.z * 1.6 + 0.5, 0.0, 1.0);
+    vScan = exp(-pow((position.y - uScan) * 16.0, 2.0));
+    vHl = aHl;
+    float s = uSize * (1.0 + 1.6 * vScan + aHl * (0.8 + 1.2 * uBeat));
+    gl_PointSize = s * uPR / -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const pointFS = `
+  uniform vec3 uColA, uColB; uniform float uAlpha, uBeat;
+  varying float vDepth, vScan, vHl;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, d);
+    float core = smoothstep(0.18, 0.0, d);
+    vec3 col = mix(uColB, uColA, vDepth);
+    col = mix(col, vec3(1.0, 0.25, 0.8), vHl * (0.55 + 0.45 * uBeat));
+    col += vScan * vec3(0.9);
+    gl_FragColor = vec4(col * (0.55 + core), a * uAlpha * (0.55 + 0.45 * vDepth + vScan));
+  }`;
+const hl = new Float32Array(N);
+// skin patches the optical + pulse lanes read: forehead and both cheeks (MediaPipe indices)
+const ROI = [10, 338, 297, 332, 284, 251, 21, 54, 103, 67, 109, 151, 108, 69, 104, 68, 337, 299, 333, 298, 9, 107, 336,
+  50, 101, 36, 205, 187, 123, 116, 117, 118, 119, 100, 142, 203, 206, 207, 147,
+  280, 330, 266, 425, 411, 352, 345, 346, 347, 348, 329, 371, 423, 426, 427, 376];
+for (const i of ROI) hl[i] = 1;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute("position", posAttr);
+pGeo.setAttribute("aHl", new THREE.BufferAttribute(hl, 1));
+const pMat = new THREE.ShaderMaterial({ uniforms, vertexShader: pointVS, fragmentShader: pointFS,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+group.add(new THREE.Points(pGeo, pMat));
+
+const lGeo = new THREE.BufferGeometry();
+lGeo.setAttribute("position", posAttr);
+const lMat = new THREE.LineBasicMaterial({ color: C.holo, transparent: true, opacity: 0.13,
+  blending: THREE.AdditiveBlending, depthWrite: false });
+const wire = new THREE.LineSegments(lGeo, lMat);
+group.add(wire);
+
+const floor = new THREE.PolarGridHelper(1.25, 24, 7, 96, 0x5cf2ff, 0x5cf2ff);
+floor.material.transparent = true; floor.material.opacity = 0.16; floor.material.blending = THREE.AdditiveBlending;
+floor.position.y = -0.95;
+scene.add(floor);
+const scanRing = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.004, 6, 160),
+  new THREE.MeshBasicMaterial({ color: C.plasma, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending }));
+scanRing.rotation.x = Math.PI / 2;
+scene.add(scanRing);
+
+let canon = null, faceTarget = null, haveFace = false;
+fetch("/static/facemesh.json").then((r) => r.json()).then((m) => {
+  const edges = new Set(), idx = [];
+  for (const [a, b, c] of m.triangles) for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+    const k = u < v ? `${u}-${v}` : `${v}-${u}`;
+    if (!edges.has(k)) { edges.add(k); idx.push(u, v); }
+  }
+  lGeo.setIndex(idx);
+  // canonical face: cm, y up, z toward viewer -> same normalisation as live landmarks
+  const v = m.vertices, flat = new Float32Array(N * 3);
+  for (let i = 0; i < 468; i++) { flat[i * 3] = v[i][0]; flat[i * 3 + 1] = v[i][1]; flat[i * 3 + 2] = v[i][2]; }
+  const eye = (a, b) => [0, 1, 2].map((k) => (v[a][k] + v[b][k]) / 2);
+  for (let i = 468; i < N; i++) { const e = i < 473 ? eye(33, 133) : eye(362, 263); flat[i * 3] = e[0]; flat[i * 3 + 1] = e[1]; flat[i * 3 + 2] = e[2]; }
+  canon = normalise(flat);
+  if (!faceTarget) { target.set(canon); pos.set(canon); }
+});
+
+function normalise(flat) {
+  let cx = 0, cy = 0, cz = 0, ymin = 1e9, ymax = -1e9;
+  for (let i = 0; i < 468; i++) { cx += flat[i * 3]; cy += flat[i * 3 + 1]; cz += flat[i * 3 + 2]; ymin = Math.min(ymin, flat[i * 3 + 1]); ymax = Math.max(ymax, flat[i * 3 + 1]); }
+  cx /= 468; cy /= 468; cz /= 468;
+  const s = 1.45 / Math.max(1e-6, ymax - ymin), out = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    out[i * 3] = (flat[i * 3] - cx) * s; out[i * 3 + 1] = (flat[i * 3 + 1] - cy) * s; out[i * 3 + 2] = (flat[i * 3 + 2] - cz) * s;
+  }
+  return out;
+}
+function setFaceTarget(lm) {
+  // MediaPipe: x,y in [0,1] of the image (y down), z ~ x-scale depth (negative = toward camera).
+  // Mirrored on x like the selfie preview, so moving left moves the hologram left.
+  const f = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    f[i * 3] = -(lm[i * 3] - 0.5) * camAspect;
+    f[i * 3 + 1] = -(lm[i * 3 + 1] - 0.5);
+    f[i * 3 + 2] = -lm[i * 3 + 2] * camAspect;
+  }
+  faceTarget = normalise(f);
+}
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera3.aspect = r.width / Math.max(1, r.height);
+  camera3.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas);
+
+const clock = new THREE.Clock();
+function frame() {
+  emitFrame();
+  const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+  haveFace = !!faceTarget;
+  const tgt = faceTarget || canon;
+  if (tgt) {
+    const k = 1 - Math.pow(0.0015, dt);
+    for (let i = 0; i < N * 3; i++) pos[i] += (tgt[i] - pos[i]) * k;
+    posAttr.needsUpdate = true;
+  }
+  const spin = reduceMotion ? 0 : (haveFace ? Math.sin(t * 0.35) * 0.38 : t * 0.35);
+  group.rotation.y = spin;
+  uniforms.uAlpha.value += ((haveFace ? 1 : 0.4) - uniforms.uAlpha.value) * 0.05;
+  lMat.opacity = haveFace ? 0.14 : 0.06;
+  const scanY = reduceMotion ? 0 : Math.sin(t * 0.9) * 0.78;
+  uniforms.uScan.value = scanY; scanRing.position.y = scanY;
+  scanRing.scale.setScalar(Math.sqrt(Math.max(0.05, 1 - (scanY / 0.95) ** 2)));
+  floor.rotation.y = -t * 0.1;
+  if (bpmNow && !reduceMotion) {
+    const period = 60 / bpmNow;
+    if (t - lastBeatT > period) lastBeatT = t;
+    beat = Math.exp(-(t - lastBeatT) * 7);
+  } else beat *= 0.9;
+  uniforms.uBeat.value = beat;
+  uniforms.uTime.value = t;
+  renderer.render(scene, camera3);
+  if (T) drawRing(T);
+  requestAnimationFrame(frame);
+}
+resize();
+requestAnimationFrame(frame);
+connect();
+window.__hud = { onResult, hold: false };  // debug hook: __hud.hold = true; __hud.onResult(result)

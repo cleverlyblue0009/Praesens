@@ -140,3 +140,22 @@ def test_pressure_gates_accept_and_rechallenges_on_injection():
     assert adjudicate_two_lane(weak_optical, typing, 0.3, 0.7, pressure=good).verdict == "REJECT"
     out_of_window = LaneResult("pressure", 0.95, "ok", 900.0, 1.0)
     assert adjudicate_two_lane(optical, typing, 0.3, 0.7, pressure=out_of_window).verdict == "RE-CHALLENGE"
+
+
+def test_mic_recorder_ring_buffer_keeps_the_clock(monkeypatch):
+    from praesens import pressure as pm
+    monkeypatch.setattr(pm, "sd", object())  # constructor only checks availability
+    rec = pm.MicRecorder(PressureConfig(sample_rate_hz=1000), max_keep_s=2.0)
+    perf = 50.0
+    for k in range(10):  # ten 0.5 s blocks, callbacks 1 ms late
+        perf += 0.5
+        block = np.full((500, 1), k, dtype=np.float32)
+        monkeypatch.setattr(pm.time, "perf_counter", lambda p=perf: p + 0.001)
+        rec._callback(block, 500, None, None)
+    audio, a0 = rec.get_audio()
+    assert len(audio) <= 2500 and len(audio) >= 2000  # bounded
+    assert a0 == pytest.approx(50.001 + (5000 - len(audio)) / 1000.0)
+    seg, s0 = rec.audio_between(54.0, 54.5)
+    assert s0 == pytest.approx(54.0, abs=0.002)
+    # sample0 = 50.001, so perf 54.0 is the last sample of block 7 and block 8 follows
+    assert np.all(seg[2:400] == 8)

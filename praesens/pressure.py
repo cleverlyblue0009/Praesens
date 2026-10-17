@@ -118,20 +118,30 @@ def fit_sample_clock(anchors: list, fs: float) -> float | None:
 
 
 class MicRecorder:
-    """Standalone input-only stream for sessions where the acoustic lane is
+    """Input-only microphone stream for sessions where the acoustic lane is
     NOT running (when it is, its duplex recording is reused instead -- one
-    microphone stream per session, same rule as one camera capture loop)."""
+    microphone stream per session, same rule as one camera capture loop).
 
-    def __init__(self, config: PressureConfig):
+    max_keep_s bounds memory for long-running callers (the HUD keeps one
+    stream open for hours): older audio is dropped, and the sample clock
+    keeps counting so perf_counter mapping stays exact."""
+
+    def __init__(self, config: PressureConfig, max_keep_s: float | None = None):
         if sd is None:
             raise RuntimeError(f"sounddevice/PortAudio unavailable: {_SD_IMPORT_ERROR}")
         self.config = config
+        self.max_keep_s = max_keep_s
         self._chunks: list = []
-        self._n = 0
-        self.anchors: list = []
+        self._kept = 0          # samples currently held in _chunks
+        self._dropped = 0       # samples discarded from the front
+        self._sample0: float | None = None  # perf time of sample 0 (min over anchors, kept incrementally)
         self._lock = threading.Lock()
         self._stream = None
         self.status_flags: list = []
+
+    @property
+    def anchors(self) -> list:  # kept for API compatibility (tests / debugging)
+        return [] if self._sample0 is None else [(self._sample0, 0)]
 
     def _callback(self, indata, frames, time_info, status):
         t = time.perf_counter()
@@ -139,8 +149,16 @@ class MicRecorder:
             self.status_flags.append(str(status))
         with self._lock:
             self._chunks.append(indata[:, 0].copy())
-            self._n += frames
-            self.anchors.append((t, self._n))
+            self._kept += frames
+            n_total = self._dropped + self._kept
+            cand = t - n_total / float(self.config.sample_rate_hz)
+            self._sample0 = cand if self._sample0 is None else min(self._sample0, cand)
+            if self.max_keep_s is not None:
+                limit = int(self.max_keep_s * self.config.sample_rate_hz)
+                while self._kept - len(self._chunks[0]) >= limit and len(self._chunks) > 1:
+                    n0 = len(self._chunks.pop(0))
+                    self._kept -= n0
+                    self._dropped += n0
 
     def start(self) -> None:
         self._stream = sd.InputStream(samplerate=self.config.sample_rate_hz, channels=1, dtype="float32",
@@ -153,25 +171,24 @@ class MicRecorder:
             self._stream.close()
             self._stream = None
 
-    def recent(self, seconds: float) -> tuple[np.ndarray, float | None]:
-        """Last `seconds` of audio + perf time of its first sample (live HUD use)."""
-        with self._lock:
-            chunks = list(self._chunks[-max(1, int(seconds * self.config.sample_rate_hz / 256) + 4):])
-            n_total = self._n
-            anchors = list(self.anchors)
-        audio = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
-        n_keep = int(seconds * self.config.sample_rate_hz)
-        audio = audio[-n_keep:]
-        t0 = fit_sample_clock(anchors, self.config.sample_rate_hz)
-        if t0 is None:
-            return audio, None
-        return audio, t0 + (n_total - len(audio)) / self.config.sample_rate_hz
-
     def get_audio(self) -> tuple[np.ndarray, float | None]:
+        """Everything still held + perf time of its first sample."""
         with self._lock:
             audio = np.concatenate(self._chunks) if self._chunks else np.zeros(0, dtype=np.float32)
-            anchors = list(self.anchors)
-        return audio, fit_sample_clock(anchors, self.config.sample_rate_hz)
+            dropped, s0 = self._dropped, self._sample0
+        if s0 is None:
+            return audio, None
+        return audio, s0 + dropped / float(self.config.sample_rate_hz)
+
+    def audio_between(self, t0: float, t1: float) -> tuple[np.ndarray, float | None]:
+        """Audio covering perf-time [t0, t1] (clipped to what's held)."""
+        audio, a0 = self.get_audio()
+        if a0 is None or len(audio) == 0:
+            return audio, a0
+        fs = float(self.config.sample_rate_hz)
+        i0 = int(np.clip(np.floor((t0 - a0) * fs), 0, len(audio)))
+        i1 = int(np.clip(np.ceil((t1 - a0) * fs), i0, len(audio)))
+        return audio[i0:i1], a0 + i0 / fs
 
 
 # ---------------------------------------------------------------------------

@@ -1042,3 +1042,63 @@ optical PASS 0.75 (lag 25ms), typing PASS 1.00 (27/27), acoustic PASS
 `acoustic.noise_offsets_hz`, `acoustic.n_decoy_codes` (3),
 `acoustic.input_device`/`output_device`; `acoustic.lag_search_max_ms`
 60 -> 500.
+
+---
+
+## Keystroke-impact ("pressure") lane, rPPG pulse lane, browser HUD (2026-10-17)
+
+**Why:** the operator asked for a pressure lane. The ASUS TUF A16 has no force-sensing touchpad and no IMU
+Python can reach (see `praesens/inertial.py`), so key pressure cannot be read from a dedicated sensor. A key
+that is physically struck is, however, audible to the laptop mic a few centimetres away, louder for harder
+strikes. That turns the disclosure's keystroke-vibration claim into something this hardware can measure.
+Separately, the Level-2 demo needed a presentation layer that looks like a product, not an OpenCV window.
+
+**What was built:**
+- `praesens/pressure.py`: impact-onset detection (high-pass, acoustic-probe carrier and harmonics notched
+  when the duplex recording is shared, 1 kHz energy envelope, rise-strength peaks), audio sample clock mapped
+  onto `perf_counter` from callback anchors (`fit_sample_clock`), single host-lag search of key-down vs
+  impact, chance correction with per-key jittered decoy trains run through the same lag search. Per-key force
+  (dB above room floor) and dwell are logged as the "pressure profile" but not gated. `MicRecorder` is
+  ring-buffered for long-running callers. When `--lanes` includes acoustic the duplex recording is reused
+  (`AcousticResult.recording` / `sample0_perf`, in memory only, never serialised); otherwise one input-only
+  stream runs for the session window.
+- `praesens/pulse.py`: POS rPPG on the optical lane's own ROI boxes (`CadenceDetector.last_boxes`, a new
+  read-only tap alongside `last_landmarks`); the emitted chip waveform at its best lag is regressed out of the
+  pulse signal since the challenge sits inside the heart-rate band. Advisory: `pulse.gate: false`.
+- `fusion.adjudicate_two_lane` gained optional `pressure` (lag-checked, `LANE_LAG_BOUNDS_MS["pressure"] =
+  (-100, 450)`) and `pulse` secondaries. `session.py` lanes `optical+typing+pressure` and
+  `optical+typing+acoustic+pressure`; JSON add-only fields `pressure`, `pulse`,
+  `fusion.pressure_pass_threshold`, `fusion.pulse_gated`.
+- `demo/hud`: aiohttp server + Three.js page. The page is the emitter: it paints the challenge on its edge
+  strips each animation frame and reports `(t, chip, lum)` stamped on the engine's `perf_counter` via a
+  min-RTT clock offset; `BrowserEmitter` turns that into the same redraw log `Emitter` writes, so optical is
+  scored by the unmodified `OpticalFrameProcessor.finalize`. Idle mode runs a looping live challenge
+  (re-tuned once the camera's fps is measured), live pulse and live key-impact matching; a scan runs a fresh
+  challenge + phrase and writes a normal session log. `--synthetic` swaps in simulated sensors (canonical
+  MediaPipe mesh, emitter-coupled skin, impact clicks) for UI work and rehearsals; it is labelled on every
+  screen and in `meta.synthetic` of every log.
+
+**What was measured:** synthetic only, so far.
+- `tests/test_pressure.py` (16): genuine typing scores >0.8 with the right lag (0.12 s and 0.35 s), with the
+  4 kHz probe in the same recording, and with gated speech noise in the room (>0.6); injected keystrokes
+  score <0.2 in silence, with speech, with a second person really typing as cover, and with the probe
+  playing; too few keys / silent capture are `no_evidence`; per-key dicts carry no characters; a 10x
+  stronger strike reads >10 dB more force.
+- `tests/test_pulse.py` (10): 55/72/95/130 bpm recovered within 5 bpm through a challenge modulation ~10x
+  stronger than the pulse; a "photo" (challenge, no pulse) scores <0.35; POS rejects pure intensity changes.
+- `tests/test_hud.py` (5): full synthetic scans through the real lane code: genuine -> ACCEPT (optical
+  ~0.76 at 35 ms vs. 45 ms simulated display latency, pressure 1.00 at 128 ms vs. 120 ms simulated audio
+  lag), injected keystrokes -> RE-CHALLENGE on the pressure lane, injected video -> REJECT.
+- Full suite 182/182.
+
+**Not yet done (needs the real laptop):** a real pressure run (`python -m praesens.pressure`), checking that
+the Windows MME input lag lands inside (-100, 450) ms; a real HUD scan, compared against the OpenCV emitter
+at the same exposure, since the HUD's strips light ~59% of the screen (`hud.border_fraction: 0.18`) vs 75%
+for the OpenCV emitter's 0.25 -- raise it if live SNR is marginal; a measured rPPG threshold before
+`pulse.gate` is turned on. The browser display latency is not calibrated out; it lands in the optical lag
+search like the OpenCV path's.
+
+**Spotted, not changed:** `.gitignore`'s `data/   # hard rule 2...` line carries an inline comment, which
+gitignore does not support, so the pattern never matched and the face/deepfake videos under `data/` are
+committed. Needs `data/` on its own line plus `git rm --cached -r data/` (and a history rewrite if the repo
+was ever public).
