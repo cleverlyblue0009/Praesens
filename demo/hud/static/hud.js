@@ -336,6 +336,7 @@ function updatePrompt(t) {
 
 // ------------------------------------------------------------------ verdict
 function onResult(r) {
+  setMood(r.verdict);
   lastResult = r;
   const v = $("verdict");
   v.className = `verdict on ${r.verdict}`;
@@ -357,7 +358,7 @@ function onResult(r) {
   ledTrace(ctx, tr.measured || [], w, h, C.holo, { r: 1.4 * d });
   $("vClose").focus();
 }
-$("vClose").onclick = () => { $("verdict").classList.remove("on"); send({ type: "dismiss" }); };
+$("vClose").onclick = () => { $("verdict").classList.remove("on"); setMood("idle"); send({ type: "dismiss" }); };
 
 // ------------------------------------------------------------------ telemetry
 function onTelemetry(t) {
@@ -379,6 +380,8 @@ function onTelemetry(t) {
   updatePrompt(t);
   if (t.sim) for (const b of document.querySelectorAll("[data-sim]")) b.setAttribute("aria-pressed", String(!!t.sim[b.dataset.sim]));
   if (t.landmarks) setFaceTarget(t.landmarks); else faceTarget = null;
+  if (t.mode === "scan") setMood("scan");
+  else if (t.mode !== "result") setMood("idle");   // "result" keeps the verdict colour on the face
   // the engine went back to live: close the verdict (unless it was replayed by hand via __hud)
   if (t.mode === "idle" && $("verdict").classList.contains("on") && !window.__hud.hold) $("verdict").classList.remove("on");
 }
@@ -404,8 +407,10 @@ const canvas = $("holo");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 const scene = new THREE.Scene();
-const camera3 = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
-camera3.position.set(0, 0.05, 3.3);
+// Orthographic in canvas NDC (-1..1 both axes): landmarks are image coordinates, so the mesh
+// lands exactly on the face in the preview underneath. Perspective would re-project them.
+const camera3 = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+camera3.position.set(0, 0, 5);
 const group = new THREE.Group();
 scene.add(group);
 
@@ -415,18 +420,19 @@ const posAttr = new THREE.BufferAttribute(pos, 3);
 posAttr.setUsage(THREE.DynamicDrawUsage);
 
 const uniforms = { uTime: { value: 0 }, uScan: { value: 0 }, uSize: { value: 15 }, uPR: { value: renderer.getPixelRatio() },
+  uPxScale: { value: 0.5 },
   uBeat: { value: 0 }, uAlpha: { value: 1 }, uColA: { value: new THREE.Color(C.holo) }, uColB: { value: new THREE.Color(C.plasma) } };
 const pointVS = `
-  uniform float uSize, uPR, uScan, uBeat, uTime;
+  uniform float uSize, uPR, uScan, uBeat, uTime, uPxScale;
   attribute float aHl;
   varying float vDepth, vScan, vHl;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vDepth = clamp(position.z * 1.6 + 0.5, 0.0, 1.0);
+    vDepth = clamp(position.z * 2.2 + 0.5, 0.0, 1.0);
     vScan = exp(-pow((position.y - uScan) * 16.0, 2.0));
     vHl = aHl;
     float s = uSize * (1.0 + 1.6 * vScan + aHl * (0.8 + 1.2 * uBeat));
-    gl_PointSize = s * uPR / -mv.z;
+    gl_PointSize = s * uPR * uPxScale;
     gl_Position = projectionMatrix * mv;
   }`;
 const pointFS = `
@@ -471,6 +477,24 @@ scanRing.rotation.x = Math.PI / 2;
 scene.add(scanRing);
 
 let canon = null, faceTarget = null, haveFace = false;
+
+// The mesh is tinted by what the rest of the HUD is saying, so the face itself reads as the
+// verdict: cyan idle, magenta while a scan runs, then green / amber / red on the result.
+const MOOD = {
+  idle: [C.holo, C.plasma, C.holo],
+  scan: [C.plasma, C.holo, C.plasma],
+  ACCEPT: [C.phos, C.holo, C.phos],
+  "RE-CHALLENGE": [C.amber, C.plasma, C.amber],
+  REJECT: [C.alarm, C.plasma, C.alarm],
+};
+let mood = "idle";
+const moodA = new THREE.Color(C.holo), moodB = new THREE.Color(C.plasma), moodW = new THREE.Color(C.holo);
+function setMood(name) { if (MOOD[name]) mood = name; }
+function mixMood(dt) {
+  const [a, b, w] = MOOD[mood] || MOOD.idle, k = Math.min(1, dt * 3.5);
+  moodA.lerp(new THREE.Color(a), k); moodB.lerp(new THREE.Color(b), k); moodW.lerp(new THREE.Color(w), k);
+  uniforms.uColA.value.copy(moodA); uniforms.uColB.value.copy(moodB); lMat.color.copy(moodW);
+}
 fetch("/static/facemesh.json").then((r) => r.json()).then((m) => {
   const edges = new Set(), idx = [];
   for (const [a, b, c] of m.triangles) for (const [u, v] of [[a, b], [b, c], [c, a]]) {
@@ -497,23 +521,56 @@ function normalise(flat) {
   }
   return out;
 }
+function imageRect() {
+  // where the <img> actually draws inside the stage: object-fit: contain letterboxes it
+  const r = canvas.getBoundingClientRect();
+  const W = Math.max(1, r.width), H = Math.max(1, r.height);
+  const h = Math.min(H, W / camAspect), w = h * camAspect;
+  return { W, H, x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+
+function toNdc(px, py, out, i) {
+  const { W, H } = rect;
+  out[i] = (px / W) * 2 - 1;
+  out[i + 1] = 1 - (py / H) * 2;
+}
+
+let rect = { W: 1, H: 1, x: 0, y: 0, w: 1, h: 1 };
+
 function setFaceTarget(lm) {
-  // MediaPipe: x,y in [0,1] of the image (y down), z ~ x-scale depth (negative = toward camera).
-  // Mirrored on x like the selfie preview, so moving left moves the hologram left.
+  // MediaPipe gives x,y normalised to the IMAGE (y down) and z as depth in x-scale units.
+  // The preview is mirrored (scaleX(-1)), so x is flipped to match what the operator sees;
+  // the result lands on the face pixel-for-pixel, which is the point of the overlay.
+  rect = imageRect();
   const f = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
-    f[i * 3] = -(lm[i * 3] - 0.5) * camAspect;
-    f[i * 3 + 1] = -(lm[i * 3 + 1] - 0.5);
-    f[i * 3 + 2] = -lm[i * 3 + 2] * camAspect;
+    const px = rect.x + (1 - lm[i * 3]) * rect.w;
+    const py = rect.y + lm[i * 3 + 1] * rect.h;
+    toNdc(px, py, f, i * 3);
+    f[i * 3 + 2] = -lm[i * 3 + 2] * 1.8;      // depth: shading + scan only, ortho ignores it
   }
-  faceTarget = normalise(f);
+  faceTarget = f;
+}
+
+function canonTarget() {
+  // no face in view: the canonical mesh idles in the middle of the stage, isotropically scaled
+  if (!canon) return null;
+  rect = imageRect();
+  const k = 0.34 * Math.min(rect.W, rect.H);
+  const f = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    toNdc(rect.W / 2 + canon[i * 3] * k, rect.H / 2 - canon[i * 3 + 1] * k, f, i * 3);
+    f[i * 3 + 2] = canon[i * 3 + 2] * 0.5;
+  }
+  return f;
 }
 
 function resize() {
   const r = canvas.getBoundingClientRect();
   renderer.setSize(r.width, r.height, false);
-  camera3.aspect = r.width / Math.max(1, r.height);
-  camera3.updateProjectionMatrix();
+  // ortho stays -1..1 in both axes (canvas NDC); only the point size tracks the stage size
+  uniforms.uPxScale.value = Math.max(0.28, Math.min(1.0, Math.min(r.width, r.height) / 900));
+  rect = imageRect();
 }
 new ResizeObserver(resize).observe(canvas);
 
@@ -522,16 +579,19 @@ function frame() {
   emitFrame();
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
   haveFace = !!faceTarget;
-  const tgt = faceTarget || canon;
+  const tgt = faceTarget || canonTarget();
   if (tgt) {
-    const k = 1 - Math.pow(0.0015, dt);
+    // snappier when locked to a face: the mesh has to sit ON the head, not trail it
+    const k = 1 - Math.pow(haveFace ? 0.00000012 : 0.0015, dt);
     for (let i = 0; i < N * 3; i++) pos[i] += (tgt[i] - pos[i]) * k;
     posAttr.needsUpdate = true;
   }
-  const spin = reduceMotion ? 0 : (haveFace ? Math.sin(t * 0.35) * 0.38 : t * 0.35);
-  group.rotation.y = spin;
+  // locked to a face: no spin, or the overlay would slide off the head
+  group.rotation.y = haveFace ? 0 : (reduceMotion ? 0 : t * 0.35);
+  floor.visible = scanRing.visible = !haveFace;
   uniforms.uAlpha.value += ((haveFace ? 1 : 0.4) - uniforms.uAlpha.value) * 0.05;
-  lMat.opacity = haveFace ? 0.14 : 0.06;
+  lMat.opacity += ((haveFace ? 0.3 : 0.06) - lMat.opacity) * 0.08;
+  mixMood(dt);
   const scanY = reduceMotion ? 0 : Math.sin(t * 0.9) * 0.78;
   uniforms.uScan.value = scanY; scanRing.position.y = scanY;
   scanRing.scale.setScalar(Math.sqrt(Math.max(0.05, 1 - (scanY / 0.95) ** 2)));

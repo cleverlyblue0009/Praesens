@@ -120,12 +120,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .stage { position: relative; min-height: 0; border: 1px solid var(--line); overflow: hidden;
   background: radial-gradient(60% 55% at 50% 52%, rgba(92,242,255,.08), transparent 70%); }
 #holo { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cam {
-  position: absolute; left: .6rem; top: .6rem; width: 26%; aspect-ratio: 4 / 3; border: 1px solid var(--line);
-  background: #000; overflow: hidden;
-}
-.cam img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: .9; display: block; }
-.cam span { position: absolute; left: .35rem; bottom: .2rem; font-size: .66rem; color: var(--holo); }
+/* The camera feed IS the stage: the face mesh is drawn on top of the detected face,
+   so what the mesh does and what the camera sees are visibly the same thing. */
+.cam { position: absolute; inset: 0; background: #000; overflow: hidden; }
+.cam img { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); opacity: .62; display: block;
+  filter: saturate(.55) contrast(1.05); }
+.cam span { position: absolute; left: .45rem; bottom: .25rem; font-size: .66rem; color: var(--holo); opacity: .75; }
+#holo { z-index: 2; pointer-events: none; }
+.stage .tag, .stage .note, .prompt, .ring { z-index: 3; }
 .stage .tag { position: absolute; right: .7rem; top: .6rem; text-align: right; font-size: .74rem; color: var(--dim); }
 .stage .tag .big { font-family: "DSEG14", monospace; font-size: 1.3rem; display: block; margin-bottom: .25rem; }
 .stage .note { position: absolute; left: 0; right: 0; bottom: .8rem; text-align: center; color: var(--dim); font-size: .85rem; }
