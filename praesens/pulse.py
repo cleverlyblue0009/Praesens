@@ -194,3 +194,82 @@ def pulse_record(est: PulseEstimate | None) -> dict | None:
     f = lambda v: None if v is None or not np.isfinite(v) else float(v)  # noqa: E731
     return {"status": est.status, "bpm": f(est.bpm), "snr_db": f(est.snr_db), "subscore": est.subscore,
             "coverage": est.coverage, "challenge_leak": est.challenge_leak, "diagnostics": est.diagnostics}
+
+
+if __name__ == "__main__":
+    import argparse
+    import time
+    from pathlib import Path
+
+    import yaml
+
+    from praesens.camera import open_camera
+    from praesens.capture import CaptureConfig, configure_capture_format
+    from praesens.optical import OpticalConfig, OpticalFrameProcessor, lock_camera
+
+    parser = argparse.ArgumentParser(
+        description="rPPG pulse lane smoke test: face the camera and keep still for N seconds")
+    parser.add_argument("--seconds", type=float, default=20.0)
+    parser.add_argument("--camera-index", type=int, default=None)
+    parser.add_argument("--window", type=float, default=0.0,
+                        help="analysis window in seconds (0 = the whole capture, like a scored session)")
+    args = parser.parse_args()
+
+    REPO_ROOT = Path(__file__).resolve().parent.parent
+    raw = yaml.safe_load(open(REPO_ROOT / "config.yaml"))
+
+    oconfig = OpticalConfig.from_dict(raw["optical"])
+    model_path = Path(oconfig.model_path)
+    oconfig.model_path = str(model_path if model_path.is_absolute() else REPO_ROOT / model_path)
+    if args.camera_index is not None:
+        oconfig.camera_index = args.camera_index
+
+    puconfig = PulseConfig.from_dict(raw.get("pulse", {}))
+    puconfig.window_s = args.window        # 0 -> estimate over everything captured
+
+    cap = open_camera(oconfig.camera_index)
+    if not cap.isOpened():
+        raise SystemExit(f"could not open camera index {oconfig.camera_index}")
+
+    warns: list = []
+    configure_capture_format(cap, CaptureConfig.from_dict(raw.get("capture", {})), warns)
+    # same exposure lock the scored pipeline runs under: rPPG at a locked, dim
+    # exposure is the honest condition, not auto-exposure's brighter frames
+    exposure_locked = lock_camera(cap, oconfig, warns)
+    for w in warns:
+        print(f"WARNING: {w}")
+    for _ in range(int(raw["optical"].get("camera_warmup_frames", 30))):
+        cap.grab()
+
+    proc = OpticalFrameProcessor(oconfig)   # emitter=None: no challenge is emitted for this check
+    skin: list = []
+    start = time.perf_counter()
+    print(f"capturing {args.seconds:.0f}s at exposure_value={oconfig.exposure_value} "
+          f"(locked={exposure_locked}) -- hold still, face the camera", flush=True)
+    try:
+        while time.perf_counter() - start < args.seconds:
+            if not cap.grab():
+                continue
+            t = time.perf_counter()
+            ok, frame = cap.retrieve()
+            if not ok or frame is None:
+                continue
+            msg = proc.process_frame(frame, t, start, None, None)
+            if msg:
+                print(f"WARNING: {msg}")
+            skin.append((t, skin_rgb(frame, proc.detector.last_boxes)))
+    finally:
+        proc.close()
+        cap.release()
+
+    n = len(skin)
+    span = (skin[-1][0] - skin[0][0]) if n > 1 else 0.0
+    face = sum(1 for _, c in skin if np.all(np.isfinite(c)))
+    print(f"frames={n} span={span:.1f}s fps={(n - 1) / span if span else float('nan'):.1f} "
+          f"face_detected={face}/{n} ({face / n:.0%})" if n else "no frames captured")
+
+    est = estimate_pulse([t for t, _ in skin], [c for _, c in skin], puconfig)
+    print(f"status={est.status} bpm={est.bpm:.1f} snr_db={est.snr_db:.2f} "
+          f"subscore={est.subscore} coverage={est.coverage:.0%}")
+    print(f"  {est.diagnostics}")
+    print(f"  (advisory lane: pulse.gate={puconfig.gate}, pass_threshold={puconfig.pass_threshold})")
