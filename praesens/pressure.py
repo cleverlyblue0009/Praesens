@@ -80,9 +80,23 @@ class PressureConfig:
     envelope_rate_hz: float = 1000.0     # onset-detection resolution (1 ms)
     envelope_smooth_ms: float = 2.0
     rise_window_ms: float = 15.0         # an impact rises within this long
-    onset_threshold_mad: float = 5.0     # onset strength must exceed median + k*MAD ...
-    onset_min_rise_db: float = 6.0       # ... and at least this many dB of rise
+    onset_threshold_mad: float = 4.0     # onset strength must exceed median + k*MAD ...
+    onset_min_rise_db: float = 4.0       # ... and at least this many dB of rise. 2026-10-17, real
+                                          # typing on the ASUS TUF A16: at 5.0 / 6 dB the detector
+                                          # reported NO onset within 60 ms of 8 of 17 unmatched keys
+                                          # -- real strikes it never saw. 4.0 / 4 dB recovered them
+                                          # (78 -> 90 onsets, genuine hit fraction 0.754 -> 0.838)
+                                          # while an injected capture stayed at score 0.000.
     min_onset_separation_ms: float = 35.0
+    edge_guard_ms: float = 50.0          # onsets this close to the START or END of the capture are
+                                          # discarded: the recording begins and ends abruptly, and the
+                                          # high-pass/notch filters plus the envelope's rise window turn
+                                          # those discontinuities into a rise that looks like an impact
+                                          # (found 2026-10-17 when the sensitivity above was raised --
+                                          # a steady 4 kHz tone produced "impacts" at t=0.03 s and at
+                                          # the final sample, where no strike exists). 50 ms covers
+                                          # the rise window (15 ms) plus the high-pass/notch settling
+                                          # measured on that tone (artefact peaked at 32 ms).
     match_tolerance_ms: float = 25.0
     lag_search_min_ms: float = -100.0    # key-down can be stamped slightly AFTER the sound
     lag_search_max_ms: float = 450.0     # Windows MME input buffering alone can be ~100-300 ms
@@ -244,6 +258,11 @@ def detect_impacts(audio: np.ndarray, fs: float, config: PressureConfig,
     height = max(med + config.onset_threshold_mad * 1.4826 * mad, config.onset_min_rise_db)
     distance = max(1, int(round(config.min_onset_separation_ms * config.envelope_rate_hz / 1000.0)))
     peaks, props = scipy.signal.find_peaks(strength, height=height, distance=distance)
+
+    guard = int(round(config.edge_guard_ms * config.envelope_rate_hz / 1000.0))
+    if guard > 0 and len(peaks):
+        keep = (peaks >= guard) & (peaks < len(strength) - guard)
+        peaks, props = peaks[keep], {k: v[keep] for k, v in props.items()}
 
     floor_db = float(np.median(env_db))
     # strike force proxy: the envelope's peak in the 10 ms following the onset, above the room floor

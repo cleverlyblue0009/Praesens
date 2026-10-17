@@ -233,6 +233,11 @@ pressure:
   sample_rate_hz: 44100
   input_device: null             # null = OS default mic (same device the acoustic lane records from)
   highpass_hz: 1500.0
+  onset_threshold_mad: 4.0       # 2026-10-17 measured on this laptop: at the old 5.0 / 6.0 dB the
+  onset_min_rise_db: 4.0         # onset detector missed real (soft) key strikes entirely -- 8 of 17
+                                  # unmatched keys had no onset within 60 ms. These values recover them
+                                  # (genuine hit fraction 0.754 -> 0.838) and leave an injected capture
+                                  # at 0.000, i.e. they fix detection without helping an attacker.
   match_tolerance_ms: 25.0
   lag_search_min_ms: -100.0
   lag_search_max_ms: 450.0       # = fusion.LANE_LAG_BOUNDS_MS["pressure"] upper bound

@@ -18,7 +18,7 @@ T0 = 1000.0  # perf_counter time of audio sample 0
 
 
 def _recording(seed=0, n_keys=30, lag_s=0.12, clicks=True, probe=False, speech=False,
-               cover_typing=False, dur=12.0):
+               cover_typing=False, dur=12.0, amp=(0.05, 0.2)):
     rng = np.random.default_rng(seed)
     x = rng.normal(0, 0.002, int(dur * FS))
     t = 1.0 + np.cumsum(rng.lognormal(np.log(0.18), 0.45, n_keys))
@@ -31,7 +31,7 @@ def _recording(seed=0, n_keys=30, lag_s=0.12, clicks=True, probe=False, speech=F
 
     if clicks:
         for tk in t:
-            click(tk + lag_s + rng.normal(0, 0.004), rng.uniform(0.05, 0.2))
+            click(tk + lag_s + rng.normal(0, 0.004), rng.uniform(*amp))
     if cover_typing:  # a person typing for real, but NOT the keys the OS reports
         for tk in 0.5 + np.cumsum(rng.lognormal(np.log(0.18), 0.45, 60)):
             if tk < dur - 0.5:
@@ -60,6 +60,27 @@ def test_genuine_typing_passes(kw):
     assert res.score > 0.8
     assert abs(res.lag_ms - kw.get("lag_s", 0.12) * 1000) < 25
     assert res.hit_fraction > 0.9
+
+
+def test_soft_strikes_are_still_detected():
+    """Regression for a REAL miss found on the demo laptop (2026-10-17): with
+    onset_threshold_mad 5.0 / onset_min_rise_db 6.0, keys struck softly produced
+    no onset at all -- 8 of 17 unmatched keys had nothing within 60 ms of the
+    strike, and a genuine run scored 0.538 against pass_threshold 0.5. Soft
+    typing is normal typing, so the detector has to hear it."""
+    audio, events = _recording(amp=(0.012, 0.03))   # ~12 dB quieter than the default strikes
+    res = analyse_keystroke_impacts(audio, T0, FS, events, PressureConfig())
+    assert res.status == "ok"
+    assert res.hit_fraction > 0.8, f"soft strikes missed: hit_fraction={res.hit_fraction:.3f}"
+    assert res.score > 0.6
+
+
+def test_soft_injection_still_fails():
+    """The sensitivity that recovers soft strikes must not invent them: the same
+    quiet room with NO strikes behind the key-downs still has to collapse."""
+    audio, events = _recording(clicks=False, amp=(0.012, 0.03))
+    res = analyse_keystroke_impacts(audio, T0, FS, events, PressureConfig())
+    assert res.score < 0.2
 
 
 def test_genuine_typing_survives_speech_in_the_room():
@@ -117,7 +138,26 @@ def test_detect_impacts_ignores_a_steady_tone():
     t = np.arange(FS * 3) / FS
     onsets = detect_impacts((0.5 * np.sin(2 * np.pi * 4000 * t)).astype(np.float32), FS, PressureConfig(),
                             notch_freqs_hz=[4000.0])
-    assert len(onsets.times_s) <= 1
+    assert len(onsets.times_s) == 0
+
+
+def test_capture_edges_are_not_impacts():
+    """Every capture starts and stops abruptly; the filters and the envelope
+    rise window turn those discontinuities into an onset-shaped rise. Found
+    2026-10-17 when onset_min_rise_db dropped to 4 dB: a steady tone produced
+    "impacts" at 0.03 s and at the final sample, where no strike exists. A
+    spurious onset at the very start of a recording can hand an injected
+    keystroke a free match, so the capture boundary is guarded."""
+    cfg = PressureConfig()
+    rng = np.random.default_rng(3)
+    quiet = (rng.normal(0, 0.002, int(2.0 * FS))).astype(np.float32)
+    quiet[:int(0.005 * FS)] += 0.4      # abrupt switch-on, as a real stream start looks
+    quiet[-int(0.005 * FS):] += 0.4     # and switch-off
+    onsets = detect_impacts(quiet, FS, cfg)
+    dur = len(quiet) / FS
+    guard = cfg.edge_guard_ms / 1000.0
+    at_edges = [tt for tt in onsets.times_s if tt < guard or tt > dur - guard]
+    assert not at_edges, f"edge artefacts reported as impacts at {at_edges}"
 
 
 def test_fit_sample_clock_uses_least_delayed_callback():
