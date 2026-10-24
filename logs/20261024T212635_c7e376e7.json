@@ -1,0 +1,286 @@
+{
+  "session": "20261024T212635_c7e376e7",
+  "source": "hud",
+  "condition": "bonafide",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 54,
+  "chip_rate_hz": 2.9919466002771467,
+  "duration_s": 20.053833846647578,
+  "start_time_perf_counter": 463614.3986753,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": true,
+  "emitter": "browser",
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": true,
+  "n_frames": 601,
+  "n_face_detected": 0,
+  "measured_fps": 30.000084300267606,
+  "warnings": [],
+  "meta": {
+    "synthetic": false
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": [],
+  "lanes": "optical+typing+acoustic+pressure",
+  "typing_phrase": "wind horse snow jump walk",
+  "typing": {
+    "mode": "active",
+    "status": "ok",
+    "n_keystrokes": 13,
+    "n_matched": 0,
+    "n_expected": 25,
+    "inter_key_mean_s": 0.10088589999941178,
+    "inter_key_std_s": 0.015654366428854607,
+    "coherence_score": null,
+    "coherence_lag_ms": null,
+    "seconds_since_last_keystroke": 16.07067704666406,
+    "events": [
+      {
+        "t_down": 463617.1712013,
+        "t_up": 463618.4299398,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.226415,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.326908,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.4415464,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.54204,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.645579,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.7472055,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.8511268,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463617.9774119,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463618.080041,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463618.1805027,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463618.2813722,
+        "t_up": null,
+        "matched_expected": null
+      },
+      {
+        "t_down": 463618.3818321,
+        "t_up": null,
+        "matched_expected": null
+      }
+    ],
+    "subscore": 0.0,
+    "diagnostics": "matched 0/25, mean_inter_key=0.101s",
+    "pass_threshold": 0.7
+  },
+  "acoustic": {
+    "status": "ok",
+    "score": 0.9525072755265247,
+    "lag_ms": 180.5895691609977,
+    "snr_db": 12.886353272638615,
+    "diagnostics": "snr_db=12.89, tone_db=30.2, peak=0.96, off_carrier_floor=0.18, decoy_floor=0.22, out='Speakers (Realtek(R) Audio)', in='Microphone Array (Realtek(R) Au'"
+  },
+  "pressure": {
+    "status": "ok",
+    "score": 0.00826446280991736,
+    "lag_ms": -90.0,
+    "hit_fraction": 0.23076923076923078,
+    "chance_fraction": 0.22435897435897437,
+    "lag_jitter_ms": 15.356016084074469,
+    "force_cv": 0.21320728704528422,
+    "n_keys": 13,
+    "n_onsets": 31,
+    "per_key": [
+      {
+        "t_down": 463617.1712013,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 1.258738500007894
+      },
+      {
+        "t_down": 463617.226415,
+        "matched": true,
+        "force_db": 15.30126866422652,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.326908,
+        "matched": true,
+        "force_db": 24.18648036514461,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.4415464,
+        "matched": true,
+        "force_db": 16.335432203265718,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.54204,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.645579,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.7472055,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.8511268,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463617.9774119,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463618.080041,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463618.1805027,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463618.2813722,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      },
+      {
+        "t_down": 463618.3818321,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": null
+      }
+    ],
+    "diagnostics": "impacts matched 3/13 keys (chance 0.22), lag=-90ms jitter=15.4ms, onsets=31, force_cv=0.21"
+  },
+  "pulse": {
+    "status": "no_evidence",
+    "bpm": null,
+    "snr_db": null,
+    "subscore": null,
+    "coverage": 0.0,
+    "challenge_leak": 0.0,
+    "diagnostics": "only 0 skin samples"
+  },
+  "fusion": {
+    "verdict": "REJECT",
+    "joint_score": null,
+    "reason_text": "optical lane: snr_db=nan",
+    "per_lane_reasons": {
+      "optical": "optical lane: snr_db=nan",
+      "typing": "typing lane: subscore 0.00 (matched 0/25, mean_inter_key=0.101s)",
+      "acoustic": "acoustic lane: subscore 0.95 at lag 181ms",
+      "pressure": "pressure lane: subscore 0.01 at lag -90ms"
+    },
+    "accept_threshold": 0.6,
+    "reject_threshold": 0.3,
+    "lanes": [
+      {
+        "lane_name": "optical",
+        "subscore": null,
+        "status": "insufficient_signal",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "snr_db=nan",
+        "is_stub": false
+      },
+      {
+        "lane_name": "typing",
+        "subscore": 0.0,
+        "status": "ok",
+        "lag_ms": null,
+        "confidence": 1.0,
+        "diagnostics": "matched 0/25, mean_inter_key=0.101s",
+        "is_stub": false
+      },
+      {
+        "lane_name": "acoustic",
+        "subscore": 0.9525072755265247,
+        "status": "ok",
+        "lag_ms": 180.5895691609977,
+        "confidence": 0.6443176636319308,
+        "diagnostics": "snr_db=12.89, tone_db=30.2, peak=0.96, off_carrier_floor=0.18, decoy_floor=0.22, out='Speakers (Realtek(R) Audio)', in='Microphone Array (Realtek(R) Au'",
+        "is_stub": false
+      },
+      {
+        "lane_name": "pressure",
+        "subscore": 0.00826446280991736,
+        "status": "ok",
+        "lag_ms": -90.0,
+        "confidence": 0.65,
+        "diagnostics": "impacts matched 3/13 keys (chance 0.22), lag=-90ms jitter=15.4ms, onsets=31, force_cv=0.21",
+        "is_stub": false
+      },
+      {
+        "lane_name": "pulse",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "only 0 skin samples",
+        "is_stub": false
+      }
+    ],
+    "policy": "adjudicate_two_lane",
+    "optical_pass_threshold": 0.3,
+    "typing_pass_threshold": 0.7,
+    "acoustic_pass_threshold": 0.3,
+    "pressure_pass_threshold": 0.5,
+    "pulse_gated": false
+  }
+}

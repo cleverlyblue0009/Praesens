@@ -1,0 +1,403 @@
+{
+  "session": "20261017T150433_0787d9d9",
+  "source": "hud",
+  "condition": "bonafide",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 42,
+  "chip_rate_hz": 1.2960879313895182,
+  "duration_s": 46.293155384661915,
+  "start_time_perf_counter": 96153.8815428,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": true,
+  "emitter": "browser",
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": false,
+  "n_frames": 0,
+  "n_face_detected": 0,
+  "measured_fps": NaN,
+  "warnings": [
+    "measured capture FPS (16.0) is below warn_below_fps (20) -- fourcc negotiated as 'YUY2' (requested 'MJPG'). This camera/format is under-delivering; auto_chip_rate will pick a low chip rate, or measurement may fall to insufficient_signal.",
+    "early SNR 0.2 dB below floor 3.0 dB -- boosted modulation depth to 110",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "no frames captured"
+  ],
+  "meta": {
+    "synthetic": false
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": [],
+  "lanes": "optical+typing+pressure",
+  "typing_phrase": "for today door cold warm",
+  "typing": {
+    "mode": "active",
+    "status": "ok",
+    "n_keystrokes": 25,
+    "n_matched": 24,
+    "n_expected": 24,
+    "inter_key_mean_s": 0.2155352333332606,
+    "inter_key_std_s": 0.36042405452006043,
+    "coherence_score": null,
+    "coherence_lag_ms": null,
+    "seconds_since_last_keystroke": 40.585971984648495,
+    "events": [
+      {
+        "t_down": 96154.4158806,
+        "t_up": 96154.500311,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96154.526208,
+        "t_up": 96154.6093362,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96154.6408018,
+        "t_up": 96154.7020781,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96154.758843,
+        "t_up": 96154.8450603,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96154.8670988,
+        "t_up": 96154.9409349,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96155.1082017,
+        "t_up": 96155.1833242,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96155.3160893,
+        "t_up": 96155.5008014,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96155.4038336,
+        "t_up": 96155.5832592,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96155.5454581,
+        "t_up": 96155.6910032,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96155.6265275,
+        "t_up": 96155.7247068,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96157.5553956,
+        "t_up": 96157.643476,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96157.6904136,
+        "t_up": 96157.7664615,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96157.9002277,
+        "t_up": 96157.9673444,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.0386847,
+        "t_up": 96158.1009723,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.1217629,
+        "t_up": 96158.2203846,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.2616002,
+        "t_up": 96158.3904169,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.3775015,
+        "t_up": 96158.438674,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.5726929,
+        "t_up": 96158.6508238,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.6618497,
+        "t_up": 96158.7462174,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.7704077,
+        "t_up": 96158.8776248,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.8805148,
+        "t_up": 96159.0489996,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96158.986618,
+        "t_up": 96159.1655798,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96159.21446,
+        "t_up": 96159.2971964,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96159.4241819,
+        "t_up": 96159.5709318,
+        "matched_expected": true
+      },
+      {
+        "t_down": 96159.5887262,
+        "t_up": 96159.7213729,
+        "matched_expected": null
+      }
+    ],
+    "subscore": 1.0,
+    "diagnostics": "matched 24/24, mean_inter_key=0.216s",
+    "pass_threshold": 0.7
+  },
+  "acoustic": null,
+  "pressure": {
+    "status": "ok",
+    "score": 0.7844311377245509,
+    "lag_ms": 32.0,
+    "hit_fraction": 0.88,
+    "chance_fraction": 0.44333333333333336,
+    "lag_jitter_ms": 11.651326920933494,
+    "force_cv": 0.240464209738679,
+    "n_keys": 25,
+    "n_onsets": 52,
+    "per_key": [
+      {
+        "t_down": 96154.4158806,
+        "matched": true,
+        "force_db": 36.096408487079636,
+        "dwell_s": 0.08443039999110624
+      },
+      {
+        "t_down": 96154.526208,
+        "matched": true,
+        "force_db": 39.06154771962441,
+        "dwell_s": 0.08312819999991916
+      },
+      {
+        "t_down": 96154.6408018,
+        "matched": true,
+        "force_db": 37.82432724147246,
+        "dwell_s": 0.061276300009922124
+      },
+      {
+        "t_down": 96154.758843,
+        "matched": true,
+        "force_db": 41.36091388864083,
+        "dwell_s": 0.0862172999914037
+      },
+      {
+        "t_down": 96154.8670988,
+        "matched": true,
+        "force_db": 34.22699901080747,
+        "dwell_s": 0.07383610001124907
+      },
+      {
+        "t_down": 96155.1082017,
+        "matched": true,
+        "force_db": 32.540881500874875,
+        "dwell_s": 0.07512249999854248
+      },
+      {
+        "t_down": 96155.3160893,
+        "matched": true,
+        "force_db": 20.942939760630345,
+        "dwell_s": 0.18471210000279825
+      },
+      {
+        "t_down": 96155.4038336,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.17942559999937657
+      },
+      {
+        "t_down": 96155.5454581,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.14554510000743903
+      },
+      {
+        "t_down": 96155.6265275,
+        "matched": true,
+        "force_db": 22.780840264456522,
+        "dwell_s": 0.09817929999553598
+      },
+      {
+        "t_down": 96157.5553956,
+        "matched": true,
+        "force_db": 45.16235400940757,
+        "dwell_s": 0.08808040000440087
+      },
+      {
+        "t_down": 96157.6904136,
+        "matched": true,
+        "force_db": 45.93967517982401,
+        "dwell_s": 0.07604790000186767
+      },
+      {
+        "t_down": 96157.9002277,
+        "matched": true,
+        "force_db": 36.042650459623445,
+        "dwell_s": 0.06711669999640435
+      },
+      {
+        "t_down": 96158.0386847,
+        "matched": true,
+        "force_db": 39.53420755044936,
+        "dwell_s": 0.0622875999979442
+      },
+      {
+        "t_down": 96158.1217629,
+        "matched": true,
+        "force_db": 23.108980817357235,
+        "dwell_s": 0.09862170000269543
+      },
+      {
+        "t_down": 96158.2616002,
+        "matched": true,
+        "force_db": 29.011474150826096,
+        "dwell_s": 0.12881670000206213
+      },
+      {
+        "t_down": 96158.3775015,
+        "matched": true,
+        "force_db": 33.06923986875811,
+        "dwell_s": 0.061172500005341135
+      },
+      {
+        "t_down": 96158.5726929,
+        "matched": true,
+        "force_db": 38.815759411502,
+        "dwell_s": 0.07813090000126977
+      },
+      {
+        "t_down": 96158.6618497,
+        "matched": true,
+        "force_db": 30.042740912369005,
+        "dwell_s": 0.08436769999389071
+      },
+      {
+        "t_down": 96158.7704077,
+        "matched": true,
+        "force_db": 38.15434276109618,
+        "dwell_s": 0.10721710001234896
+      },
+      {
+        "t_down": 96158.8805148,
+        "matched": true,
+        "force_db": 23.77078625343718,
+        "dwell_s": 0.1684848000004422
+      },
+      {
+        "t_down": 96158.986618,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.17896180000388995
+      },
+      {
+        "t_down": 96159.21446,
+        "matched": true,
+        "force_db": 36.8519558178604,
+        "dwell_s": 0.08273639999970328
+      },
+      {
+        "t_down": 96159.4241819,
+        "matched": true,
+        "force_db": 45.12023133670556,
+        "dwell_s": 0.14674989999912214
+      },
+      {
+        "t_down": 96159.5887262,
+        "matched": true,
+        "force_db": 15.983472412834558,
+        "dwell_s": 0.13264670000353362
+      }
+    ],
+    "diagnostics": "impacts matched 22/25 keys (chance 0.44), lag=32ms jitter=11.7ms, onsets=52, force_cv=0.24"
+  },
+  "pulse": null,
+  "fusion": {
+    "verdict": "REJECT",
+    "joint_score": null,
+    "reason_text": "optical lane: no frames captured",
+    "per_lane_reasons": {
+      "optical": "optical lane: no frames captured",
+      "typing": "typing lane: subscore 1.00 (matched 24/24, mean_inter_key=0.216s)",
+      "pressure": "pressure lane: subscore 0.78 at lag 32ms"
+    },
+    "accept_threshold": 0.6,
+    "reject_threshold": 0.3,
+    "lanes": [
+      {
+        "lane_name": "optical",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "no frames captured",
+        "is_stub": false
+      },
+      {
+        "lane_name": "typing",
+        "subscore": 1.0,
+        "status": "ok",
+        "lag_ms": null,
+        "confidence": 1.0,
+        "diagnostics": "matched 24/24, mean_inter_key=0.216s",
+        "is_stub": false
+      },
+      {
+        "lane_name": "acoustic",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "acoustic lane not implemented",
+        "is_stub": true
+      },
+      {
+        "lane_name": "pressure",
+        "subscore": 0.7844311377245509,
+        "status": "ok",
+        "lag_ms": 32.0,
+        "confidence": 1.0,
+        "diagnostics": "impacts matched 22/25 keys (chance 0.44), lag=32ms jitter=11.7ms, onsets=52, force_cv=0.24",
+        "is_stub": false
+      }
+    ],
+    "policy": "adjudicate_two_lane",
+    "optical_pass_threshold": 0.3,
+    "typing_pass_threshold": 0.7,
+    "acoustic_pass_threshold": 0.3,
+    "pressure_pass_threshold": 0.5,
+    "pulse_gated": false
+  }
+}

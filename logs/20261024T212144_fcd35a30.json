@@ -1,0 +1,157 @@
+{
+  "session": "20261024T212144_fcd35a30",
+  "source": "hud",
+  "condition": "bonafide",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 57,
+  "chip_rate_hz": 3.0060222187873804,
+  "duration_s": 20.0,
+  "start_time_perf_counter": 463323.4202574,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": true,
+  "emitter": "browser",
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": true,
+  "n_frames": 600,
+  "n_face_detected": 0,
+  "measured_fps": 30.00126360910813,
+  "warnings": [],
+  "meta": {
+    "synthetic": false
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": [],
+  "lanes": "optical+typing+acoustic+pressure",
+  "typing_phrase": "or bridge family new coffee",
+  "typing": {
+    "mode": "active",
+    "status": "ok",
+    "n_keystrokes": 3,
+    "n_matched": 0,
+    "n_expected": 27,
+    "inter_key_mean_s": 0.13222569998470135,
+    "inter_key_std_s": 0.06185879997792654,
+    "coherence_score": null,
+    "coherence_lag_ms": null,
+    "seconds_since_last_keystroke": 0.8027417000266723,
+    "events": [
+      {
+        "t_down": 463342.3530643,
+        "t_up": 463342.6989267,
+        "matched_expected": false
+      },
+      {
+        "t_down": 463342.5471488,
+        "t_up": 463342.8518464,
+        "matched_expected": false
+      },
+      {
+        "t_down": 463342.6175157,
+        "t_up": 463342.9049682,
+        "matched_expected": false
+      }
+    ],
+    "subscore": 0.0,
+    "diagnostics": "matched 0/27, mean_inter_key=0.132s",
+    "pass_threshold": 0.7
+  },
+  "acoustic": {
+    "status": "ok",
+    "score": 0.9190620217234217,
+    "lag_ms": 173.60544217687075,
+    "snr_db": 13.409326629426193,
+    "diagnostics": "snr_db=13.41, tone_db=41.6, peak=0.94, off_carrier_floor=0.14, decoy_floor=0.20, out='Speakers (Realtek(R) Audio)', in='Microphone Array (Realtek(R) Au'"
+  },
+  "pressure": {
+    "status": "no_evidence",
+    "score": null,
+    "lag_ms": null,
+    "hit_fraction": null,
+    "chance_fraction": null,
+    "lag_jitter_ms": null,
+    "force_cv": null,
+    "n_keys": 3,
+    "n_onsets": 0,
+    "per_key": [],
+    "diagnostics": "n_keystrokes=3 (need >= 5)"
+  },
+  "pulse": {
+    "status": "no_evidence",
+    "bpm": null,
+    "snr_db": null,
+    "subscore": null,
+    "coverage": 0.0,
+    "challenge_leak": 0.0,
+    "diagnostics": "only 0 skin samples"
+  },
+  "fusion": {
+    "verdict": "REJECT",
+    "joint_score": null,
+    "reason_text": "optical lane: snr_db=nan",
+    "per_lane_reasons": {
+      "optical": "optical lane: snr_db=nan",
+      "typing": "typing lane: subscore 0.00 (matched 0/27, mean_inter_key=0.132s)",
+      "acoustic": "acoustic lane: subscore 0.92 at lag 174ms",
+      "pressure": "pressure lane: n_keystrokes=3 (need >= 5)"
+    },
+    "accept_threshold": 0.6,
+    "reject_threshold": 0.3,
+    "lanes": [
+      {
+        "lane_name": "optical",
+        "subscore": null,
+        "status": "insufficient_signal",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "snr_db=nan",
+        "is_stub": false
+      },
+      {
+        "lane_name": "typing",
+        "subscore": 0.0,
+        "status": "ok",
+        "lag_ms": null,
+        "confidence": 1.0,
+        "diagnostics": "matched 0/27, mean_inter_key=0.132s",
+        "is_stub": false
+      },
+      {
+        "lane_name": "acoustic",
+        "subscore": 0.9190620217234217,
+        "status": "ok",
+        "lag_ms": 173.60544217687075,
+        "confidence": 0.6704663314713096,
+        "diagnostics": "snr_db=13.41, tone_db=41.6, peak=0.94, off_carrier_floor=0.14, decoy_floor=0.20, out='Speakers (Realtek(R) Audio)', in='Microphone Array (Realtek(R) Au'",
+        "is_stub": false
+      },
+      {
+        "lane_name": "pressure",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "n_keystrokes=3 (need >= 5)",
+        "is_stub": false
+      },
+      {
+        "lane_name": "pulse",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "only 0 skin samples",
+        "is_stub": false
+      }
+    ],
+    "policy": "adjudicate_two_lane",
+    "optical_pass_threshold": 0.3,
+    "typing_pass_threshold": 0.7,
+    "acoustic_pass_threshold": 0.3,
+    "pressure_pass_threshold": 0.5,
+    "pulse_gated": false
+  }
+}

@@ -1,0 +1,488 @@
+{
+  "session": "20261017T150150_4ffa5379",
+  "source": "hud",
+  "condition": "bonafide",
+  "score": 0.0,
+  "lag_ms": 0.0,
+  "seed": 61,
+  "chip_rate_hz": 1.2960879313895182,
+  "duration_s": 46.293155384661915,
+  "start_time_perf_counter": 95991.6215274,
+  "auto_chip_rate_used": true,
+  "emitter_enabled": true,
+  "emitter": "browser",
+  "snr_db": NaN,
+  "insufficient_signal": true,
+  "adaptive_boost_applied": false,
+  "exposure_locked": true,
+  "n_frames": 0,
+  "n_face_detected": 0,
+  "measured_fps": NaN,
+  "warnings": [
+    "measured capture FPS (16.0) is below warn_below_fps (20) -- fourcc negotiated as 'YUY2' (requested 'MJPG'). This camera/format is under-delivering; auto_chip_rate will pick a low chip rate, or measurement may fall to insufficient_signal.",
+    "early SNR 0.2 dB below floor 3.0 dB -- boosted modulation depth to 110",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "exposure/WB lock could not be verified behaviorally (luminance std=nan over 0 frames, threshold=3.0). Auto-exposure may still be compensating for the light pattern; scores from this session may be unreliable.",
+    "no frames captured"
+  ],
+  "meta": {
+    "synthetic": false
+  },
+  "trace_emitted": [],
+  "trace_measured": [],
+  "timestamps": [],
+  "lanes": "optical+typing+pressure",
+  "typing_phrase": "soft small morning today young",
+  "typing": {
+    "mode": "active",
+    "status": "ok",
+    "n_keystrokes": 33,
+    "n_matched": 30,
+    "n_expected": 30,
+    "inter_key_mean_s": 0.24176202812486736,
+    "inter_key_std_s": 0.3064940743655083,
+    "coherence_score": null,
+    "coherence_lag_ms": null,
+    "seconds_since_last_keystroke": 38.3004401846556,
+    "events": [
+      {
+        "t_down": 95991.8778577,
+        "t_up": 95992.0248589,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95992.0778187,
+        "t_up": 95992.24034,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95992.3117933,
+        "t_up": 95992.4333688,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95992.6142644,
+        "t_up": 95992.732974,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95993.2416659,
+        "t_up": 95993.3146891,
+        "matched_expected": false
+      },
+      {
+        "t_down": 95993.3167904,
+        "t_up": 95993.3879244,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95995.1092074,
+        "t_up": 95995.2625651,
+        "matched_expected": false
+      },
+      {
+        "t_down": 95995.4264672,
+        "t_up": 95995.5380014,
+        "matched_expected": false
+      },
+      {
+        "t_down": 95996.0386155,
+        "t_up": 95996.1802707,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95996.2798514,
+        "t_up": 95996.3852083,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95996.4198094,
+        "t_up": 95996.5127569,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95996.5169466,
+        "t_up": 95996.5985713,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95996.7071243,
+        "t_up": 95996.7825952,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95996.9749307,
+        "t_up": 95997.0539675,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.1735801,
+        "t_up": 95997.2598511,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.305042,
+        "t_up": 95997.399477,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.4224094,
+        "t_up": 95997.5049383,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.522726,
+        "t_up": 95997.6267353,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.6550604,
+        "t_up": 95997.7584551,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.8380113,
+        "t_up": 95997.9488258,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95997.9645787,
+        "t_up": 95998.0459071,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.1000042,
+        "t_up": 95998.1842107,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.25308,
+        "t_up": 95998.3354751,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.3907072,
+        "t_up": 95998.4770271,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.5082171,
+        "t_up": 95998.688641,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.606869,
+        "t_up": 95998.7615011,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.7247833,
+        "t_up": 95998.8726583,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95998.7946485,
+        "t_up": 95998.9044407,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95999.0624852,
+        "t_up": 95999.1429005,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95999.226057,
+        "t_up": 95999.3417765,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95999.301455,
+        "t_up": 95999.3740406,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95999.5022467,
+        "t_up": 95999.5727598,
+        "matched_expected": true
+      },
+      {
+        "t_down": 95999.6142426,
+        "t_up": 95999.6872001,
+        "matched_expected": true
+      }
+    ],
+    "subscore": 1.0,
+    "diagnostics": "matched 30/30, mean_inter_key=0.242s",
+    "pass_threshold": 0.7
+  },
+  "acoustic": null,
+  "pressure": {
+    "status": "ok",
+    "score": 0.7647058823529412,
+    "lag_ms": 36.0,
+    "hit_fraction": 0.8787878787878788,
+    "chance_fraction": 0.4848484848484848,
+    "lag_jitter_ms": 13.360415559002016,
+    "force_cv": 0.37348367709555985,
+    "n_keys": 33,
+    "n_onsets": 61,
+    "per_key": [
+      {
+        "t_down": 95991.8778577,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.1470011999917915
+      },
+      {
+        "t_down": 95992.0778187,
+        "matched": true,
+        "force_db": 22.12711294816772,
+        "dwell_s": 0.1625213000079384
+      },
+      {
+        "t_down": 95992.3117933,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.12157550000119954
+      },
+      {
+        "t_down": 95992.6142644,
+        "matched": true,
+        "force_db": 14.700082166129349,
+        "dwell_s": 0.11870959999214392
+      },
+      {
+        "t_down": 95993.2416659,
+        "matched": true,
+        "force_db": 15.793236051940504,
+        "dwell_s": 0.07302320000599138
+      },
+      {
+        "t_down": 95993.3167904,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.07113399999798276
+      },
+      {
+        "t_down": 95995.1092074,
+        "matched": true,
+        "force_db": 12.72929552840074,
+        "dwell_s": 0.15335769999364857
+      },
+      {
+        "t_down": 95995.4264672,
+        "matched": false,
+        "force_db": null,
+        "dwell_s": 0.11153419999754988
+      },
+      {
+        "t_down": 95996.0386155,
+        "matched": true,
+        "force_db": 30.138650650965815,
+        "dwell_s": 0.14165520000096876
+      },
+      {
+        "t_down": 95996.2798514,
+        "matched": true,
+        "force_db": 39.39060625612292,
+        "dwell_s": 0.10535689999233
+      },
+      {
+        "t_down": 95996.4198094,
+        "matched": true,
+        "force_db": 25.819610022311082,
+        "dwell_s": 0.09294750000117347
+      },
+      {
+        "t_down": 95996.5169466,
+        "matched": true,
+        "force_db": 18.134903032199745,
+        "dwell_s": 0.08162470000388566
+      },
+      {
+        "t_down": 95996.7071243,
+        "matched": true,
+        "force_db": 19.447606965111248,
+        "dwell_s": 0.0754709000029834
+      },
+      {
+        "t_down": 95996.9749307,
+        "matched": true,
+        "force_db": 37.78751736540182,
+        "dwell_s": 0.07903680000163149
+      },
+      {
+        "t_down": 95997.1735801,
+        "matched": true,
+        "force_db": 45.37089073471424,
+        "dwell_s": 0.08627099999284837
+      },
+      {
+        "t_down": 95997.305042,
+        "matched": true,
+        "force_db": 18.796113795108944,
+        "dwell_s": 0.09443499999179039
+      },
+      {
+        "t_down": 95997.4224094,
+        "matched": true,
+        "force_db": 30.704374791776587,
+        "dwell_s": 0.08252890000585467
+      },
+      {
+        "t_down": 95997.522726,
+        "matched": true,
+        "force_db": 38.109097736895116,
+        "dwell_s": 0.10400930000469089
+      },
+      {
+        "t_down": 95997.6550604,
+        "matched": true,
+        "force_db": 13.160293772662563,
+        "dwell_s": 0.10339470001053996
+      },
+      {
+        "t_down": 95997.8380113,
+        "matched": true,
+        "force_db": 41.271724195934155,
+        "dwell_s": 0.11081450000347104
+      },
+      {
+        "t_down": 95997.9645787,
+        "matched": true,
+        "force_db": 12.513413280005771,
+        "dwell_s": 0.08132839998870622
+      },
+      {
+        "t_down": 95998.1000042,
+        "matched": true,
+        "force_db": 39.30854509719296,
+        "dwell_s": 0.08420650000334717
+      },
+      {
+        "t_down": 95998.25308,
+        "matched": true,
+        "force_db": 32.467253208412345,
+        "dwell_s": 0.08239510000566952
+      },
+      {
+        "t_down": 95998.3907072,
+        "matched": true,
+        "force_db": 43.696792881881535,
+        "dwell_s": 0.08631990000139922
+      },
+      {
+        "t_down": 95998.5082171,
+        "matched": true,
+        "force_db": 18.72602832401916,
+        "dwell_s": 0.18042390000482555
+      },
+      {
+        "t_down": 95998.606869,
+        "matched": true,
+        "force_db": 22.03221742399311,
+        "dwell_s": 0.15463210000598338
+      },
+      {
+        "t_down": 95998.7247833,
+        "matched": true,
+        "force_db": 20.72435779518208,
+        "dwell_s": 0.14787499999511056
+      },
+      {
+        "t_down": 95998.7946485,
+        "matched": true,
+        "force_db": 21.80008424843092,
+        "dwell_s": 0.10979220000444911
+      },
+      {
+        "t_down": 95999.0624852,
+        "matched": true,
+        "force_db": 22.530362229593656,
+        "dwell_s": 0.0804152999917278
+      },
+      {
+        "t_down": 95999.226057,
+        "matched": true,
+        "force_db": 28.477522989595087,
+        "dwell_s": 0.11571949999779463
+      },
+      {
+        "t_down": 95999.301455,
+        "matched": true,
+        "force_db": 28.19051537527561,
+        "dwell_s": 0.07258560000627767
+      },
+      {
+        "t_down": 95999.5022467,
+        "matched": true,
+        "force_db": 35.54950690573237,
+        "dwell_s": 0.07051309999951627
+      },
+      {
+        "t_down": 95999.6142426,
+        "matched": true,
+        "force_db": 42.28728846371797,
+        "dwell_s": 0.07295750000048429
+      }
+    ],
+    "diagnostics": "impacts matched 29/33 keys (chance 0.48), lag=36ms jitter=13.4ms, onsets=61, force_cv=0.37"
+  },
+  "pulse": null,
+  "fusion": {
+    "verdict": "REJECT",
+    "joint_score": null,
+    "reason_text": "optical lane: no frames captured",
+    "per_lane_reasons": {
+      "optical": "optical lane: no frames captured",
+      "typing": "typing lane: subscore 1.00 (matched 30/30, mean_inter_key=0.242s)",
+      "pressure": "pressure lane: subscore 0.76 at lag 36ms"
+    },
+    "accept_threshold": 0.6,
+    "reject_threshold": 0.3,
+    "lanes": [
+      {
+        "lane_name": "optical",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "no frames captured",
+        "is_stub": false
+      },
+      {
+        "lane_name": "typing",
+        "subscore": 1.0,
+        "status": "ok",
+        "lag_ms": null,
+        "confidence": 1.0,
+        "diagnostics": "matched 30/30, mean_inter_key=0.242s",
+        "is_stub": false
+      },
+      {
+        "lane_name": "acoustic",
+        "subscore": null,
+        "status": "no_evidence",
+        "lag_ms": null,
+        "confidence": 0.0,
+        "diagnostics": "acoustic lane not implemented",
+        "is_stub": true
+      },
+      {
+        "lane_name": "pressure",
+        "subscore": 0.7647058823529412,
+        "status": "ok",
+        "lag_ms": 36.0,
+        "confidence": 1.0,
+        "diagnostics": "impacts matched 29/33 keys (chance 0.48), lag=36ms jitter=13.4ms, onsets=61, force_cv=0.37",
+        "is_stub": false
+      }
+    ],
+    "policy": "adjudicate_two_lane",
+    "optical_pass_threshold": 0.3,
+    "typing_pass_threshold": 0.7,
+    "acoustic_pass_threshold": 0.3,
+    "pressure_pass_threshold": 0.5,
+    "pulse_gated": false
+  }
+}
