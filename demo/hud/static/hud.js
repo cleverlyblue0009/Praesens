@@ -583,8 +583,9 @@ let lastFaceT = 0;
 // Snapping between "locked on the face" and "idle mesh centre-stage" made that look like a
 // tracking failure, so the mesh HOLDS its last fit, fades as confidence ages, and only returns
 // to the idle mesh after FACE_DROP_S of nothing at all.
-const FACE_GRACE_S = 2.5;   // full opacity: the fit is still trusted
-const FACE_DROP_S = 5.0;    // after this, give up and idle
+const FACE_GRACE_S = 0.45;  // full opacity: the fit is still trusted (~3-4 missed detections at 16 fps)
+const FACE_DROP_S = 1.4;    // after this, give up and idle. Held longer, a stale fit trails the
+                            // moving head and reads as lag (seen at 33% face coverage, 2026-10-24)
 
 function setFaceTarget(lm) {
   lastFaceT = performance.now() / 1000;
