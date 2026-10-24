@@ -329,3 +329,28 @@ def test_a_scan_that_would_run_too_long_is_refused_with_a_reason():
     msg = e.start_scan()
     assert "120s scan" in msg or "120" in msg
     assert e.mode == "idle"                            # and it did not arm
+
+
+# ---------------------------------------------------------------------------
+# hud.js has no test harness, and an edit that removed a renderer took the whole
+# HUD down silently: onTelemetry threw at the first missing function, so the
+# phrase prompt, the fuse LEDs and the attack buttons -- everything after that
+# line -- simply never rendered, with no error on screen (2026-10-24).
+# ---------------------------------------------------------------------------
+
+def test_every_function_the_telemetry_handler_calls_is_defined():
+    import re
+    from pathlib import Path as _P
+
+    src = (_P(__file__).resolve().parent.parent / "demo" / "hud" / "static" / "hud.js").read_text()
+    body = src[src.index("function onTelemetryInner"):]
+    body = body[:body.index("\n}\n")]
+    body = re.sub(r"//[^" + chr(10) + r"]*", "", body)        # identifiers only: drop comments ...
+    body = re.sub('"[^"' + chr(10) + ']*"', '""', body)       # ... and string contents
+    called = set(re.findall(r"\b([a-zA-Z_$][\w$]*)\s*\(", body))
+    builtins = {"if", "for", "while", "switch", "catch", "String", "Math", "Number", "Boolean",
+                "parseInt", "parseFloat", "$", "require"}
+    defined = set(re.findall(r"^(?:function\s+|const\s+|let\s+)([a-zA-Z_$][\w$]*)", src, re.M))
+    missing = {c for c in called - builtins - defined
+               if not re.search(rf"\.{re.escape(c)}\s*\(", body)}   # drop method calls like t.lanes.includes()
+    assert not missing, f"hud.js calls undefined function(s) from onTelemetry: {sorted(missing)}"

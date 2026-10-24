@@ -246,6 +246,77 @@ function drawAcoustic(a, mode) {
   ctx.fillRect(8 * d, h / 2 - 7 * d, (w - 16 * d) * frac, 14 * d);
 }
 
+function drawPressure(p, now) {
+  const { ctx, w, h, d } = fit($("preEnv"));
+  dotGrid(ctx, w, h, 9 * d);
+  const env = p.env || [];
+  const n = env.length, cw = w / Math.max(1, n);
+  const top = h * 0.74;
+  for (let i = 0; i < n; i++) {
+    const v = Math.max(0, Math.min(1, (env[i] || 0) / 40));
+    const segs = Math.round(v * 12);
+    for (let k = 0; k < segs; k++) {
+      ctx.fillStyle = k > 8 ? C.plasma : C.holo;
+      ctx.globalAlpha = 0.45 + 0.55 * (k / 12);
+      ctx.fillRect(i * cw, top - (k + 1) * (top / 13), Math.max(1, cw - 1), top / 13 - 1.5 * d);
+    }
+  }
+  ctx.globalAlpha = 1;
+  // key-downs reported by the OS (plasma ticks) -- their impacts should follow at a fixed lag
+  for (const dt of p.recent_keys || []) {
+    if (dt < -3) continue;
+    const x = (1 + dt / 3) * w;
+    ctx.fillStyle = C.plasma; ctx.beginPath(); ctx.moveTo(x - 4 * d, 0); ctx.lineTo(x + 4 * d, 0); ctx.lineTo(x, 7 * d); ctx.fill();
+  }
+  // per-key verdict row: did this keystroke have a physical strike behind it?
+  const keys = p.keys || [];
+  // one pip per recent keystroke: green = a strike was heard for it, red = none (height = strike force)
+  const base = h - 2 * d, pw = Math.min(9 * d, (w - 4 * d) / 26);
+  keys.forEach((k, i) => {
+    const col = k.matched ? C.phos : C.alarm;
+    const f = k.force_db === null ? 0.2 : Math.max(0.2, Math.min(1, k.force_db / 40));
+    const ph = f * (h - top - 6 * d);
+    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+    ctx.fillRect(2 * d + i * (pw + 2 * d), base - ph, pw, ph);
+  });
+  ctx.shadowBlur = 0;
+  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
+  ctx.fillText("mic, last 3 s  ▼ key-down", 6 * d, 20 * d);
+  $("preScore").textContent = fmt(p.score);
+  $("preLag").textContent = p.lag_ms === null || p.lag_ms === undefined ? "---" : String(Math.round(p.lag_ms));
+  $("preJit").textContent = fmt(p.jitter_ms, 1, "--.-");
+  if (p.status === "ok") {
+    const ok = p.score >= 0.5;
+    setState("preState", ok ? "strikes match" : "no strikes", ok ? "ok" : "bad");
+    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard · chance ${Math.round((p.chance || 0) * 100)}%`;
+  } else if (p.status === "stale") {
+    setState("preState", "last burst", "idle");
+    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard in the last burst`;
+  } else {
+    setState("preState", "waiting", "idle");
+    $("preWhy").textContent = p.reason || "type anything to see strikes";
+  }
+}
+
+function drawFuse(t) {
+  const items = [];
+  const o = t.optical;
+  items.push(["Optical", o.score === null ? "" : o.score >= o.pass ? "ok" : "bad"]);
+  if (t.lanes.includes("typing")) {
+    const s = t.scan; let st = "";
+    if (s && t.mode === "scan") st = s.matched / Math.max(1, s.phrase.length) >= 0.7 ? "ok" : "warn";
+    items.push(["Typing", st]);
+  }
+  if (t.lanes.includes("acoustic")) {
+    const a = t.acoustic || {};
+    items.push(["Acoustic", a.state === "probing" ? "warn" : a.last ? (a.last.passes ? "ok" : "bad") : ""]);
+  }
+  if (t.lanes.includes("pressure")) {
+    const p = t.pressure; items.push(["Key impact", p.status === "ok" ? (p.score >= 0.5 ? "ok" : "bad") : ""]);
+  }
+  $("fuse").innerHTML = items.map(([n, s]) => `<span class="led ${s}"><i></i>${n}</span>`).join("");
+}
+
 // ------------------------------------------------------------------ scan ring + prompt
 let scanInfo = null;
 function onScan(m) { scanInfo = m; $("verdict").classList.remove("on"); }
@@ -314,6 +385,15 @@ $("vClose").onclick = () => { $("verdict").classList.remove("on"); setMood("idle
 
 // ------------------------------------------------------------------ telemetry
 function onTelemetry(t) {
+  try {
+    onTelemetryInner(t);
+  } catch (e) {
+    console.error("telemetry render failed", e);
+    toast(`UI error: ${e.message}`);
+  }
+}
+
+function onTelemetryInner(t) {
   T = t;
   $("status").innerHTML = `<i>${t.mode}</i> — ${String(t.status).replace(/</g, "&lt;")}`;
   $("fpsChip").textContent = `${t.fps === null ? "—" : t.fps.toFixed(1)} fps`;

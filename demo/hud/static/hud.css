@@ -118,8 +118,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 /* The camera feed IS the stage: the face mesh is drawn on top of the detected face,
    so what the mesh does and what the camera sees are visibly the same thing. */
 .cam { border-radius: 6px; position: absolute; inset: 0; background: #000; overflow: hidden; }
-.cam img { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); opacity: .74; display: block;
-  filter: saturate(.7) contrast(1.02); }
+.cam img { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); opacity: .95; display: block;
+  filter: brightness(1.25) contrast(1.03); }   /* exposure is locked dim for the optical lane; lift the
+                                                  PREVIEW only -- the measurement uses the raw frame */
 .cam span { position: absolute; left: .45rem; bottom: .25rem; font-size: .66rem; color: var(--holo); opacity: .75; }
 #holo { z-index: 2; pointer-events: none; }
 .stage .tag, .stage .note, .prompt, .ring { z-index: 3; }
