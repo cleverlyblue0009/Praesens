@@ -579,7 +579,12 @@ function toNdc(px, py, out, i) {
 let rect = { W: 1, H: 1, x: 0, y: 0, w: 1, h: 1 };
 
 let lastFaceT = 0;
-const FACE_GRACE_S = 1.2;   // keep the mesh on the face across brief detection drops
+// Detection drops out constantly in dim light (33% face coverage measured on the demo laptop).
+// Snapping between "locked on the face" and "idle mesh centre-stage" made that look like a
+// tracking failure, so the mesh HOLDS its last fit, fades as confidence ages, and only returns
+// to the idle mesh after FACE_DROP_S of nothing at all.
+const FACE_GRACE_S = 2.5;   // full opacity: the fit is still trusted
+const FACE_DROP_S = 5.0;    // after this, give up and idle
 
 function setFaceTarget(lm) {
   lastFaceT = performance.now() / 1000;
@@ -626,8 +631,12 @@ function frame() {
   // A dropped frame or a quick head turn makes MediaPipe miss a detection or two.
   // Falling straight back to the idle mesh makes the overlay flicker off the face,
   // so the last landmarks hold for FACE_GRACE_S before the mesh gives up.
-  haveFace = !!faceTarget && (performance.now() / 1000 - lastFaceT) < FACE_GRACE_S;
+  const ageS = performance.now() / 1000 - lastFaceT;
+  haveFace = !!faceTarget && ageS < FACE_DROP_S;
   if (!haveFace) faceTarget = null;
+  // 1 while the fit is fresh, easing to 0.25 as it ages out -- it dims rather than jumping away
+  const faceConf = !haveFace ? 0 : ageS <= FACE_GRACE_S ? 1
+    : 1 - 0.75 * (ageS - FACE_GRACE_S) / (FACE_DROP_S - FACE_GRACE_S);
   const tgt = faceTarget || canonTarget();
   if (tgt) {
     // snappier when locked to a face: the mesh has to sit ON the head, not trail it
@@ -638,8 +647,8 @@ function frame() {
   // locked to a face: no spin, or the overlay would slide off the head
   group.rotation.y = haveFace ? 0 : (reduceMotion ? 0 : t * 0.35);
   floor.visible = scanRing.visible = !haveFace;
-  uniforms.uAlpha.value += ((haveFace ? 0.62 : 0.3) - uniforms.uAlpha.value) * 0.05;
-  lMat.opacity += ((haveFace ? 0.17 : 0.05) - lMat.opacity) * 0.08;
+  uniforms.uAlpha.value += ((haveFace ? 0.62 * faceConf : 0.3) - uniforms.uAlpha.value) * 0.08;
+  lMat.opacity += ((haveFace ? 0.17 * faceConf : 0.05) - lMat.opacity) * 0.08;
   mixMood(dt);
   const scanY = reduceMotion ? 0 : Math.sin(t * 0.9) * 0.78;
   uniforms.uScan.value = scanY; scanRing.position.y = scanY;

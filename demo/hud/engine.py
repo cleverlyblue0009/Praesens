@@ -270,6 +270,7 @@ class HudEngine:
         self.keys_error = None
         self._cameras = None
         self._injecting = False
+        self._last_good_fps = float("nan")
         self.last_acoustic = None     # the acoustic lane only runs during a scan
         self.emitter: BrowserEmitter | None = None
         self.processor = None
@@ -511,13 +512,23 @@ class HudEngine:
         if not o.get("auto_chip_rate", False):
             return self.chip_rate_hz, float(self.raw.get("challenge", {}).get("duration_s", base_duration_s))
         fps = self.measured_fps()
-        if not np.isfinite(fps):
+        if np.isfinite(fps):
+            self._last_good_fps = fps
+        else:
             # pick_auto_chip_rate maps a NaN fps onto its floor (0.5 Hz), and the session then
             # stretches to min_chips/0.5 = 120 s to keep the chip count -- a two-minute scan
             # chosen from a measurement that never happened (seen live, 2026-10-24).
-            self.warnings.append(f"camera frame rate not measurable at scan start -- using the "
-                                 f"configured chip rate {cfg_rate:.2f} Hz instead of the auto one")
-            return cfg_rate, base_duration_s
+            # challenge.chip_rate_hz is NOT a safe fallback either: it is 5 Hz, a 30 fps-camera
+            # value that this 16 fps camera undersamples badly (optical.min_fps_multiple_of_chip_rate
+            # wants >= 6x). Prefer the last rate this camera actually achieved.
+            fps = getattr(self, "_last_good_fps", float("nan"))
+            if not np.isfinite(fps):
+                self.warnings.append(f"camera frame rate never measured -- falling back to the "
+                                     f"configured chip rate {cfg_rate:.2f} Hz, which this camera "
+                                     f"may undersample")
+                return cfg_rate, base_duration_s
+            self.warnings.append(f"camera frame rate not measurable right now -- reusing the last "
+                                 f"measured {fps:.1f} fps for the chip rate")
         return pick_auto_chip_rate(fps, divisor=o.get("auto_chip_rate_divisor", 6.0), min_hz=0.5, max_hz=5.0,
                                    min_chips=o.get("auto_chip_rate_min_chips", 60),
                                    base_duration_s=base_duration_s)

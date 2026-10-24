@@ -164,10 +164,15 @@ def main(argv=None) -> None:
     ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--host", default=None)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--border-fraction", type=float, default=None,
+                    help="emitter strip width per screen edge (overrides hud.border_fraction). "
+                         "0.18 lights ~59%% of the screen, 0.25 ~75%% -- what the OpenCV emitter uses")
     args = ap.parse_args(argv)
 
     raw = load_config()
     hud = raw.get("hud", {})
+    if args.border_fraction is not None:
+        raw.setdefault("hud", {})["border_fraction"] = float(args.border_fraction)
     engine = HudEngine(raw, synthetic=args.synthetic, camera_index=args.camera, lanes=args.lanes)
     engine.open_sensors()
     threading.Thread(target=engine.capture_loop, daemon=True).start()

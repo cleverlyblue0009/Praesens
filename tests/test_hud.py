@@ -299,10 +299,23 @@ def _fps_engine(frame_times):
 
 
 def test_unmeasurable_fps_does_not_produce_a_two_minute_scan():
-    e = _fps_engine([])                      # no frames at all
+    e = _fps_engine([])                      # no frames at all, and none ever measured
     rate, dur = e._pick_chip_rate(20.0)
     assert rate == 2.0 and dur == 20.0, f"fell back to {rate} Hz / {dur}s"
-    assert any("not measurable" in w for w in e.warnings)
+    assert any("never measured" in w for w in e.warnings)
+
+
+def test_a_momentary_fps_dropout_reuses_the_last_real_measurement():
+    """challenge.chip_rate_hz is 5 Hz, a 30 fps-camera value this 16 fps camera
+    undersamples badly, so a brief dropout must not fall back to it."""
+    now = time.perf_counter()
+    e = _fps_engine([now - (39 - i) / 15.0 for i in range(40)])
+    live_rate, _ = e._pick_chip_rate(20.0)        # measures ~15 fps and remembers it
+    e.frame_times = []                             # camera stalls
+    rate, dur = e._pick_chip_rate(20.0)
+    assert rate == pytest.approx(live_rate, abs=0.05), f"{rate} Hz instead of the measured {live_rate}"
+    assert rate < 2.0 and dur <= 60.0
+    assert any("reusing the last measured" in w for w in e.warnings)
 
 
 def test_stale_frames_do_not_count_as_a_frame_rate():
