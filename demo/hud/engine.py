@@ -351,6 +351,11 @@ class HudEngine:
             self.cap = open_camera(self.oconfig.camera_index)
             if not self.cap.isOpened():
                 raise RuntimeError(f"could not open camera index {self.oconfig.camera_index}")
+            if not self._prime_with_timeout(self.cap, timeout_s=6.0):
+                self.cap.release()
+                raise RuntimeError(
+                    f"camera {self.oconfig.camera_index} opened but delivers no frames -- another program "
+                    f"(or another copy of the HUD) is probably using it. Close that and start again.")
             configure_capture_format(self.cap, CaptureConfig.from_dict(self.raw.get("capture", {})), self.warnings)
             self.exposure_locked = lock_camera(self.cap, self.oconfig, self.warnings)
             for _ in range(int(self.raw.get("optical", {}).get("camera_warmup_frames", 30))):
@@ -438,6 +443,16 @@ class HudEngine:
                     return True
             time.sleep(0.04)
         return False
+
+    def _prime_with_timeout(self, cap, timeout_s: float) -> bool:
+        """DirectShow can BLOCK inside grab()/retrieve() on a camera another
+        process holds, so priming runs on a worker thread and is abandoned after
+        timeout_s. Seen 2026-10-24: a second HUD hung in warm-up until Ctrl+C."""
+        box = {}
+        th = threading.Thread(target=lambda: box.setdefault("ok", self._prime_camera(cap)), daemon=True)
+        th.start()
+        th.join(timeout_s)
+        return bool(box.get("ok"))
 
     def _configure_camera(self, cap) -> None:
         from praesens.capture import CaptureConfig, configure_capture_format

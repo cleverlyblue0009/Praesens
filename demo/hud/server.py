@@ -155,6 +155,15 @@ class HudServer:
         return app
 
 
+def port_in_use(host: str, port: int) -> bool:
+    """Checked BEFORE the camera is opened: otherwise a second HUD grabs the
+    camera, hangs in warm-up, and only then dies on bind with a raw OSError."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.3)
+        return sock.connect_ex((host, port)) == 0
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description="PRAESENS sci-fi HUD (browser dashboard + emitter)")
     ap.add_argument("--synthetic", action="store_true",
@@ -173,13 +182,21 @@ def main(argv=None) -> None:
     hud = raw.get("hud", {})
     if args.border_fraction is not None:
         raw.setdefault("hud", {})["border_fraction"] = float(args.border_fraction)
+    host = args.host or hud.get("host", "127.0.0.1")
+    port = args.port or int(hud.get("port", 8765))
+    busy = port_in_use(host, port)
+    if busy:
+        raise SystemExit(f"Port {port} is already in use -- another HUD is probably running. "
+                         f"Close it (Ctrl+C in its terminal) or start this one with --port {port + 1}.")
+
     engine = HudEngine(raw, synthetic=args.synthetic, camera_index=args.camera, lanes=args.lanes)
-    engine.open_sensors()
+    try:
+        engine.open_sensors()
+    except RuntimeError as e:
+        raise SystemExit(f"Could not start the sensors: {e}")
     threading.Thread(target=engine.capture_loop, daemon=True).start()
     threading.Thread(target=engine.analysis_loop, daemon=True).start()
 
-    host = args.host or hud.get("host", "127.0.0.1")
-    port = args.port or int(hud.get("port", 8765))
     url = f"http://{host}:{port}/"
     print(f"PRAESENS HUD on {url}  ({'SYNTHETIC sensors' if args.synthetic else 'real sensors'}) -- "
           f"F11 for fullscreen; the page border is the emitter")

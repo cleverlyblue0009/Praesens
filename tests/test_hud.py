@@ -367,3 +367,38 @@ def test_every_function_the_telemetry_handler_calls_is_defined():
     missing = {c for c in called - builtins - defined
                if not re.search(rf"\.{re.escape(c)}\s*\(", body)}   # drop method calls like t.lanes.includes()
     assert not missing, f"hud.js calls undefined function(s) from onTelemetry: {sorted(missing)}"
+
+
+# ---------------------------------------------------------------------------
+# Starting a second HUD (2026-10-24): it grabbed the camera already held by the
+# first, hung inside DirectShow's retrieve() until Ctrl+C, and the next attempt
+# died with a raw OSError on bind. Both now fail fast with a sentence.
+# ---------------------------------------------------------------------------
+
+def test_port_in_use_is_detected_before_anything_opens():
+    import socket
+    from demo.hud.server import port_in_use
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        assert port_in_use("127.0.0.1", port) is True
+    finally:
+        srv.close()
+    assert port_in_use("127.0.0.1", port) is False
+
+
+def test_a_camera_that_blocks_forever_is_abandoned_not_waited_on(camera_engine):
+    e, _ = camera_engine
+
+    class BlockingCap:            # what DirectShow does when another process owns the device
+        def grab(self):
+            time.sleep(30)
+            return False
+        def retrieve(self):
+            return False, None
+
+    t0 = time.perf_counter()
+    assert e._prime_with_timeout(BlockingCap(), timeout_s=0.5) is False
+    assert time.perf_counter() - t0 < 2.0, "priming waited on a blocked camera"
