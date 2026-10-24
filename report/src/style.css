@@ -1,0 +1,131 @@
+@page {
+  size: A4;
+  margin: 2.5cm 2.3cm 2.4cm 3.0cm;
+}
+@page cover { margin: 2.0cm 2.3cm 1.8cm 2.8cm; }
+@page front {
+  @bottom-center { content: counter(page, lower-roman); font-family: "Liberation Serif"; font-size: 11pt; color: #1F3A68; }
+}
+@page main {
+  @top-left { content: "PRAESENS — Multi-Lane Challenge-Response Liveness Verification"; font-family: "Liberation Serif"; font-style: italic; font-size: 9pt; color: #0F8B8D; vertical-align: bottom; padding-bottom: 4pt; border-bottom: 0.8pt solid #0F8B8D; }
+  @top-right { content: "B.Tech. BCSE497J Project-I"; font-family: "Liberation Serif"; font-style: italic; font-size: 9pt; color: #0F8B8D; vertical-align: bottom; padding-bottom: 4pt; border-bottom: 0.8pt solid #0F8B8D; }
+  @bottom-center { content: counter(page); font-family: "Liberation Serif"; font-size: 11pt; color: #1F3A68; }
+}
+@page mainfirst {
+  @top-left { content: "PRAESENS — Multi-Lane Challenge-Response Liveness Verification"; font-family: "Liberation Serif"; font-style: italic; font-size: 9pt; color: #0F8B8D; vertical-align: bottom; padding-bottom: 4pt; border-bottom: 0.8pt solid #0F8B8D; }
+  @top-right { content: "B.Tech. BCSE497J Project-I"; font-family: "Liberation Serif"; font-style: italic; font-size: 9pt; color: #0F8B8D; vertical-align: bottom; padding-bottom: 4pt; border-bottom: 0.8pt solid #0F8B8D; }
+  @bottom-center { content: counter(page); font-family: "Liberation Serif"; font-size: 11pt; color: #1F3A68; }
+}
+@page landscape { size: A4 landscape; margin: 2.0cm 2.2cm 2.0cm 2.2cm;
+  @bottom-center { content: counter(page); font-family: "Liberation Serif"; font-size: 11pt; color: #1F3A68; } }
+
+:root { --navy: #1F3A68; --teal: #0F8B8D; --orange: #E07A1F; --red: #C0392B; --green: #2E9E5B; --purple: #6C4AB6; --gold: #D4A017; }
+
+html { font-family: "Liberation Serif", "Times New Roman", serif; font-size: 12pt; color: #1b1b1b; }
+body { margin: 0; }
+p { text-align: justify; line-height: 1.38; margin: 0 0 8pt 0; hyphens: auto; }
+.cover, .frontpage { page: cover; }
+.front { page: front; }
+.main { page: main; }
+@page front:nth(1 of front) { counter-reset: page 1; }
+@page mainfirst:nth(1 of mainfirst) { counter-reset: page 1; }
+.pb { break-before: page; }
+
+/* ---------- cover ---------- */
+.cover { text-align: center; }
+.cover .course { font-size: 16pt; font-weight: bold; color: var(--navy); margin-top: 4pt; letter-spacing: 0.5pt; }
+.cover .title { font-size: 18pt; font-weight: bold; text-transform: uppercase; line-height: 1.5; color: var(--navy); margin: 26pt 6pt 8pt; }
+.cover .title-rule { width: 55%; height: 3pt; margin: 6pt auto 22pt; background: linear-gradient(to right, var(--teal), var(--orange)); }
+.cover .sub { font-style: italic; font-size: 12pt; margin: 6pt 0; }
+.cover .deg { font-size: 17pt; font-weight: bold; margin: 8pt 0; color: var(--navy); }
+.cover .prog { font-size: 15pt; font-weight: bold; margin: 8pt 0; color: var(--teal); }
+.cover table.team { margin: 10pt auto 4pt; border-collapse: collapse; font-size: 13pt; font-weight: bold; }
+.cover table.team td { padding: 4pt 14pt; text-align: left; }
+.cover .sup { font-weight: bold; font-size: 13pt; margin-top: 24pt; }
+.cover .guide { font-weight: bold; font-size: 13pt; color: var(--navy); margin: 6pt 0 2pt; }
+.cover .logo { width: 62%; margin: 26pt auto 6pt; display: block; }
+.cover .month { font-size: 12pt; margin-top: 4pt; }
+
+/* ---------- front matter ---------- */
+h1.fm { text-align: center; font-size: 16pt; text-transform: uppercase; color: var(--navy); text-decoration: underline; text-decoration-color: var(--orange); text-underline-offset: 4pt; margin: 0 0 22pt 0; }
+.sig { margin-top: 48pt; }
+.sig-row { display: flex; justify-content: space-between; }
+.right { text-align: right; }
+.bold { font-weight: bold; }
+.cert-box { border: 1.5pt solid var(--teal); padding: 18pt 22pt; border-radius: 4pt; }
+
+/* TOC & lists */
+.toc { width: 100%; border-collapse: collapse; font-size: 12pt; }
+.toc td { padding: 3.2pt 4pt; vertical-align: top; }
+.toc tr.head td { background: var(--navy); color: #fff; font-weight: bold; }
+.toc tr.ch td { font-weight: bold; color: var(--navy); padding-top: 7pt; }
+.toc td.no { width: 11%; }
+.toc td.pg { width: 12%; text-align: right; }
+.toc td.ttl a { color: inherit; text-decoration: none; }
+.toc td.ttl a::after { content: leader('.'); color: #999; }
+.toc td.pg a { color: inherit; text-decoration: none; }
+.toc td.pg a.arabic::after { content: target-counter(attr(href), page); }
+.toc td.pg a.roman::after { content: target-counter(attr(href), page, lower-roman); }
+.toc tr.sub td.ttl { padding-left: 18pt; }
+.toc tr.sub2 td.ttl { padding-left: 34pt; }
+.lst { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+.lst td { padding: 3pt 5pt; vertical-align: top; border-bottom: 0.4pt solid #e3e6ea; }
+.lst tr:first-child td { background: var(--teal); color: #fff; font-weight: bold; border: none; }
+.lst td.no { width: 12%; }
+.lst td.pg { width: 11%; text-align: right; }
+.lst td.pg a { color: inherit; text-decoration: none; }
+.lst td.pg a::after { content: target-counter(attr(href), page); }
+.abbr { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+.abbr td { padding: 2.6pt 6pt; border-bottom: 0.4pt solid #eceef1; }
+.abbr td:first-child { width: 22%; font-weight: bold; color: var(--navy); }
+
+/* ---------- chapters ---------- */
+.chapter-head { text-align: center; margin: 0 0 20pt 0; }
+.chapter-head .num { display: inline-block; font-size: 13pt; font-weight: bold; letter-spacing: 3pt; color: #fff; background: var(--navy); padding: 4pt 18pt; border-radius: 3pt; }
+.chapter-head h1 { font-size: 17pt; text-transform: uppercase; color: var(--navy); margin: 10pt 0 0; padding-bottom: 6pt; border-bottom: 2.5pt solid var(--orange); }
+h2 { font-size: 14pt; color: var(--teal); margin: 16pt 0 7pt; break-after: avoid; }
+h3 { font-size: 12.5pt; color: var(--navy); margin: 12pt 0 6pt; break-after: avoid; }
+h4 { font-size: 12pt; color: var(--purple); margin: 10pt 0 5pt; font-style: italic; break-after: avoid; }
+ul, ol { margin: 2pt 0 8pt 0; padding-left: 20pt; }
+li { text-align: justify; line-height: 1.36; margin-bottom: 3pt; }
+strong { color: #10223f; }
+
+figure { margin: 10pt 0 12pt; text-align: center; break-inside: avoid; }
+figure img { max-width: 100%; }
+figcaption { font-size: 10pt; margin-top: 5pt; color: #333; }
+figcaption b { color: var(--teal); }
+.tblcap { font-size: 10pt; text-align: center; margin: 10pt 0 4pt; color: #333; break-after: avoid; }
+.tblcap b { color: var(--teal); }
+table.data { width: 100%; border-collapse: collapse; font-size: 10.5pt; margin-bottom: 12pt; break-inside: auto; }
+table.data th { background: var(--navy); color: #fff; padding: 4pt 5pt; border: 0.5pt solid var(--navy); text-align: center; font-weight: bold; }
+table.data td { padding: 3.5pt 5pt; border: 0.5pt solid #c9d1db; vertical-align: top; line-height: 1.28; }
+table.data tr:nth-child(even) td { background: #F2F7FB; }
+table.data td.c { text-align: center; }
+table.data.tight td { padding: 2.5pt 4pt; }
+tr { break-inside: avoid; }
+
+.eq { text-align: center; margin: 8pt 0 10pt; font-style: italic; font-size: 12pt; position: relative; }
+.eq .n { position: absolute; right: 0; font-style: normal; color: #555; }
+.callout { border-left: 4pt solid var(--teal); background: #EAF6F6; padding: 7pt 11pt; margin: 8pt 0 12pt; border-radius: 2pt; break-inside: avoid; }
+.callout.warn { border-color: var(--orange); background: #FDF2E6; }
+.callout.good { border-color: var(--green); background: #EAF7EF; }
+.callout p:last-child { margin-bottom: 0; }
+.kpis { display: flex; gap: 8pt; margin: 8pt 0 14pt; break-inside: avoid; }
+.kpi { flex: 1; border-radius: 4pt; padding: 7pt 6pt; color: #fff; text-align: center; }
+.kpi .v { font-size: 17pt; font-weight: bold; display: block; }
+.kpi .l { font-size: 8.5pt; display: block; line-height: 1.2; }
+pre { font-family: "DejaVu Sans Mono", "Liberation Mono", monospace; font-size: 8.4pt; line-height: 1.3; background: #F6F8FA; border: 0.6pt solid #d0d7de; border-left: 3pt solid var(--teal); padding: 7pt 9pt; white-space: pre-wrap; break-inside: auto; margin: 6pt 0 12pt; }
+pre.term { background: #0f1b2d; color: #d6f5e3; border-left-color: var(--green); }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: 9.5pt; color: #8e2c1f; }
+.refs li { font-size: 11pt; margin-bottom: 4pt; line-height: 1.3; text-align: left; }
+.refs { padding-left: 26pt; }
+.two { display: flex; gap: 10pt; }
+.two figure { flex: 1; }
+.small { font-size: 10.5pt; }
+.center { text-align: center; }
+
+.land { page: landscape; break-before: page; break-after: page; }
+.land figure { margin-top: 0; }
+pre { font-size: 7.9pt; }
+
+.mainfirst { page: mainfirst; }

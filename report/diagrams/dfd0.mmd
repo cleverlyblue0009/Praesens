@@ -1,0 +1,18 @@
+flowchart TB
+  classDef ext fill:#D6EAF8,stroke:#1F3A68,stroke-width:2px,color:#111
+  classDef proc fill:#D1F2EB,stroke:#0F8B8D,stroke-width:3px,color:#111
+  classDef store fill:#FEF5E7,stroke:#D4A017,stroke-width:2px,color:#111
+  U["User / Claimant<br/>(live person or attacker)"]:::ext
+  R["Relying Party<br/>(KYC portal, video-call host)"]:::ext
+  O["Operator / Evaluator"]:::ext
+  P(("0<br/>PRAESENS<br/>Liveness<br/>Verification<br/>System")):::proc
+  D[("D1  Session logs")]:::store
+  C[("D2  config.yaml")]:::store
+  R -- "verification request" --> P
+  P -- "light pattern, audio probe,<br/>challenge phrase" --> U
+  U -- "camera frames, mic audio,<br/>keystroke timing" --> P
+  P -- "verdict + reason" --> R
+  O -- "thresholds, device settings" --> C
+  C -- "parameters" --> P
+  P -- "session record" --> D
+  D -- "ROC / EER / ablation reports" --> O

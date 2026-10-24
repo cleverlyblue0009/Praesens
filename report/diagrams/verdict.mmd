@@ -1,0 +1,26 @@
+flowchart TD
+  classDef q fill:#FEF9E7,stroke:#D4A017,stroke-width:2px,color:#111
+  classDef acc fill:#2E9E5B,stroke:#1E6B3D,color:#fff,font-weight:bold
+  classDef rej fill:#C0392B,stroke:#7B241C,color:#fff,font-weight:bold
+  classDef re fill:#F4D03F,stroke:#B7950B,color:#111,font-weight:bold
+  classDef st fill:#D6EAF8,stroke:#1F3A68,color:#111
+  S["Lane results collected"]:::st
+  Q1{"Optical status = ok<br/>and SNR ≥ 3 dB?"}:::q
+  Q2{"Optical subscore ≥ 0.30?"}:::q
+  Q3{"Optical lag within<br/>0–300 ms?"}:::q
+  Q4{"Typing match ≥ 0.70 with<br/>human inter-key timing?"}:::q
+  Q5{"Acoustic subscore ≥ 0.30<br/>and lag within 0–500 ms?"}:::q
+  ACC["ACCEPT"]:::acc
+  RE["RE-CHALLENGE<br/>(retry the failing secondary lane)"]:::re
+  REJ["REJECT"]:::rej
+  S --> Q1
+  Q1 -- no --> REJ
+  Q1 -- yes --> Q2
+  Q2 -- no --> REJ
+  Q2 -- yes --> Q3
+  Q3 -- no --> REJ
+  Q3 -- yes --> Q4
+  Q4 -- no --> RE
+  Q4 -- yes --> Q5
+  Q5 -- no --> RE
+  Q5 -- yes --> ACC

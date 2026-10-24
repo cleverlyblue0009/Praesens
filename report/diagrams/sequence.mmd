@@ -1,0 +1,33 @@
+sequenceDiagram
+  autonumber
+  participant U as Claimant
+  participant S as Session runner
+  participant C as Challenge
+  participant E as Emitter (screen)
+  participant A as Acoustic (spk+mic)
+  participant K as Keystroke capture
+  participant O as Optical lane
+  participant F as Fusion / Adjudicator
+  U->>S: start verification
+  S->>C: new Challenge(seed = random)
+  S->>S: lock exposure, warm-up, measure fps
+  S->>C: pick_auto_chip_rate(fps)
+  par Concurrent challenge window
+    S->>E: drive border pattern (log every redraw)
+    E-->>U: modulated light on face
+    S->>A: play BPSK probe, record duplex
+    A-->>U: 4 kHz probe tone
+    S->>K: start listener, show phrase
+    U->>K: types phrase (timing only stored)
+    loop every camera frame
+      U-->>S: reflected light in frame
+      S->>O: process_frame(frame, t)
+    end
+  end
+  S->>O: finalize() → score, lag, SNR
+  S->>A: detect_probe() → score, lag, SNR
+  S->>K: keystroke_normality_score()
+  S->>F: adjudicate_two_lane(optical, typing, acoustic)
+  F-->>S: verdict + reason_text
+  S->>S: write JSON log
+  S-->>U: ACCEPT / RE-CHALLENGE / REJECT banner

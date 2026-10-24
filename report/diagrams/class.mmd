@@ -1,0 +1,86 @@
+classDiagram
+  direction TB
+  class Challenge {
+    +float chip_rate_hz
+    +float duration_s
+    +int order
+    +int seed
+    +ndarray chips
+    +value_at(t) ndarray
+    +to_dict() dict
+    +load(path) Challenge
+  }
+  class ZoneChallenge {
+    +str zone_name
+    +int shift_chips
+    +Challenge challenge
+  }
+  class Emitter {
+    -list _log
+    -float _modulation_depth
+    +render_frame(t)
+    +drive_and_log(t)
+    +set_modulation_depth(d)
+    +get_log() list
+  }
+  class SpatialEmitter {
+    +dict zones
+    +render_frame(t)
+    +get_zone_log(name) list
+    +get_global_log() list
+  }
+  class OpticalFrameProcessor {
+    +process_frame(frame, t, ...)
+    +finalize(challenge, emitter) OpticalResult
+  }
+  class OpticalResult {
+    +float score
+    +float lag_ms
+    +float snr_db
+    +bool insufficient_signal
+  }
+  class KeystrokeCapture {
+    +list events
+    +start()
+    +stop()
+    +inter_key_intervals() ndarray
+  }
+  class DuplexProbePlayer {
+    +run() tuple
+  }
+  class AcousticResult {
+    +str status
+    +float score
+    +float lag_ms
+    +float snr_db
+  }
+  class LaneResult {
+    +str lane_name
+    +float subscore
+    +str status
+    +float lag_ms
+    +float confidence
+    +str diagnostics
+  }
+  class JointResult {
+    +str verdict
+    +float joint_score
+    +str reason_text
+    +dict per_lane_reasons
+  }
+  class Adjudicator {
+    +AdjudicatorConfig config
+    +adjudicate(lanes) JointResult
+  }
+  Challenge "1" *-- "3" ZoneChallenge : derives
+  Emitter --> Challenge : renders
+  SpatialEmitter --> ZoneChallenge : renders
+  OpticalFrameProcessor ..> OpticalResult : produces
+  OpticalFrameProcessor ..> Emitter : reads log
+  DuplexProbePlayer --> Challenge : modulates
+  DuplexProbePlayer ..> AcousticResult
+  OpticalResult ..> LaneResult : wrapped as
+  AcousticResult ..> LaneResult : wrapped as
+  KeystrokeCapture ..> LaneResult : scored into
+  Adjudicator --> LaneResult : consumes
+  Adjudicator ..> JointResult : returns

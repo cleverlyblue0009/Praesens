@@ -1,0 +1,150 @@
+<!-- ===================== CHAPTER 5 ===================== -->
+<section class="main pb chapter" data-ch="5">
+<div class="chapter-head"><span class="num">CHAPTER 5</span><h1 id="ch5">Methodology and Testing</h1></div>
+<p>This chapter describes each module of PRAESENS, the mathematics it implements and the design decisions behind it, followed by the testing strategy. The code base comprises twelve core modules in the <code>praesens</code> package (≈ 4,600 lines) plus demonstration, attack, evaluation and diagnostic tooling, for a total of roughly 11,700 lines of Python.</p>
+
+<h2 id="s5-1">5.1 Module Description</h2>
+
+<h3 id="s5-1-1">5.1.1 Challenge Synthesiser (<code>challenge.py</code>)</h3>
+<p>The challenge is a ±1 maximum-length sequence produced by a Fibonacci linear feedback shift register of order <i>n</i>. With a primitive feedback polynomial the register visits all 2<sup>n</sup>−1 non-zero states before repeating, and the resulting sequence has the two-valued periodic autocorrelation {{c:golomb,macwilliams}}</p>
+<div class="eq">R(k) = (1/N) Σ<sub>i</sub> c<sub>i</sub> c<sub>i+k</sub> = 1 for k ≡ 0 (mod N), &nbsp; −1/N otherwise, &nbsp;&nbsp; N = 2<sup>n</sup> − 1 <span class="n">(5.1)</span></div>
+<p>This impulse-like property means a genuine reflection yields one sharp correlation peak, and periodic interference such as 50 Hz mains flicker cannot accidentally align with the pattern. Rather than trusting a published tap table — whose conventions differ between sources and silently produce short cycles if mismatched — the module <i>searches</i> for a tap set whose simulated period equals 2<sup>n</sup>−1 under its own shift convention. The smallest order covering the required number of chips is chosen, and the seed (the initial register state) is drawn from the operating system’s cryptographic random source. Because (order, seed, chip rate, duration) fully determine the sequence, a session log needs to store only those four numbers to be independently re-scorable. {{f-mseq}} shows a 63-chip sequence, its autocorrelation and the near-zero mutual correlation of the three spatial zone codes.</p>
+<figure id="f-mseq"><img src="../fig/fig_mseq.png" style="width:92%"/><figcaption>Order-6 m-sequence, its ideal periodic autocorrelation, and the cross-correlation of the three derived zone codes (diagonal 1.00, off-diagonal ≤ 0.02)</figcaption></figure>
+<p><b>Zone codes.</b> For the spatial challenge the three zones receive cyclic shifts of the same full-period sequence, spaced N/3 chips apart. A cross-correlation between shifted copies is the autocorrelation at that shift, so the zones are guaranteed near-orthogonal by Eq. (5.1). Shifting is done on the <i>full</i> period before truncation, since rolling a truncated excerpt would break the property.</p>
+<p><b>Challenge phrase.</b> For the typing lane, five words are recombined from a hand-authored list of about 150 common words, seeded deterministically from the session seed. A <code>generative</code> flag that would call a language model is hard-pinned off and raises an error if enabled, so the demonstration path never depends on a network service.</p>
+
+<h3 id="s5-1-2">5.1.2 Emitter (<code>emit.py</code>, <code>spatial.py</code>)</h3>
+<p>The emitter renders a full-screen window whose border (25 % of each edge in sessions; 14 % in the panel demo) takes luminance</p>
+<div class="eq">ℓ(t) = clip( B + A · s(t), 0, 255 ), &nbsp;&nbsp; B = 127, A = 110 <span class="n">(5.2)</span></div>
+<p>where s(t) is the zero-order-hold chip value. The modulation depth A was raised from 60 to 110 after a real gate run scored a bona fide session 0.692, just short of the original 0.70 bar, while the emitter-off control stayed at 0.000 — the control behaving correctly showed that strengthening the stimulus, not lowering the bar, was the right fix. Every redraw records <code>time.perf_counter()</code> at the moment the frame is actually pushed to the window, so the optical lane aligns against what was truly on screen. The <b>emitter-off</b> condition renders a constant B: since the chips are zero-mean, this has exactly the same average luminance, isolating the pattern as the only changed variable. The <code>SpatialEmitter</code> paints left, right and top zones with independent zone codes and exposes the same <code>drive_and_log()</code> interface, so demonstrations can switch between the two emitters without changing their run loop.</p>
+
+<h3 id="s5-1-3">5.1.3 Optical Lane (<code>optical.py</code>, <code>capture.py</code>)</h3>
+<p>The optical lane is the primary evidence lane. Its processing chain is:</p>
+<ol>
+<li><b>Capture with honest timestamps.</b> Each frame is timestamped at <code>grab()</code>, before decoding, so the time reflects when light reached the sensor. A single shared capture helper negotiates pixel format, resolution and frame rate in a DirectShow-safe order.</li>
+<li><b>Exposure and white-balance lock.</b> Auto-exposure would actively cancel the brightness changes being measured. The camera is locked to a manual exposure value, verified by checking luminance stability over 15 frames, and then warmed up for 30 frames before the frame rate is measured.</li>
+<li><b>Adaptive chip rate.</b> The chip rate is set to f<sub>c</sub> = clip(f<sub>s</sub>/10, 0.5, 5) Hz and the session is lengthened to emit at least 60 chips, so the sequence is always sampled ≥ 10 times per chip regardless of what frame rate the room’s lighting permits.</li>
+<li><b>Facial ROIs.</b> MediaPipe’s FaceLandmarker {{c:facemesh}} locates 478 landmarks; boxes over the forehead and both cheeks — flat, largely shadow-free skin — are shrunk by 6 % of face height to stay clear of eyes, brows, nose and lips. Landmarks are computed every second frame on a 480-pixel-wide copy, but ROI luminance is sampled on <i>every</i> frame.</li>
+<li><b>Detrending.</b> A centred, time-windowed (1.5 s) moving average is subtracted to remove slow lighting drift: L̃(t) = L(t) − mean<sub>|u−t| ≤ 0.75 s</sub> L(u).</li>
+<li><b>Lag-searched normalised correlation.</b> Because frames are not evenly spaced, the emitted log is re-sampled at (t<sub>i</sub> − τ) for every lag hypothesis rather than shifting sample indices:</li>
+</ol>
+<div class="eq">ρ(τ) = Σ<sub>i</sub> (L̃<sub>i</sub> − μ<sub>L</sub>)(s(t<sub>i</sub> − τ) − μ<sub>s</sub>) / (N σ<sub>L</sub> σ<sub>s</sub>), &nbsp;&nbsp; S<sub>opt</sub> = max<sub>0 ≤ τ ≤ 300 ms</sub> ρ(τ) <span class="n">(5.3)</span></div>
+<p>The lag grid is 0–300 ms in 5 ms steps; only non-negative lags are physical, since the reflection cannot precede the stimulus.</p>
+<ol start="7">
+<li><b>SNR gating.</b> A random chip sequence has a sinc<sup>2</sup>-shaped spectrum with its main lobe from DC to f<sub>c</sub>, so signal power is measured in the band [0.3 Hz, f<sub>c</sub>] with a 4th-order Butterworth filter on a 60 Hz uniform resampling, against the residual out-of-band power: SNR = 10 log<sub>10</sub>(P<sub>in</sub>/P<sub>out</sub>). Below 3 dB the session is marked <i>insufficient_signal</i>, which routes to RE-CHALLENGE/no-evidence rather than being counted as an attack. If the SNR is low in the first 3 s, the modulation depth is boosted adaptively.</li>
+<li><b>Confidence.</b> The lane confidence grows with the SNR margin above the floor, clipped to [0.05, 1.0].</li>
+</ol>
+<p>A synthetic-signal test early in development returned an impossible negative SNR for a strong, clean signal; it exposed that a band centred <i>on</i> the chip rate captures only a sliver of an m-sequence’s power. The band definition above is the corrected one.</p>
+
+<h3 id="s5-1-4">5.1.4 Spatially-Differential Challenge (<code>spatial.py</code>)</h3>
+<p>A single global code has a known weakness: an attacker who can see the victim’s screen can estimate the one emitted waveform and multiply the brightness of the injected video by it, and the global score would pass. With three zones driven by near-orthogonal codes, a genuine face is lit predominantly by its nearest zone — the forehead by the top strip and each cheek by its side strip — so the ROI × zone peak-correlation matrix R must be diagonal-dominant. The spatial assignment score is</p>
+<div class="eq">S<sub>sp</sub> = mean<sub>i</sub> R<sub>i, z(i)</sub> − mean<sub>i</sub> max<sub>j ≠ z(i)</sub> R<sub>ij</sub> <span class="n">(5.4)</span></div>
+<p>where z(i) is the expected zone of ROI i. A global multiply attack has only one waveform, so every ROI correlates almost equally with every zone and S<sub>sp</sub> collapses to zero ({{f-spatial}}). Because the camera and screen face the subject from the same side, no left–right flip is needed between the emitter’s frame and the camera’s frame.</p>
+<figure id="f-spatial"><img src="../fig/fig_spatial.png" style="width:82%"/><figcaption>ROI × zone correlation matrices computed by <code>compute_correlation_matrix()</code>: a genuine face is diagonal-dominant (S<sub>sp</sub> = 0.71) while a global-brightness attack is uniform (S<sub>sp</sub> = −0.02)</figcaption></figure>
+
+<h3 id="s5-1-5">5.1.5 Typing Lane (<code>typing.py</code>)</h3>
+<p>The typing lane checks live engagement with a challenge that could not have been pre-recorded. A <code>KeystrokeCapture</code> listener compares each key press with the next expected character of the session phrase and stores <b>only</b> the key-down time, key-up time and a boolean <code>matched_expected</code>; the character itself exists only as a local variable during one comparison. A structural test types the literal word “secret” and asserts that every stored event has exactly those three keys and no string value anywhere. The score is</p>
+<div class="eq">S<sub>typ</sub> = m &nbsp; if 0.03 s ≤ Δt̄ ≤ 3.0 s, &nbsp; else 0.3·m, &nbsp;&nbsp; m = n<sub>matched</sub> / n<sub>expected</sub> <span class="n">(5.5)</span></div>
+<p>where Δt̄ is the mean inter-key interval. The penalty catches naive scripted keystroke injection, which types with unnaturally fast, uniform timing. Fewer than three keystrokes gives <i>no_evidence</i>. The lane passes when S<sub>typ</sub> ≥ 0.70. An earlier design (Milestone 10) also correlated keystroke impulses with MediaPipe hand motion {{c:mphands}} over a ±300 ms window; it remains available standalone, but was removed from the verdict after real sessions showed that a webcam framed on the face cannot see the hands while typing.</p>
+
+<h3 id="s5-1-6">5.1.6 Acoustic Lane (<code>acoustic.py</code>)</h3>
+<p>The acoustic lane BPSK-modulates the <i>same</i> session chip sequence onto a 4 kHz carrier (44.1 kHz sampling, amplitude 0.6) with 20 ms raised-cosine chip transitions, plays it through the speaker and records the microphone on one duplex stream. Detection must survive two real-world effects discovered on hardware: speaker/microphone clock drift and dropped audio buffers, which cancelled a single 20-second coherent correlation to nearly zero. The detector therefore demodulates to complex baseband (10 Hz low-pass), splits the reference into 1 s segments and forms a <i>differential</i> statistic</p>
+<div class="eq">D(τ) = √( |Σ<sub>k</sub> z<sub>k</sub>(τ) z<sub>k−1</sub>*(τ)| / Σ<sub>k</sub> ‖z<sub>k</sub>‖ ‖z<sub>k−1</sub>‖ ) <span class="n">(5.6)</span></div>
+<p>in which a constant clock-drift phase step between segments cancels in the magnitude, while at a wrong lag the random chip signs make the products cancel. The noise floor is the larger of (a) the same statistic computed at off-carrier frequencies (±300, ±600 Hz) and (b) the statistic for three decoy codes — shifted copies of the session sequence — so that a probe heard at the wrong alignment cannot pass on a sidelobe. The lag search covers 0–500 ms at 1 ms resolution, and a peak on the search edge is rejected. {{f-acoustic}} illustrates the probe and detector output.</p>
+<figure id="f-acoustic"><img src="../fig/fig_acoustic.png" style="width:96%"/><figcaption>Acoustic probe envelope with a 4 kHz carrier inset, and the segmented differential matched-filter statistic for a simulated 330 ms round trip versus an off-carrier noise channel</figcaption></figure>
+<p>Hardware debugging also uncovered a practical failure mode worth reporting: on the test laptop the default output was a pair of Bluetooth earbuds and the speakers were muted, so the microphone heard no tone at all. The lane now supports named input/output devices, warns when the output looks like headphones, and reports “tone not heard” as an actionable reason.</p>
+
+<h3 id="s5-1-7">5.1.7 Fusion and Adjudication (<code>fusion.py</code>)</h3>
+<p>Every lane emits a <code>LaneResult</code>. A lane <i>contributes</i> only when its status is <i>ok</i> and its lag lies within its physical window (optical 0–300 ms, acoustic up to 500 ms). Two policies are implemented:</p>
+<ul>
+<li><b>Confidence-weighted Adjudicator</b> (used for ablation): joint score = Σ w<sub>l</sub> S<sub>l</sub> / Σ w<sub>l</sub> over contributing lanes, ACCEPT ≥ 0.60, REJECT &lt; 0.30, RE-CHALLENGE in between, with a 0.05 hysteresis margin for the live display. A safeguard downgrades ACCEPT to REJECT if any contributing lane’s own subscore is below 0.30 — added after a test showed a confident typing lane could numerically out-vote an optical lane that already looked like an attack.</li>
+<li><b>Binary-gate policy</b> <code>adjudicate_two_lane()</code> (used for live sessions, {{f-verdict}}): optical must pass on both score and lag; secondary lanes failing yields RE-CHALLENGE; optical failing yields REJECT.</li>
+</ul>
+<p>Each verdict carries a sentence such as “all 3 lanes agree: optical 0.75, typing 1.00, acoustic 0.93” or “optical lane failed — scored 0.17, below pass threshold”, and the same helper drives both the terminal block and the on-screen banner, so they can never disagree.</p>
+
+<h3 id="s5-1-8">5.1.8 Attack Tooling (<code>demo/attack.py</code>, <code>attacks/adaptive_injector.py</code>)</h3>
+<p>A defence is only as credible as the attacks it has been tested against, so we built attacks against our own system. The <b>attack harness</b> opens every camera source (real webcam, OBS Virtual Camera) at start-up and switches between them with a pointer swap, so the audience sees the rolling score collapse without a reset. The <b>adaptive injector</b> is the strongest attack we could construct: it screen-captures the emitter’s border regions, estimates the emitted waveform purely from pixel brightness (exactly what a second camera pointed at the monitor would see — it is never given the seed), and multiplies the luminance (Y channel) of a source video by that estimate with a configurable processing lag, outputting through a virtual camera. Global and per-zone modes are supported.</p>
+
+<h3 id="s5-1-9">5.1.9 Evaluation Pipeline (<code>eval/</code>)</h3>
+<p><code>analyse.py</code> computes the score distribution per condition, ROC/AUC, EER and APCER/BPCER/ACER at the EER threshold {{c:iso30107,fawcett}}, per-attack-type metrics at the pooled threshold, per-condition robustness tables and collapse-latency statistics. Emitter-off sessions are reported as a control and insufficient-signal sessions as measurement failures; neither is folded into the attack class. <code>cross_session.py</code> builds an injection proxy without attack recordings: every genuine trace is scored against every <i>other</i> session’s challenge — physically what an injected video looks like to the verifier, a real face responding to a pattern it never saw. <code>ablate.py</code> recomputes verdicts with each lane held out.</p>
+
+<h2 id="s5-2">5.2 Testing</h2>
+<h3 id="s5-2-1">5.2.1 Testing Strategy</h3>
+<p>Testing followed four levels:</p>
+<ol>
+<li><b>Unit tests on synthetic signals.</b> Deterministic, hardware-free tests for every module (pytest), each tied to a specific claim — for example, that a high subscore at an implausible lag contributes nothing, or that no character is ever stored.</li>
+<li><b>Mocked-hardware integration tests.</b> Camera, audio and keyboard are mocked to verify orchestration properties, such as exactly one <code>open_camera()</code> call and both lanes receiving the literal same frame object.</li>
+<li><b>Real-hardware sessions.</b> Every milestone ended with a real run whose JSON log was committed, including deliberate missing-device runs to verify graceful degradation.</li>
+<li><b>Scientific controls and adversarial testing.</b> Emitter-off controls, virtual-camera injection, the adaptive injector and cross-session mismatching.</li>
+</ol>
+<figure id="f-tests"><img src="../fig/fig_tests.png" style="width:80%"/><figcaption>Distribution of the 148 automated test cases across modules</figcaption></figure>
+<p>The full suite contains <b>148 test cases</b> ({{f-tests}}). Executed in a headless Linux container while preparing this report, <b>143 passed</b>; the remaining five require a real audio device (PortAudio) or a GPU/EGL display library that the container does not provide, and pass on the development laptop, where the suite was run at every milestone.</p>
+
+<h3 id="s5-2-2">5.2.2 Representative Test Cases</h3>
+<div class="tblcap" id="t-tests">Representative test cases and outcomes</div>
+<table class="data tight small">
+<tr><th style="width:7%">ID</th><th style="width:33%">Test case</th><th style="width:38%">Expected result</th><th>Outcome</th></tr>
+<tr><td class="c">T1</td><td>Zone codes derived from one seed</td><td>Diagonal &gt; 0.99, off-diagonal &lt; 0.1</td><td style="color:#2E9E5B"><b>Pass</b> (1.00 / ≤ 0.02)</td></tr>
+<tr><td class="c">T2</td><td>Genuine per-zone reflectance (synthetic)</td><td>Diagonal &gt; 0.6 and &gt; 0.3 above best off-diagonal</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T3</td><td>Global-brightness multiply attack via real injector code path</td><td>Global score rises, spatial score stays dead</td><td style="color:#2E9E5B"><b>Pass</b> (global 0.053 → 0.951, spatial −0.020)</td></tr>
+<tr><td class="c">T4</td><td>Lane with high subscore at implausible lag</td><td>Contributes nothing; joint score undefined</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T5</td><td>Typing 0.95 vs optical 0.05 (weighted mean 0.80)</td><td>REJECT, not ACCEPT</td><td style="color:#2E9E5B"><b>Pass</b> (after fix)</td></tr>
+<tr><td class="c">T6</td><td>Press literal phrase “secret”</td><td>Stored events have only {t_down, t_up, matched_expected}</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T7</td><td>Robotic keystrokes (&lt; 30 ms apart)</td><td>Score × 0.3 penalty, flagged implausible</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T8</td><td>Acoustic probe with 50 ppm drift and a dropped 512-sample buffer</td><td>Still detected at correct lag</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T9</td><td>Probe beyond lag window / unheard probe with startup zeros</td><td>Not scored on a sidelobe; not <i>ok</i>; SNR never infinite</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T10</td><td>Concurrent session with mocked hardware</td><td>Exactly one camera open; same frame object to the optical lane</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T11</td><td>Steady-state FPS measurement</td><td>Exposure locked, then exactly 30 warm-up frames, then measure</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T12</td><td>Banner when GUI call raises</td><td>No exception; REJECT renders red, ACCEPT green</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T13</td><td>Per-attack metrics: easy vs hard attack type</td><td>APCER 0.0 vs 1.0, not a pooled 0.5</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+<tr><td class="c">T14</td><td>Rehearsal script with failing transition</td><td>Warning shown, sequence continues, no crash</td><td style="color:#2E9E5B"><b>Pass</b></td></tr>
+</table>
+
+<h3 id="s5-2-3">5.2.3 Defects Found Through Testing</h3>
+<p>Testing on real hardware repeatedly found problems that review alone did not. Recording them is part of the method:</p>
+<div class="tblcap" id="t-bugs">Significant defects discovered and fixed</div>
+<table class="data tight small">
+<tr><th style="width:30%">Symptom</th><th style="width:38%">Root cause</th><th>Fix</th></tr>
+<tr><td>No face detected at the original exposure</td><td>Exposure −6 too dark for the room (mean luminance ≈ 24/255)</td><td>Exposure sweep; −3/−4 chosen; adaptive chip rate</td></tr>
+<tr><td>SNR stuck low at 16 fps</td><td>Preflight FPS measured before exposure lock (read 8 fps)</td><td><code>measure_steady_state_fps()</code> with warm-up; chip rate 0.80 → 1.60 Hz, SNR 7.72 dB</td></tr>
+<tr><td>MJPG forcing did not raise FPS</td><td>Ceiling was exposure time (fps ≈ 1/2<sup>EV</sup>), not USB bandwidth</td><td>Null result documented; shared capture helper kept</td></tr>
+<tr><td>Confident typing out-voted a failing optical lane</td><td>Weighted mean allows compensation</td><td>Downgrade ACCEPT → REJECT if any contributor &lt; 0.30</td></tr>
+<tr><td>Terminal showed “Optical PASS (0.17)”</td><td>PASS label ignored subscore threshold</td><td>PASS requires contribution AND subscore ≥ threshold</td></tr>
+<tr><td>Acoustic score ≈ 0.00005 with SNR = ∞</td><td>Clock drift; noise window was start-up zeros; 60 ms lag window; muted speakers</td><td>Segmented differential detector; off-carrier and decoy floors; 500 ms window; device selection</td></tr>
+<tr><td>Typing lane always <i>no evidence</i></td><td>Face-framed webcam cannot see hands</td><td>Keystroke-timing-only scoring</td></tr>
+</table>
+</section>
+
+<!-- ===================== CHAPTER 6 ===================== -->
+<section class="main pb chapter" data-ch="6">
+<div class="chapter-head"><span class="num">CHAPTER 6</span><h1 id="ch6">Project Demonstration</h1></div>
+<p>PRAESENS is demonstrated in three modes: a scored verification session, a live dashboard, and a guided panel mode in which an examiner can drive the attack scenarios personally.</p>
+
+<h2 id="s6-1">6.1 Verification Session</h2>
+<p>A session is started with <code>python -m praesens.session --lanes optical+typing+acoustic</code>. The screen switches to the full-screen emitter with the camera preview and the challenge phrase in the centre; the user simply looks at the screen and types the phrase while the probe tone plays. At the end, the terminal prints a compact summary and a full-screen, colour-coded banner is shown. The following is the real terminal output of bona fide session <code>20260914T115241</code>:</p>
+<pre class="term">{{CLEANBLOCK}}</pre>
+<p>{{f-banners}} shows the three verdict banners, rendered by the system’s own <code>render_verdict_banner()</code> function from logged session records (the two earlier sessions re-adjudicated under the final binary-gate policy): an ACCEPT from the three-lane bona fide session above, a RE-CHALLENGE in which the optical lane passed but the user did not type the phrase, and a REJECT for an OBS virtual-camera injection whose optical score was only 0.17.</p>
+<figure id="f-banners">
+<div class="two"><img src="../fig/banner_accept.png" style="width:49%"/><img src="../fig/banner_rechallenge.png" style="width:49%"/></div>
+<img src="../fig/banner_reject.png" style="width:49%; margin-top:6pt"/>
+<figcaption>Verdict banners: ACCEPT (green, all lanes pass), RE-CHALLENGE (amber, a secondary lane failed), REJECT (red, the optical lane failed)</figcaption></figure>
+
+<h2 id="s6-2">6.2 Live Dashboard and Panel Mode</h2>
+<p>In the live dashboard the score is recomputed every frame over a rolling window (6 s; 1.5 s in panel mode), trading statistical power for immediacy so that an audience sees the score respond within about a second. Panel mode is driven by single keys and never blocks:</p>
+<div class="tblcap" id="t-panel">Panel-mode controls and what each demonstrates</div>
+<table class="data tight small">
+<tr><th style="width:9%">Key</th><th style="width:28%">State</th><th>Demonstration</th></tr>
+<tr><td class="c">1</td><td>Live verification</td><td>Genuine face, pattern on: global and spatial scores both high</td></tr>
+<tr><td class="c">2</td><td>Switch to injected feed</td><td>Instant swap to OBS Virtual Camera or the adaptive injector; score collapses; banner shows “GLOBAL PASSES BUT SPATIAL SCORE IS DEAD” if an adaptive attack fools the global score</td></tr>
+<tr><td class="c">3</td><td>Toggle light pattern off</td><td>Scientific control: the score falls to zero even though the real person is still present — proving the score is caused by the pattern</td></tr>
+<tr><td class="c">4</td><td>Replay comparison</td><td>Stored side-by-side genuine-versus-injected traces</td></tr>
+<tr><td class="c">5</td><td>Typing lane</td><td>Live keystroke evidence with no characters stored</td></tr>
+<tr><td class="c">Q</td><td>Quit</td><td>Collapse-latency log saved on exit</td></tr>
+</table>
+<p>A <code>--rehearse</code> flag scripts the sequence live → attack → live → replay → typing on a timer, re-entering exactly the same transition methods a human key press would, so rehearsal exercises the real code path. In a rehearsal run on a machine with no second camera, the attack step degraded to the message “no injected feed source found” and the sequence continued — real evidence of the “never crash on a missing device” requirement.</p>
+
+<h2 id="s6-3">6.3 What the Demonstration Shows</h2>
+<figure id="f-trace"><img src="../fig/fig_trace.png" style="width:100%"/><figcaption>Real recording from session 20260914T115241: the emitted challenge (orange) and the detrended luminance measured on the user’s forehead and cheeks (navy)</figcaption></figure>
+<p>{{f-trace}} is the core of the demonstration in one picture: in a real session the brightness of the user’s skin, measured by an ordinary webcam, follows the pseudo-random pattern on the screen, 25 ms later. An injected video, generated or recorded without knowledge of this session’s seed, cannot follow a pattern that did not exist when it was made. {{f-corr}} shows the same measured trace correlated against its own challenge and against another session’s challenge: a clear peak of 0.75 at a physically plausible lag in the first case, a flat line near zero in the second.</p>
+<figure id="f-corr"><img src="../fig/fig_corr_curve.png" style="width:100%"/><figcaption>Correlation versus hypothesised lag for one real trace scored against its own challenge and against a different session’s challenge</figcaption></figure>
+</section>

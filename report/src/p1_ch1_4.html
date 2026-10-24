@@ -1,0 +1,227 @@
+<!-- ===================== CHAPTER 1 ===================== -->
+<section class="main main-first pb chapter" data-ch="1">
+<div class="chapter-head"><span class="num">CHAPTER 1</span><h1 id="ch1">Introduction</h1></div>
+
+<h2 id="s1-1">1.1 Background</h2>
+<p>Over the last five years the webcam has quietly become a security device. Banks perform video-based Know-Your-Customer (KYC) onboarding, universities proctor examinations remotely, hospitals run telemedicine consultations, and companies authorise payments and hiring decisions over video calls. In every one of these workflows the relying party implicitly assumes that the pixels arriving from the camera were produced, at that moment, by light reflecting off a live human face that is physically in front of that camera.</p>
+<p>That assumption no longer holds. Generative face-manipulation techniques — identity swapping, expression reenactment and fully synthetic faces — can now run in real time on consumer graphics hardware {{c:face2face,tolosana,mirsky}}. The consequences are no longer hypothetical: in early 2024 a finance employee of a multinational firm in Hong Kong transferred about US$25 million after a video conference in which every other participant, including the company’s chief financial officer, was a deepfake {{c:cnn_hk}}. Europol and ENISA both identify synthetic video and remote identity-proofing attacks as a growing, operational threat to law enforcement and to digital onboarding {{c:europol,enisa}}.</p>
+<p>The face anti-spoofing literature has historically focused on <b>presentation attacks</b> — printed photographs, screen replays or masks physically held in front of the sensor — standardised in ISO/IEC 30107-3 {{c:iso30107}}. A far more scalable threat is the <b>video-injection attack</b>, in which the attacker never shows anything to a camera at all. A virtual-camera driver (for example OBS Virtual Camera) or a compromised capture pipeline feeds pre-recorded or live-generated frames directly to the application, which cannot tell them apart from a genuine webcam {{c:enisa}}. Injected frames contain none of the moiré, screen bezel, paper texture or depth cues that classical detectors depend on.</p>
+<p>A fundamental observation motivates this project: <i>a genuine camera is coupled to the physical world, and an injected stream is not</i>. If the verifier changes the physical world in a way the attacker cannot predict — by emitting an unpredictable pattern of light, sound or interaction — then only a live, physically present user can produce a response that is correctly coded, correctly timed and correctly localised. PRAESENS is a software framework that implements this idea using nothing more than the screen, speaker, microphone, keyboard and webcam already present on every laptop.</p>
+
+<h2 id="s1-2">1.2 Motivations</h2>
+<ul>
+<li><b>Passive detectors are in an arms race they are losing.</b> Classifiers trained to recognise artefacts of today’s generators generalise poorly to unseen manipulation methods and datasets {{c:ffpp,celebdf,fassurvey}}. A defence whose security rests on a physical law, rather than on a learned artefact, does not degrade when generators improve.</li>
+<li><b>Injection attacks bypass presentation-attack detection by design.</b> Since the camera is never involved, any detector that analyses how a spoof looks to a camera is irrelevant. Verifying a <i>cause–effect relationship between a secret stimulus and the sensor reading</i> addresses injection directly.</li>
+<li><b>Accessibility and cost.</b> Many published active-liveness schemes rely on depth sensors, infrared projectors or specialised smartphones. Students, small institutions and users in developing regions mostly use ordinary laptops. A solution that needs no extra hardware, no GPU, no training data and no cloud service can be deployed anywhere.</li>
+<li><b>A bioinformatics perspective on the face as a biological signal source.</b> As students of Computer Science with a specialization in Bioinformatics, we approached the human face not as an image but as living tissue with measurable optical properties. Skin reflects incident light diffusely according to its melanin and haemoglobin content {{c:anderson}}, and the same physics underlies remote photoplethysmography {{c:verkruysse,poh}}. Recovering a known, weak, pseudo-random code from a noisy biological measurement is conceptually the same matched-filter and sequence-correlation problem that pervades biological signal analysis.</li>
+<li><b>Explainability and privacy.</b> Verification decisions affect people’s access to banking, education and healthcare. We wanted every verdict to come with a human-readable reason and wanted the system to collect the minimum personal data possible — keystroke <i>timing</i> but never characters, numeric traces but never face images.</li>
+</ul>
+
+<h2 id="s1-3">1.3 Scope of the Project</h2>
+<p>The scope of PRAESENS Project-I covers the complete design, implementation and empirical evaluation of a research-grade prototype:</p>
+<ul>
+<li>A per-session <b>challenge synthesiser</b> generating maximum-length LFSR sequences from a cryptographic seed, with derived spatial zone codes and an offline challenge phrase.</li>
+<li>A <b>screen emitter</b> (single-zone and three-zone spatial variants) with actual-redraw timestamp logging, and an <b>emitter-off</b> scientific control.</li>
+<li>Three independent evidence lanes — <b>optical</b>, <b>typing</b> and <b>acoustic</b> — plus an honest stub interface for an inertial lane on hardware that exposes an IMU.</li>
+<li>A <b>fusion and adjudication</b> layer producing ACCEPT / RE-CHALLENGE / REJECT verdicts with plain-language reasons.</li>
+<li><b>Attack tooling</b> built against our own system: a virtual-camera injection harness and an adaptive injector that estimates the emitted pattern from the screen and modulates a source video in real time.</li>
+<li>An <b>evaluation pipeline</b> reporting ROC/AUC, EER, APCER, BPCER and ACER in the vocabulary of ISO/IEC 30107-3, per-condition robustness tables, ablation and cross-session analysis, together with a live <b>panel demonstration mode</b>.</li>
+</ul>
+<p>Out of scope for this phase are mobile-phone deployment, large multi-subject demographic studies, and evaluation against commercial deepfake services; these are discussed as future work in Chapter 8.</p>
+</section>
+
+<!-- ===================== CHAPTER 2 ===================== -->
+<section class="main pb chapter" data-ch="2">
+<div class="chapter-head"><span class="num">CHAPTER 2</span><h1 id="ch2">Project Description and Goals</h1></div>
+
+<h2 id="s2-1">2.1 Literature Review</h2>
+<p>We organise prior work into five strands: the deepfake threat itself, passive texture- and learning-based anti-spoofing, physiological-signal methods, active challenge–response methods, and the signal-processing and fusion foundations on which PRAESENS builds. {{f-tax}} summarises how the attack classes relate to the two families of defence.</p>
+<figure id="f-tax"><img src="../fig/dg_taxonomy.png" style="width:96%"/><figcaption>Taxonomy of attacks on remote face verification and the defence family that addresses each</figcaption></figure>
+
+<h3 id="s2-1-1">2.1.1 Face manipulation and the deepfake threat</h3>
+<p>Thies <i>et al.</i> demonstrated real-time facial reenactment of a monocular RGB target with Face2Face {{c:face2face}}, showing that expression transfer could be performed live. Tolosana <i>et al.</i> {{c:tolosana}} and Mirsky and Lee {{c:mirsky}} survey identity swap, attribute manipulation and entire-face synthesis, and both conclude that detectors trained on one family of manipulation degrade sharply on others. Large benchmarks such as FaceForensics++ {{c:ffpp}} and Celeb-DF {{c:celebdf}} have driven progress in forensic classifiers, but Celeb-DF in particular showed that higher-quality fakes reduce the AUC of many published detectors to near chance.</p>
+
+<h3 id="s2-1-2">2.1.2 Passive presentation-attack detection</h3>
+<p>Early anti-spoofing exploited micro-texture differences between real skin and recaptured media using Local Binary Patterns {{c:maatta,chingovska}}, evaluated on datasets such as CASIA-FASD {{c:casia}}. Boulkenafet <i>et al.</i> showed that colour-texture analysis in luminance–chrominance spaces generalises better than grey-scale LBP {{c:boulkenafet}}, and Tirunagari <i>et al.</i> used dynamic-mode decomposition to capture visual dynamics of replayed video {{c:tirunagari}}. Deep models followed: Liu <i>et al.</i> supervised CNN-RNN networks with auxiliary depth and rPPG cues {{c:liu2018}}, and Yu <i>et al.</i> introduced central difference convolutional networks (CDCN) found through neural architecture search {{c:cdcn}}. A recent survey {{c:fassurvey}} highlights that cross-dataset generalisation remains the central unsolved problem — and every one of these methods presumes that the spoof is <i>presented to</i> the camera.</p>
+
+<h3 id="s2-1-3">2.1.3 Physiological-signal methods</h3>
+<p>Verkruysse <i>et al.</i> showed that the cardiac pulse is visible in ordinary video under ambient light {{c:verkruysse}}; Poh <i>et al.</i> recovered it with blind source separation {{c:poh}}, and de Haan and Jeanne {{c:dehaan}} and Wang <i>et al.</i> {{c:wang_pos}} developed robust chrominance-based and plane-orthogonal-to-skin algorithms. Liu <i>et al.</i> used rPPG to detect 3D masks {{c:liu3dmask}}, and FakeCatcher {{c:fakecatcher}} detects synthetic portrait video from the spatial-temporal coherence of biological signals. These methods are passive: a sufficiently good generator, or a replay of a genuine recording, carries a plausible pulse.</p>
+
+<h3 id="s2-1-4">2.1.4 Active challenge–response liveness</h3>
+<p>Active methods change the environment and check the response. <b>Face Flashing</b> {{c:faceflashing}} flashes random colours on a phone screen and verifies the reflected light and its timing — the closest precursor to our optical lane. <b>FaceRevelio</b> {{c:facerevelio}} uses the phone screen as a controllable light source to recover a 3D surface normal map from a single front camera. On the acoustic side, <b>EchoPrint</b> {{c:echoprint}} combines inaudible acoustic echoes with vision for two-factor face authentication, and <b>EchoFace</b> {{c:echoface}} detects media attacks from the acoustic reflection of a face. Keystroke dynamics have long been studied as a behavioural biometric {{c:monrose,killourhy}}. Each of these addresses a single channel, most are designed for smartphones, and none combines several physically independent channels under one shared secret.</p>
+
+<h3 id="s2-1-5">2.1.5 Sequence design, detection and fusion foundations</h3>
+<p>Maximum-length sequences have a two-valued periodic autocorrelation — N at zero shift and −1 elsewhere — which makes them near-ideal probing signals {{c:golomb,macwilliams}}. Their cross-correlation properties, and those of derived families such as Gold codes, are surveyed by Sarwate and Pursley {{c:sarwate,gold}}. Matched filtering, BPSK modulation and coherent versus non-coherent detection are classical topics in digital communications {{c:proakis}}. On fusion, Kittler <i>et al.</i> {{c:kittler}} formalised classifier-combination rules and Ross and Jain {{c:ross}} categorised fusion levels in multibiometric systems. ROC analysis {{c:fawcett}} and the ISO/IEC 30107-3 error metrics {{c:iso30107}} provide the evaluation vocabulary.</p>
+
+<div class="tblcap" id="t-lit">Summary of representative literature and its limitations with respect to injection attacks</div>
+<table class="data tight small">
+<tr><th style="width:24%">Work</th><th style="width:26%">Approach</th><th style="width:22%">Strength</th><th>Limitation for remote verification</th></tr>
+<tr><td>Määttä <i>et al.</i> 2011 {{c:maatta}}</td><td>LBP micro-texture, SVM</td><td>Fast, simple</td><td>Needs a physical spoof medium; blind to injection</td></tr>
+<tr><td>Boulkenafet <i>et al.</i> 2016 {{c:boulkenafet}}</td><td>Colour texture (HSV / YCbCr LBP)</td><td>Better cross-dataset results</td><td>Learned artefacts; deepfakes have none of them</td></tr>
+<tr><td>Liu <i>et al.</i> 2018 {{c:liu2018}}</td><td>CNN-RNN with depth and rPPG supervision</td><td>Auxiliary physiological cues</td><td>Requires training data; replayable</td></tr>
+<tr><td>Yu <i>et al.</i> 2020 {{c:cdcn}}</td><td>Central difference CNN (CDCN)</td><td>State-of-the-art intra-dataset</td><td>Generalisation gap; GPU cost</td></tr>
+<tr><td>Rössler <i>et al.</i> 2019 {{c:ffpp}}</td><td>Forensic CNN on FaceForensics++</td><td>High accuracy on known fakes</td><td>Degrades on unseen generators {{c:celebdf}}</td></tr>
+<tr><td>Ciftci <i>et al.</i> 2020 {{c:fakecatcher}}</td><td>Biological-signal coherence</td><td>Physiology-based</td><td>Passive; a replayed genuine video passes</td></tr>
+<tr><td>Tang <i>et al.</i> 2018 {{c:faceflashing}}</td><td>Random screen colour flashes</td><td>Active, timing-verified</td><td>Single optical channel; smartphone-centred</td></tr>
+<tr><td>Farrukh <i>et al.</i> 2020 {{c:facerevelio}}</td><td>Screen-lit photometric stereo</td><td>Recovers 3D shape</td><td>Single channel; tuned to phones</td></tr>
+<tr><td>Zhou <i>et al.</i> 2018 {{c:echoprint}}</td><td>Acoustic echo + vision</td><td>Two modalities</td><td>Phone earpiece geometry; trained model</td></tr>
+<tr><td>Killourhy &amp; Maxion 2009 {{c:killourhy}}</td><td>Keystroke-dynamics anomaly detection</td><td>Behavioural biometric</td><td>Enrolment needed; stores typed text</td></tr>
+</table>
+
+<h2 id="s2-2">2.2 Research Gap</h2>
+<p>The review exposes four gaps that PRAESENS is designed to close:</p>
+<ol>
+<li><b>No defence aimed squarely at injection on commodity laptops.</b> Passive PAD inspects appearance; injection attacks have perfect appearance. Active schemes exist, but almost all target smartphones with controlled screen–face geometry.</li>
+<li><b>Single-channel active methods are vulnerable to one well-engineered estimator.</b> An attacker who can observe the screen (a second camera, screen capture) can estimate a single global flash pattern and re-apply it to injected video. No prior system we found uses <i>spatially-differential</i> codes that force each facial region to answer its own part of the screen.</li>
+<li><b>No shared-secret fusion across physically independent channels.</b> Light, sound and keystrokes travel through entirely different physics. Binding all three to one per-session secret means an attacker must defeat every channel simultaneously, in real time, with correct timing.</li>
+<li><b>Weak treatment of measurement failure, explainability and privacy.</b> Most systems collapse “the sensor could not see the signal” and “this is an attack” into a single low score, produce an unexplained verdict, and retain biometric data. A trustworthy system must separate insufficient evidence from negative evidence, explain itself, and minimise what it stores.</li>
+</ol>
+
+<h2 id="s2-3">2.3 Objectives</h2>
+<ol>
+<li>To design a per-session, cryptographically seeded challenge whose emitted signal has near-ideal autocorrelation and is fully reproducible from a stored seed for audit.</li>
+<li>To recover that challenge from the light reflected by a user’s face with an ordinary webcam, robustly to frame-rate jitter, auto-exposure, slow lighting drift and moderate variation in lighting, distance, eyewear and makeup.</li>
+<li>To defeat the strongest single-channel counter-attack (global brightness re-modulation of injected video) through spatially-differential zone codes.</li>
+<li>To add physically independent typing and acoustic lanes bound to the same session secret, under a strict keystroke-privacy contract.</li>
+<li>To fuse the lanes with a lag-plausibility gate into an explainable three-way verdict that distinguishes REJECT from RE-CHALLENGE.</li>
+<li>To evaluate the system honestly on real hardware using ISO/IEC 30107-3 metrics, scientific controls, ablation and real injection attempts, and to demonstrate it live.</li>
+</ol>
+
+<h2 id="s2-4">2.4 Problem Statement</h2>
+<div class="callout">
+<p><i>Given only the commodity sensors and actuators of a standard laptop — display, speaker, microphone, keyboard and webcam — design and evaluate a real-time verification system that decides whether the video stream presented to an application originates from a live human who is physically present in front of that device at that moment, such that pre-recorded, replayed, synthetically generated or virtually-injected video, including adaptive attacks that observe the emitted challenge, is rejected; such that every decision is explainable; and such that no face images or typed characters are retained.</i></p>
+</div>
+
+<h2 id="s2-5">2.5 Project Plan</h2>
+<p>The project was executed as a sequence of fourteen measured milestones followed by hardening and evaluation phases. Each milestone ended with automated tests and, wherever possible, a real-hardware run whose numeric log was committed to the repository; a milestone notebook records what was actually measured rather than what was intended. {{f-gantt}} shows the schedule and {{t-milestones}} lists the milestones.</p>
+<figure id="f-gantt"><img src="../fig/fig_gantt.png" style="width:100%"/><figcaption>Project plan (Gantt chart), July – October 2026</figcaption></figure>
+<div class="tblcap" id="t-milestones">Milestones and deliverables</div>
+<table class="data tight small">
+<tr><th style="width:9%">No.</th><th style="width:32%">Milestone</th><th>Deliverable / acceptance evidence</th></tr>
+<tr><td class="c">M0</td><td>Hardware probe</td><td>Measured FPS, exposure/WB lock and display redraw capability</td></tr>
+<tr><td class="c">M1</td><td>Challenge synthesiser</td><td>LFSR m-sequence with verified maximal period and two-valued autocorrelation</td></tr>
+<tr><td class="c">M2</td><td>Emitter</td><td>Full-screen border emitter with actual-redraw <code>perf_counter</code> log; emitter-off control</td></tr>
+<tr><td class="c">M3</td><td>Optical lane</td><td>ROI luminance, detrending, lag-searched correlation, SNR gating, adaptive depth</td></tr>
+<tr><td class="c">M4–M5</td><td>Session runner, analysis</td><td>JSON session logs; ROC / EER / APCER / BPCER / ACER tables</td></tr>
+<tr><td class="c">M6–M8</td><td>Live dashboard, attack harness, panel</td><td>Rolling live score; instant camera-source switching; guided panel demo</td></tr>
+<tr><td class="c">M9</td><td>Spatially-differential challenge</td><td>3-zone emitter, ROI × zone matrix, spatial assignment score</td></tr>
+<tr><td class="c">M10</td><td>Typing lane</td><td>Privacy-preserving keystroke capture; phrase challenge</td></tr>
+<tr><td class="c">M11</td><td>Fusion and adjudication</td><td>Lag-gated fusion, three-way verdict with reasons, ablation harness</td></tr>
+<tr><td class="c">M12</td><td>Attack tooling</td><td>Adaptive screen-estimating injector, corpus plan, collapse-latency instrumentation</td></tr>
+<tr><td class="c">M13–M14</td><td>Evaluation extensions, panel demo</td><td>Per-attack metrics, robustness tables, scripted rehearsal mode</td></tr>
+<tr><td class="c">H1–H3</td><td>Hardening</td><td>Capture/FPS fixes, concurrent lanes, verdict banner, acoustic lane and three-lane gate</td></tr>
+</table>
+</section>
+
+<!-- ===================== CHAPTER 3 ===================== -->
+<section class="main pb chapter" data-ch="3">
+<div class="chapter-head"><span class="num">CHAPTER 3</span><h1 id="ch3">Technical Specification</h1></div>
+
+<h2 id="s3-1">3.1 Requirements</h2>
+<h3 id="s3-1-1">3.1.1 Functional</h3>
+<div class="tblcap" id="t-fr">Functional requirements</div>
+<table class="data tight small">
+<tr><th style="width:9%">ID</th><th>Requirement</th></tr>
+<tr><td class="c">FR1</td><td>Generate a fresh, unpredictable challenge (seed, LFSR order, chip rate, duration) for every session and persist the seed so the exact sequence can be regenerated for audit.</td></tr>
+<tr><td class="c">FR2</td><td>Render the challenge as screen-border luminance (single-zone or left/right/top zones) and log the actual time of every redraw.</td></tr>
+<tr><td class="c">FR3</td><td>Lock camera exposure and white balance, measure the steady-state frame rate, and choose a chip rate the camera can sample.</td></tr>
+<tr><td class="c">FR4</td><td>Locate the face, sample forehead and cheek luminance on every frame, and compute the optical subscore, lag and in-band SNR.</td></tr>
+<tr><td class="c">FR5</td><td>Compute the ROI × zone correlation matrix and spatial assignment score for spatial sessions.</td></tr>
+<tr><td class="c">FR6</td><td>Display a session-unique phrase and score keystroke correctness and timing without storing any character.</td></tr>
+<tr><td class="c">FR7</td><td>Play a BPSK acoustic probe and detect its round-trip lag and SNR through a single duplex audio stream.</td></tr>
+<tr><td class="c">FR8</td><td>Fuse lane results into ACCEPT / RE-CHALLENGE / REJECT with a plain-language reason; display a colour-coded banner and terminal summary.</td></tr>
+<tr><td class="c">FR9</td><td>Write one JSON log per session containing numeric traces, metadata and the full fusion record.</td></tr>
+<tr><td class="c">FR10</td><td>Provide attack tooling, a live panel demo, and an evaluation pipeline producing standard PAD metrics.</td></tr>
+</table>
+
+<h3 id="s3-1-2">3.1.2 Non-Functional</h3>
+<div class="tblcap" id="t-nfr">Non-functional requirements</div>
+<table class="data tight small">
+<tr><th style="width:9%">ID</th><th style="width:22%">Attribute</th><th>Requirement</th></tr>
+<tr><td class="c">NFR1</td><td>Security</td><td>Challenge seed drawn from the OS CSPRNG (<code>secrets</code>); nothing an attacker can observe in advance predicts the sequence.</td></tr>
+<tr><td class="c">NFR2</td><td>Privacy</td><td>No face image, video or typed character is ever stored; logs hold numeric traces only; attack videos stay in a git-ignored folder.</td></tr>
+<tr><td class="c">NFR3</td><td>Real-time performance</td><td>Single shared capture loop; face landmarks every 2nd frame on a down-scaled copy; live verdict within one session (≈ 20–40 s).</td></tr>
+<tr><td class="c">NFR4</td><td>Robustness</td><td>Never crash on a missing device; degrade to <i>no_evidence</i> with a reason instead of fabricating a score.</td></tr>
+<tr><td class="c">NFR5</td><td>Explainability</td><td>Every verdict carries a sentence naming the deciding lane, its subscore and its lag.</td></tr>
+<tr><td class="c">NFR6</td><td>Portability</td><td>Runs on Windows and macOS; camera backend chosen per OS; CPU-only inference.</td></tr>
+<tr><td class="c">NFR7</td><td>Configurability &amp; reproducibility</td><td>Every tunable lives in <code>config.yaml</code>; every session re-scorable offline from its log.</td></tr>
+<tr><td class="c">NFR8</td><td>Maintainability</td><td>Modular lanes with a uniform <code>LaneResult</code> interface; automated tests for every module.</td></tr>
+</table>
+
+<h2 id="s3-2">3.2 Feasibility Study</h2>
+<h3 id="s3-2-1">3.2.1 Technical Feasibility</h3>
+<p>Technical feasibility was established empirically before any lane was built (Milestone 0). The hardware probe confirmed that a consumer UVC webcam can have its exposure and white balance locked, that the display can redraw a full-screen border far faster than the chip rate, and that a ±110 grey-level border modulation produces a luminance change on facial skin that is measurable above sensor noise. The principal technical risk discovered was that the frame rate achievable at a face-detectable exposure was as low as 8 fps; this was addressed by adaptive chip-rate selection (Section 5.1.3). Mature open-source libraries — OpenCV {{c:opencv}}, MediaPipe face and hand landmarkers {{c:mediapipe,facemesh,mphands}}, NumPy {{c:numpy}} and SciPy {{c:scipy}} — cover all perception and signal-processing primitives on CPU.</p>
+<h3 id="s3-2-2">3.2.2 Economic Feasibility</h3>
+<p>PRAESENS requires no hardware beyond a standard laptop and uses only free and open-source software. There is no model-training cost, no labelled dataset to purchase and no per-call cloud fee. A detailed cost analysis is presented in Section 7.6; the marginal operating cost of a verification is a fraction of a paisa in electricity.</p>
+<h3 id="s3-2-3">3.2.3 Social Feasibility</h3>
+<p>The system protects people from impersonation fraud while being respectful of them: the light pattern is a gentle grey-level border change, the acoustic probe is a short tone, and the typing challenge is five ordinary words. The keystroke-privacy contract (only timing and a per-key boolean are retained) and the no-images policy reduce the data-protection burden for institutions adopting the system. Because the method is training-free, it does not inherit demographic bias from a training set; robustness across skin tone is nevertheless treated as an explicit evaluation axis, and low-reflectance conditions are routed to RE-CHALLENGE rather than REJECT.</p>
+
+<h2 id="s3-3">3.3 System Specification</h2>
+<h3 id="s3-3-1">3.3.1 Hardware Specification</h3>
+<div class="tblcap" id="t-hw">Hardware specification (development and evaluation platform)</div>
+<table class="data tight small">
+<tr><th style="width:28%">Component</th><th>Specification used</th><th style="width:28%">Minimum recommended</th></tr>
+<tr><td>Computer</td><td>ASUS TUF A16 laptop (Windows); MacBook for macOS compatibility testing</td><td>Any dual-core x86/ARM laptop</td></tr>
+<tr><td>Camera</td><td>Built-in / USB UVC webcam, 640 × 480, exposure-locked (8–30 fps depending on exposure)</td><td>UVC webcam supporting manual exposure, ≥ 15 fps</td></tr>
+<tr><td>Display</td><td>1920 × 1080 laptop panel, full-screen emitter window</td><td>Any display ≥ 60 Hz refresh</td></tr>
+<tr><td>Audio output</td><td>Realtek built-in speakers (MME)</td><td>Built-in speakers (not Bluetooth earbuds)</td></tr>
+<tr><td>Audio input</td><td>Realtek microphone array (MME), 44.1 kHz</td><td>Built-in microphone, 44.1 kHz</td></tr>
+<tr><td>Keyboard</td><td>Built-in keyboard</td><td>Any keyboard</td></tr>
+<tr><td>Memory / storage</td><td>Standard laptop memory; &lt; 50 MB disk for code, models and logs</td><td>4 GB RAM</td></tr>
+</table>
+<h3 id="s3-3-2">3.3.2 Software Specification</h3>
+<div class="tblcap" id="t-sw">Software specification</div>
+<table class="data tight small">
+<tr><th style="width:28%">Software</th><th>Purpose</th></tr>
+<tr><td>Python 3.11+</td><td>Implementation language</td></tr>
+<tr><td>OpenCV (opencv-python)</td><td>Camera capture, exposure locking, full-screen rendering, banner GUI</td></tr>
+<tr><td>MediaPipe Tasks (FaceLandmarker, HandLandmarker)</td><td>Facial landmarks for ROI placement; hand tracking for the standalone typing mode</td></tr>
+<tr><td>NumPy, SciPy</td><td>LFSR, correlation, Butterworth filtering, baseband demodulation</td></tr>
+<tr><td>sounddevice (PortAudio)</td><td>Duplex audio playback and capture for the acoustic lane</td></tr>
+<tr><td>pynput</td><td>OS keyboard hook for keystroke timing</td></tr>
+<tr><td>mss, pyvirtualcam, OBS Studio</td><td>Attack tooling: screen capture and virtual-camera injection</td></tr>
+<tr><td>Matplotlib, PyYAML</td><td>Evaluation figures; configuration</td></tr>
+<tr><td>pytest</td><td>Automated testing (148 test cases)</td></tr>
+<tr><td>Git / GitHub</td><td>Version control; session logs committed as evidence</td></tr>
+<tr><td>Windows 11, macOS</td><td>Target operating systems</td></tr>
+</table>
+</section>
+
+<!-- ===================== CHAPTER 4 ===================== -->
+<section class="main pb chapter" data-ch="4">
+<div class="chapter-head"><span class="num">CHAPTER 4</span><h1 id="ch4">Design Approach and Details</h1></div>
+
+<h2 id="s4-1">4.1 System Architecture</h2>
+<p>PRAESENS is organised as five layers ({{f-arch}}). The <b>challenge layer</b> draws one secret per session and derives every channel’s stimulus from it. The <b>emission layer</b> uses the host’s own screen and speaker as actuators. The <b>sensing layer</b> observes the physical response through one shared camera capture loop, one duplex audio stream and one keyboard hook — never two competing consumers of the same device. The <b>evidence lanes</b> turn raw sensor data into a uniform <code>LaneResult</code> (subscore, status, lag, confidence, diagnostics). Finally the <b>fusion and adjudication</b> layer applies lag-plausibility and binary gating rules to reach a verdict, which is shown to the user and written to a JSON log.</p>
+<figure id="f-arch"><img src="../fig/dg_architecture.png" style="width:100%"/><figcaption>Layered system architecture of PRAESENS</figcaption></figure>
+<p>Three design principles run through the architecture:</p>
+<ul>
+<li><b>One secret, many physics.</b> Light, sound and keystrokes propagate through unrelated physical media, but all carry functions of the same seed, so a single saved seed regenerates every lane’s expected signal exactly.</li>
+<li><b>Joint temporal coherence, not an averaged score.</b> A lane counts only if its response arrives at a physically plausible lag (0–300 ms for camera latency, 0–500 ms for an audio round trip). A high correlation at an implausible lag — a lucky coincidence or an attacker who matched magnitude but not timing — contributes nothing.</li>
+<li><b>Honest degradation.</b> A lane that cannot measure says <i>no_evidence</i> or <i>insufficient_signal</i>; it never fabricates a zero. This keeps “we could not see” distinct from “we saw an attack”.</li>
+</ul>
+<p>{{f-emit}} shows actual frames produced by the spatial emitter’s renderer: the left, right and top border zones carry independent codes while the centre shows the live camera preview.</p>
+<figure id="f-emit"><img src="../fig/emitter_frames.png" style="width:88%"/><figcaption>Four successive frames rendered by <code>SpatialEmitter.render_frame()</code>; each border zone switches independently between B+A and B−A</figcaption></figure>
+
+<h2 id="s4-2">4.2 Design</h2>
+<h3 id="s4-2-1">4.2.1 Data Flow Diagram</h3>
+<p>The context-level (Level 0) DFD in {{f-dfd0}} treats PRAESENS as a single process exchanging data with the claimant, the relying party and the operator. The Level 1 DFD in {{f-dfd1}} decomposes it into seven processes and three data stores. Note the data store D2: the optical lane correlates against the emitter’s <i>logged actual redraws</i>, not an idealised schedule, because operating-system scheduling jitter would otherwise blur the correlation peak.</p>
+<figure id="f-dfd0"><img src="../fig/dg_dfd0.png" style="width:55%"/><figcaption>Level 0 (context) data flow diagram</figcaption></figure>
+<figure id="f-dfd1"><img src="../fig/dg_dfd1.png" style="width:78%"/><figcaption>Level 1 data flow diagram</figcaption></figure>
+
+<h3 id="s4-2-2">4.2.2 Use Case Diagram</h3>
+<p>Four actors interact with the system ({{f-uc}}): the <b>claimant</b>, who starts a session and responds to the light, typing and acoustic challenges; the <b>attacker</b>, whose injected or replayed video must be caught by the light-challenge use case; the <b>operator / researcher</b>, who configures thresholds, runs the panel demonstration and collects evaluation corpora; and the <b>relying party</b>, which consumes the verdict and its reason.</p>
+<figure id="f-uc"><img src="../fig/dg_usecase.png" style="width:66%"/><figcaption>Use case diagram</figcaption></figure>
+
+<h3 id="s4-2-3">4.2.3 Class Diagram</h3>
+<p>{{f-class}} shows the principal classes. <code>Challenge</code> is an immutable value object that composes three <code>ZoneChallenge</code>s. Both emitters render a challenge and keep a redraw log. Each lane’s processor produces a lane-specific result (<code>OpticalResult</code>, <code>AcousticResult</code>, keystroke events) that is wrapped into the uniform <code>LaneResult</code>, which is the only type the <code>Adjudicator</code> and <code>adjudicate_two_lane()</code> consume. This uniform interface is what allowed new lanes to be added without changes to fusion.</p>
+<div class="land"><figure id="f-class"><img src="../fig/dg_class.png" style="width:22.5cm"/><figcaption>Class diagram of the core <code>praesens</code> package</figcaption></figure></div>
+
+<h3 id="s4-2-4">4.2.4 Sequence Diagram</h3>
+<p>{{f-seq}} traces one three-lane session. After exposure is locked and the steady-state frame rate measured, the chip rate is chosen; then the screen pattern, the acoustic probe and the typing phrase all run <i>concurrently</i> in one challenge window. Each camera frame is grabbed once and handed to the optical processor. Only after the window closes are the lanes finalised and adjudicated, so no lane can influence another’s measurement.</p>
+<div class="land"><figure id="f-seq"><img src="../fig/dg_sequence.png" style="width:22.5cm"/><figcaption>Sequence diagram of a concurrent three-lane verification session</figcaption></figure></div>
+
+<h3 id="s4-2-5">4.2.5 Verdict Decision Logic</h3>
+<p>The final adjudication policy is an explicit truth table ({{f-verdict}}): the optical lane is <i>primary</i> — if it fails, no other lane can rescue the session (REJECT). Typing and acoustic are <i>secondary</i> — if optical passes but a secondary lane fails, the user is asked to retry (RE-CHALLENGE) rather than being rejected outright. ACCEPT requires every lane that ran to pass.</p>
+<figure id="f-verdict"><img src="../fig/dg_verdict.png" style="width:40%"/><figcaption>Binary-gate adjudication flowchart</figcaption></figure>
+</section>

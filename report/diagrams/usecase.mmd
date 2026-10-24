@@ -1,0 +1,33 @@
+flowchart LR
+  classDef actor fill:#1F3A68,stroke:#1F3A68,color:#fff,font-weight:bold
+  classDef uc fill:#E8F8F5,stroke:#0F8B8D,stroke-width:2px,color:#111
+  classDef ucA fill:#FDEDEC,stroke:#C0392B,stroke-width:2px,color:#111
+  U(["👤 Claimant"]):::actor
+  A(["👤 Attacker"]):::actor
+  O(["👤 Operator /<br/>Researcher"]):::actor
+  RP(["🖥 Relying Party"]):::actor
+  subgraph SYS["PRAESENS System Boundary"]
+    direction TB
+    UC1(["Start verification session"]):::uc
+    UC2(["Respond to light challenge"]):::uc
+    UC3(["Type challenge phrase"]):::uc
+    UC4(["Allow acoustic probe"]):::uc
+    UC5(["View verdict banner"]):::uc
+    UC6(["Inject deepfake / replay video"]):::ucA
+    UC7(["Run panel demo & attack switch"]):::uc
+    UC8(["Collect corpus & run evaluation"]):::uc
+    UC9(["Configure thresholds & devices"]):::uc
+    UC10(["Receive verdict + reason"]):::uc
+  end
+  U --- UC1
+  U --- UC2
+  U --- UC3
+  U --- UC4
+  U --- UC5
+  A --- UC6
+  O --- UC7
+  O --- UC8
+  O --- UC9
+  RP --- UC10
+  UC1 -. include .-> UC2
+  UC6 -. detected by .-> UC2

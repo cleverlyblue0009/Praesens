@@ -1,0 +1,32 @@
+flowchart TB
+  classDef ext fill:#D6EAF8,stroke:#1F3A68,stroke-width:2px,color:#111
+  classDef proc fill:#D1F2EB,stroke:#0F8B8D,stroke-width:2px,color:#111
+  classDef store fill:#FEF5E7,stroke:#D4A017,stroke-width:2px,color:#111
+  U["User"]:::ext
+  R["Relying Party"]:::ext
+  P1(("1.0<br/>Generate<br/>challenge")):::proc
+  P2(("2.0<br/>Emit<br/>stimuli")):::proc
+  P3(("3.0<br/>Capture<br/>sensors")):::proc
+  P4(("4.0<br/>Optical<br/>scoring")):::proc
+  P5(("5.0<br/>Typing<br/>scoring")):::proc
+  P6(("6.0<br/>Acoustic<br/>scoring")):::proc
+  P7(("7.0<br/>Fuse &<br/>adjudicate")):::proc
+  D1[("D1 Challenge (seed, order, chip rate)")]:::store
+  D2[("D2 Emitter redraw log")]:::store
+  D3[("D3 Session logs")]:::store
+  P1 -- "chips, zone codes, phrase" --> P2
+  P1 --> D1
+  P2 -- "timestamped redraws" --> D2
+  P2 -- "light / sound / phrase" --> U
+  U -- "reflected light, audio, keys" --> P3
+  P3 -- "frames + perf_counter ts" --> P4
+  P3 -- "key-down/up events" --> P5
+  P3 -- "recorded audio" --> P6
+  D2 --> P4
+  D1 --> P5
+  D1 --> P6
+  P4 -- "subscore, lag, SNR" --> P7
+  P5 -- "subscore" --> P7
+  P6 -- "subscore, lag, SNR" --> P7
+  P7 -- "verdict + reason" --> R
+  P7 --> D3

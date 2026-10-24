@@ -1,0 +1,21 @@
+flowchart LR
+  classDef root fill:#1F3A68,color:#fff,stroke:#1F3A68,font-weight:bold
+  classDef pa fill:#FDEBD0,stroke:#E07A1F,stroke-width:2px,color:#111
+  classDef ia fill:#FADBD8,stroke:#C0392B,stroke-width:2px,color:#111
+  classDef d fill:#D1F2EB,stroke:#0F8B8D,stroke-width:2px,color:#111
+  R["Attacks on remote<br/>face verification"]:::root
+  P["Presentation attacks<br/>(in front of the camera)"]:::pa
+  I["Injection attacks<br/>(bypass the camera)"]:::ia
+  P1["Printed photo"]:::pa
+  P2["Screen replay"]:::pa
+  P3["3D / silicone mask"]:::pa
+  I1["Virtual camera feed<br/>(OBS, pyvirtualcam)"]:::ia
+  I2["Real-time face swap /<br/>reenactment"]:::ia
+  I3["Adaptive injector that<br/>mimics global brightness"]:::ia
+  D1["Passive texture / CNN PAD<br/>(LBP, CDCN, ...)"]:::d
+  D2["PRAESENS: active physical<br/>challenge-response"]:::d
+  R --> P & I
+  P --> P1 & P2 & P3
+  I --> I1 & I2 & I3
+  P1 & P2 & P3 -. "mostly handled by" .-> D1
+  I1 & I2 & I3 -. "require" .-> D2

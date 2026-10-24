@@ -1,0 +1,148 @@
+<!-- ===================== CHAPTER 7 ===================== -->
+<section class="main pb chapter" data-ch="7">
+<div class="chapter-head"><span class="num">CHAPTER 7</span><h1 id="ch7">Result and Discussion</h1></div>
+<p>All results in this chapter come from real sessions recorded on commodity laptops between August and September 2026 and committed to the project repository as JSON logs, re-analysed with the project’s own evaluation code. Where a result is obtained from synthetic signals, this is stated explicitly.</p>
+
+<div class="kpis">
+<div class="kpi" style="background:#0F8B8D"><span class="v">0.938</span><span class="l">AUC on 3,448<br/>cross-session trials</span></div>
+<div class="kpi" style="background:#1F3A68"><span class="v">10.2 %</span><span class="l">Equal error rate<br/>(optical lane alone)</span></div>
+<div class="kpi" style="background:#C0392B"><span class="v">0 / 8</span><span class="l">Real injection sessions<br/>above pass threshold</span></div>
+<div class="kpi" style="background:#2E9E5B"><span class="v">0.89</span><span class="l">Joint score, three-lane<br/>bona fide ACCEPT</span></div>
+<div class="kpi" style="background:#6C4AB6"><span class="v">₹ 0</span><span class="l">Additional hardware<br/>or licence cost</span></div>
+</div>
+
+<h2 id="s7-1">7.1 Evaluation Corpus</h2>
+<div class="tblcap" id="t-corpus">Real session corpus used for evaluation</div>
+<table class="data tight small">
+<tr><th>Condition</th><th>Sessions</th><th>Description</th></tr>
+<tr><td>Bona fide</td><td class="c">60</td><td>Live team members in front of the laptop; lighting (normal, dim, backlit, side-lit), distance (30–85 cm), eyewear and makeup varied</td></tr>
+<tr><td>Emitter OFF (control)</td><td class="c">5</td><td>Live person present, light pattern replaced by constant mid-grey</td></tr>
+<tr><td>Virtual-camera injection</td><td class="c">8</td><td>Pre-recorded face video injected through OBS Virtual Camera</td></tr>
+<tr><td><b>Total</b></td><td class="c"><b>73</b></td><td>Plus 3,385 cross-session injection-proxy trials constructed offline</td></tr>
+</table>
+
+<h2 id="s7-2">7.2 Optical Lane: Separation and Error Rates</h2>
+<p>{{t-dist}} and {{f-dist}} show the optical score per condition. Bona fide sessions have a median score of 0.73. When the same genuine traces are scored against a mismatched challenge — the injection proxy — the median falls to 0.055. The emitter-off control collapses to 0.009 ± 0.021 even though a real, live person was in front of the camera; this single result is the strongest evidence that the score measures the physical coupling between our emitted light and the face, and not merely “a face is present”.</p>
+<div class="tblcap" id="t-dist">Optical score distribution per condition</div>
+<table class="data tight">
+<tr><th>Condition</th><th>n</th><th>Mean</th><th>SD</th><th>Median</th><th>Min</th><th>Max</th></tr>
+<tr><td>Bona fide (own challenge)</td><td class="c">59</td><td class="c">0.621</td><td class="c">0.241</td><td class="c">0.730</td><td class="c">−0.034</td><td class="c">0.847</td></tr>
+<tr><td>Cross-session injection proxy</td><td class="c">3,385</td><td class="c">0.063</td><td class="c">0.088</td><td class="c">0.055</td><td class="c">−0.456</td><td class="c">0.765</td></tr>
+<tr><td>Emitter OFF control</td><td class="c">4</td><td class="c">0.009</td><td class="c">0.021</td><td class="c">0.015</td><td class="c">−0.024</td><td class="c">0.029</td></tr>
+<tr><td>Real virtual-camera injection</td><td class="c">8</td><td class="c">0.099</td><td class="c">0.066</td><td class="c">0.105</td><td class="c">−0.018</td><td class="c">0.179</td></tr>
+</table>
+<figure id="f-dist"><img src="../fig/fig_score_dist.png" style="width:96%"/><figcaption>Optical score distributions: bona fide sessions separate clearly from the injection proxy, the emitter-off control and real virtual-camera injection</figcaption></figure>
+<p>Treating bona fide as positive and the cross-session proxy plus emitter-off trials as negative gives the ROC curve of {{f-roc}} and the metrics in {{t-roc}}. With the optical lane <b>alone</b>, the AUC is 0.938 and the EER is 10.2 %. On the first 19-session corpus (August 2026) the same analysis gave AUC 0.905 and EER 14.1 %; the improvement came from the capture fixes of Section 5.2.3 and a larger corpus, not from re-tuning thresholds.</p>
+<div class="two">
+<figure id="f-roc" style="flex:0.9"><img src="../fig/fig_roc.png" style="width:100%"/><figcaption>ROC curve of the optical lane</figcaption></figure>
+<div style="flex:1.1; padding-top:10pt">
+<div class="tblcap" id="t-roc">ISO/IEC 30107-3 metrics at the EER threshold</div>
+<table class="data">
+<tr><th>Metric</th><th>Aug 2026<br/>(19 sessions)</th><th>Final<br/>(73 sessions)</th></tr>
+<tr><td>Trials</td><td class="c">200</td><td class="c">3,448</td></tr>
+<tr><td>AUC</td><td class="c">0.905</td><td class="c"><b>0.938</b></td></tr>
+<tr><td>EER</td><td class="c">14.1 %</td><td class="c"><b>10.2 %</b></td></tr>
+<tr><td>APCER</td><td class="c">14.0 %</td><td class="c"><b>10.2 %</b></td></tr>
+<tr><td>BPCER</td><td class="c">14.3 %</td><td class="c"><b>10.2 %</b></td></tr>
+<tr><td>ACER</td><td class="c">14.1 %</td><td class="c"><b>10.2 %</b></td></tr>
+<tr><td>EER threshold</td><td class="c">0.102</td><td class="c">0.172</td></tr>
+</table>
+</div></div>
+<p>It is important to read these numbers correctly. The cross-session proxy is a deliberately <i>hard</i> negative class: each negative trial is a real face that genuinely responded to <i>some</i> m-sequence, so chance alignments with another session’s code occasionally produce high correlations (maximum 0.765). Moreover, these are single-lane, single-score numbers. The deployed verdict additionally requires the optical lag to be plausible and, in three-lane mode, requires the typing and acoustic lanes to pass with their own independently-drawn evidence; the probability that an attacker’s video coincidentally aligns in all of them at once is far lower than the single-lane APCER.</p>
+
+<h2 id="s7-3">7.3 Timing as Evidence: Lag Analysis</h2>
+<p>Genuine responses peak at a short, physically meaningful lag — the camera’s own capture latency — with a mean of 50 ms (SD 50 ms). Mismatched trials peak almost anywhere, with a mean of 147 ms (SD 116 ms) and a large mass at the 300 ms search boundary, which is the signature of no real peak at all ({{f-lag}}). This is why the fusion layer treats a high score at an implausible lag as no evidence.</p>
+<figure id="f-lag"><img src="../fig/fig_lag_hist.png" style="width:96%"/><figcaption>Distribution of the lag at the correlation peak for bona fide and cross-session trials</figcaption></figure>
+
+<h2 id="s7-4">7.4 Real Injection Attacks and Fused Verdicts</h2>
+<p>Eight sessions injected a pre-recorded face video through OBS Virtual Camera. Their optical scores ranged from −0.018 to 0.179 — <b>every one below the 0.30 pass threshold</b> — and six of the eight were additionally flagged as insufficient signal, since an injected stream carries no in-band energy at the chip rate. {{f-snr}} plots score against SNR for all sessions: bona fide sessions cluster at high score and high SNR, while injected and emitter-off sessions sit at low score, mostly below the 3 dB floor.</p>
+<figure id="f-snr"><img src="../fig/fig_snr_scatter.png" style="width:94%"/><figcaption>Optical score versus estimated SNR for every real session</figcaption></figure>
+<p>Thirteen sessions were recorded after the full fusion pipeline was in place and therefore carry a complete adjudicated verdict ({{f-verdicts}}, {{t-verdicts}}).</p>
+<figure id="f-verdicts"><img src="../fig/fig_verdicts.png" style="width:86%"/><figcaption>Verdicts of the thirteen fully-adjudicated live sessions</figcaption></figure>
+<div class="tblcap" id="t-verdicts">Confusion summary of fully-adjudicated live sessions</div>
+<table class="data">
+<tr><th>Ground truth</th><th>ACCEPT</th><th>RE-CHALLENGE</th><th>REJECT</th><th>Total</th></tr>
+<tr><td>Bona fide</td><td class="c" style="color:#2E9E5B"><b>6</b></td><td class="c">2</td><td class="c">2</td><td class="c">10</td></tr>
+<tr><td>Virtual-camera injection</td><td class="c" style="color:#C0392B"><b>0</b></td><td class="c">2</td><td class="c">1</td><td class="c">3</td></tr>
+</table>
+<div class="callout good"><p><b>No attack was ever accepted.</b> Every injection attempt ended in REJECT or RE-CHALLENGE. Of the four bona fide sessions that were not accepted, two occurred on 13 September while the acoustic lane still had the clock-drift defect described in Section 5.1.6, and the other two were genuine optical failures (one with insufficient signal, routed honestly to RE-CHALLENGE). After the acoustic fix, the complete three-lane bona fide session scored optical 0.75 (lag 25 ms, SNR 7.1 dB), typing 1.00 (27/27 characters, mean inter-key 0.146 s) and acoustic 0.93 (lag 332 ms, SNR 10.8 dB), and was ACCEPTED with a joint score of 0.89.</p></div>
+
+<h2 id="s7-5">7.5 Defence in Depth: Spatial Challenge and Ablation</h2>
+<p>The adaptive-injector test drives the real image-processing code path of the attack — screen-estimated waveform, Y-channel luminance multiply — on an unrelated source video. With a perfect estimate, the attack raises the <i>global</i> optical score from 0.053 to 0.951, i.e. it would defeat a single-zone system. The <i>spatial</i> assignment score, however, stays at −0.020, so the attack is exposed ({{f-spatial}}). This demonstrates why the spatially-differential challenge is a necessary design element and not an optional refinement.</p>
+<p>The ablation study recomputes the verdict with each lane removed ({{f-ablation}}). Among the ten sessions that ACCEPTed with all lanes present, removing the optical lane or the typing lane withdrew acceptance in 10 of 10 cases (100 %), leaving RE-CHALLENGE — never a manufactured ACCEPT or REJECT. Each real lane is therefore necessary, not merely additive. (For this analysis the typing lane was represented by a fixed, clearly-labelled synthetic result, because the historical optical corpus predates the typing lane; the acoustic entry was the stub at that time.)</p>
+<figure id="f-ablation"><img src="../fig/fig_ablation.png" style="width:66%"/><figcaption>Ablation: fraction of ACCEPT verdicts lost when each lane is removed</figcaption></figure>
+
+<h2 id="s7-6">7.6 Robustness and Operating Conditions</h2>
+<p>{{f-robust}} breaks the bona fide score down by capture condition. Dim and backlit lighting gave high scores (0.81 and 0.83): with less ambient light, the screen is a larger fraction of the light on the face. Side-lighting reduced the mean to 0.50, and eyewear (n = 2) reduced it to 0.38 because lens reflections and frames disturb the cheek ROIs. Foundation makeup did not hurt (0.71). One session at 80 cm failed (0.03), indicating a practical working distance of about 30–70 cm, which matches normal laptop use. The sample sizes for some conditions are small and these results are indicative rather than conclusive.</p>
+<figure id="f-robust"><img src="../fig/fig_robustness.png" style="width:100%"/><figcaption>Mean bona fide optical score by lighting, eyewear and makeup (error bars: one standard deviation)</figcaption></figure>
+<p>Frame rate is the dominant hardware constraint. {{f-exposure}} reproduces the exposure sweep: each one-step increase in exposure time halves the achievable frame rate (8.2 fps at −3 versus 31.2 fps at −5), irrespective of pixel format. Adaptive chip-rate selection keeps the system working across this range; with exposure −4 and correct warm-up, a real session ran at 16.0 fps with a 1.60 Hz chip rate, 556 of 556 frames with a detected face, SNR 7.72 dB and score 0.786.</p>
+<figure id="f-exposure"><img src="../fig/fig_exposure.png" style="width:84%"/><figcaption>Measured capture rate versus manual exposure value, and the chip rate selected automatically</figcaption></figure>
+
+<h2 id="s7-7">7.7 Comparison with Existing Approaches</h2>
+<div style="break-inside:avoid"><div class="tblcap" id="t-compare">Qualitative comparison with representative approaches</div>
+<table class="data tight small">
+<tr><th style="width:22%">Property</th><th>Passive texture / CNN PAD</th><th>Forensic deepfake classifiers</th><th>Single-channel active (screen flash / echo)</th><th style="background:#0F8B8D">PRAESENS</th></tr>
+<tr><td>Detects camera-bypassing injection</td><td class="c">No</td><td class="c">Partly (known fakes)</td><td class="c">Yes</td><td class="c"><b>Yes</b></td></tr>
+<tr><td>Robust to better generators</td><td class="c">No</td><td class="c">No</td><td class="c">Yes</td><td class="c"><b>Yes</b></td></tr>
+<tr><td>Resists screen-observing adaptive attacker</td><td class="c">—</td><td class="c">—</td><td class="c">Weak (one global code)</td><td class="c"><b>Yes (spatial codes)</b></td></tr>
+<tr><td>Independent physical channels</td><td class="c">1</td><td class="c">1</td><td class="c">1–2</td><td class="c"><b>3, one shared secret</b></td></tr>
+<tr><td>Training data required</td><td class="c">Yes</td><td class="c">Yes</td><td class="c">Often</td><td class="c"><b>No</b></td></tr>
+<tr><td>Extra hardware</td><td class="c">No</td><td class="c">No (GPU often)</td><td class="c">Smartphone-specific</td><td class="c"><b>No (any laptop)</b></td></tr>
+<tr><td>Explainable verdict</td><td class="c">No</td><td class="c">No</td><td class="c">Partly</td><td class="c"><b>Yes, per lane</b></td></tr>
+<tr><td>Separates “no signal” from “attack”</td><td class="c">No</td><td class="c">No</td><td class="c">Rarely</td><td class="c"><b>Yes (SNR gating)</b></td></tr>
+</table></div>
+
+<h2 id="s7-8">7.8 Cost Analysis</h2>
+<p>PRAESENS was designed to cost nothing beyond the computer the user already owns. {{t-cost}} itemises development and deployment costs.</p>
+<div class="tblcap" id="t-cost">Cost analysis</div>
+<table class="data tight">
+<tr><th style="width:42%">Item</th><th>Development cost</th><th>Per-deployment cost</th></tr>
+<tr><td>Laptop with webcam, speaker, microphone</td><td class="c">Already owned (₹0 incremental)</td><td class="c">₹0 (uses existing device)</td></tr>
+<tr><td>Depth / IR / specialised sensors</td><td class="c">Not required</td><td class="c">₹0</td></tr>
+<tr><td>Python, OpenCV, MediaPipe, NumPy, SciPy, OBS</td><td class="c">₹0 (open source)</td><td class="c">₹0</td></tr>
+<tr><td>Training dataset and GPU training</td><td class="c">Not required</td><td class="c">₹0</td></tr>
+<tr><td>Cloud inference / API calls</td><td class="c">Not required</td><td class="c">₹0 (runs fully on-device)</td></tr>
+<tr><td>Energy per 40 s verification (≈ 60 W × 40 s ≈ 0.67 Wh at ₹8/kWh)</td><td class="c">—</td><td class="c">≈ ₹0.005</td></tr>
+<tr><td><b>Total</b></td><td class="c"><b>₹0</b></td><td class="c"><b>&lt; 1 paisa per verification</b></td></tr>
+</table>
+<p>By contrast, learning-based anti-spoofing requires labelled spoof datasets and GPU training, and commercial liveness services are generally licensed per verification. Against the scale of losses that a single successful deepfake impersonation can cause {{c:cnn_hk}}, a training-free, hardware-free defence offers an exceptional cost–benefit ratio, particularly for educational institutions, small financial firms and public services.</p>
+
+<h2 id="s7-9">7.9 Limitations</h2>
+<ul>
+<li>The corpus is dominated by two subjects; demographic robustness, in particular across darker skin tones where skin reflectance is lower {{c:anderson}}, requires a larger multi-subject study. The SNR-gated RE-CHALLENGE path is designed to fail safe in exactly that case.</li>
+<li>Real attack sessions so far are static virtual-camera injections; a live end-to-end run of the adaptive injector and a ≥ 20-switch collapse-latency distribution are built and unit-tested but not yet collected.</li>
+<li>Session length (20–40 s) is longer than commercial passive checks, driven by the frame-rate ceiling at face-detectable exposure.</li>
+<li>The acoustic lane depends on the output device: Bluetooth earbuds or muted speakers make it fail (correctly reported, but inconvenient).</li>
+</ul>
+</section>
+
+<!-- ===================== CHAPTER 8 ===================== -->
+<section class="main pb chapter" data-ch="8">
+<div class="chapter-head"><span class="num">CHAPTER 8</span><h1 id="ch8">Conclusion</h1></div>
+<p>This project set out to answer a practical question: can an ordinary laptop, with no additional hardware, tell a live person in front of its camera from a deepfake or an injected video? PRAESENS answers it by moving the problem from appearance to physics. Instead of asking whether frames <i>look</i> real — a question generative models are getting better at answering “yes” to — it asks whether the scene <i>responded</i> to a secret, unpredictable stimulus that did not exist until the session began, with the right code, at the right time, in the right place on the face.</p>
+<p>The work delivered a complete, tested and demonstrable system: a cryptographically seeded m-sequence challenge; screen, speaker and keyboard used as actuators; a shared capture loop; optical, spatial, typing and acoustic evidence lanes; a lag-gated, explainable three-way adjudicator; attack tooling built against ourselves; and an evaluation pipeline speaking the language of ISO/IEC 30107-3. On real hardware the optical lane alone reached an AUC of 0.938 and an EER of 10.2 % on 3,448 cross-session trials; the emitter-off control collapsed to 0.009, proving causality; all real virtual-camera injections scored below threshold; no attack was ever accepted by the fused verdict; a full three-lane genuine session was accepted with a joint score of 0.89; and the spatial challenge exposed an adaptive attack that would have fooled a single-zone design (global 0.95, spatial −0.02).</p>
+<p>Equally important are the engineering lessons that the measured, milestone-by-milestone approach surfaced: an exposure-bound frame-rate ceiling that no pixel-format change could lift; a preflight measurement taken one step too early; a fusion rule that let a strong lane rescue a failing one; and an acoustic detector defeated by clock drift and a pair of earbuds. Each was found by measurement, fixed at its root, and protected by a regression test.</p>
+
+<h2 id="s8-1">8.1 Future Work</h2>
+<ul>
+<li><b>Larger, more diverse evaluation</b> with many subjects across Fitzpatrick skin types, ages and eyewear, and collection of the full planned attack corpus (static, swap, reenactment and adaptive injection).</li>
+<li><b>Colour (chromatic) challenges</b> exploiting the wavelength-dependent absorption of melanin and haemoglobin, linking the optical lane more deeply to skin biophysics and rPPG.</li>
+<li><b>Gold-code zone families</b> {{c:gold}} for more than three zones and finer spatial resolution.</li>
+<li><b>Shorter sessions</b> via sequential probability ratio testing that stops as soon as the evidence is conclusive.</li>
+<li><b>Mobile and browser deployment</b> (WebRTC) and an inertial lane on devices that expose an IMU, using the stub interface already in place.</li>
+<li><b>Integration</b> as a plug-in for video-KYC and online-proctoring platforms, with the verdict and reason passed to the relying party.</li>
+</ul>
+</section>
+
+<!-- ===================== CHAPTER 9 ===================== -->
+<section class="main pb chapter" data-ch="9">
+<div class="chapter-head"><span class="num">CHAPTER 9</span><h1 id="ch9">References</h1></div>
+{{REFS}}
+</section>
+
+<!-- ===================== APPENDIX ===================== -->
+<section class="main pb chapter" data-ch="A">
+<div class="chapter-head"><span class="num">APPENDIX A</span><h1 id="appA">Sample Code</h1></div>
+<p>Representative excerpts from the PRAESENS source code are reproduced below (comments abridged).</p>
+{{CODE}}
+</section>

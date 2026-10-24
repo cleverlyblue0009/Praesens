@@ -1,0 +1,54 @@
+flowchart TB
+  classDef ch fill:#FDEBD0,stroke:#E07A1F,stroke-width:2px,color:#222
+  classDef em fill:#FEF5E7,stroke:#D4A017,stroke-width:2px,color:#222
+  classDef sense fill:#D6EAF8,stroke:#1F3A68,stroke-width:2px,color:#222
+  classDef lane fill:#D1F2EB,stroke:#0F8B8D,stroke-width:2px,color:#222
+  classDef fuse fill:#E8DAEF,stroke:#6C4AB6,stroke-width:2px,color:#222
+  classDef out fill:#D5F5E3,stroke:#2E9E5B,stroke-width:2px,color:#222
+  classDef store fill:#F2F3F4,stroke:#7F8C8D,stroke-width:2px,color:#222
+  subgraph L1["① CHALLENGE LAYER"]
+    SEED["Cryptographic session seed<br/>(secrets.randbelow)"]:::ch
+    LFSR["Fibonacci LFSR<br/>m-sequence synthesiser"]:::ch
+    ZONES["Zone codes<br/>(cyclic shifts L/R/T)"]:::ch
+    PHRASE["Challenge phrase<br/>(offline word list)"]:::ch
+    SEED --> LFSR --> ZONES
+    SEED --> PHRASE
+  end
+  subgraph L2["② EMISSION LAYER"]
+    SCR["Screen-border emitter<br/>±110 grey-level luminance"]:::em
+    SPK["Speaker<br/>BPSK probe on 4 kHz carrier"]:::em
+    TXT["On-screen phrase overlay"]:::em
+  end
+  subgraph L3["③ SENSING LAYER"]
+    CAM["Webcam<br/>exposure & WB locked"]:::sense
+    MIC["Microphone<br/>duplex stream"]:::sense
+    KBD["Keyboard hook<br/>timing only, no characters"]:::sense
+  end
+  subgraph L4["④ EVIDENCE LANES"]
+    OPT["Optical lane<br/>MediaPipe ROIs → detrend →<br/>lag-searched correlation + SNR"]:::lane
+    SPA["Spatial sub-score<br/>ROI × zone matrix"]:::lane
+    TYP["Typing lane<br/>match fraction × timing plausibility"]:::lane
+    ACO["Acoustic lane<br/>segmented differential<br/>matched filter"]:::lane
+  end
+  subgraph L5["⑤ FUSION and ADJUDICATION"]
+    GATE["Lag-plausibility gate<br/>(optical 0–300 ms, acoustic 0–500 ms)"]:::fuse
+    ADJ["Binary-gate adjudicator<br/>primary: optical · secondary: typing, acoustic"]:::fuse
+  end
+  V["Verdict: ACCEPT / RE-CHALLENGE / REJECT<br/>+ plain-language reason"]:::out
+  LOG[("JSON session log<br/>numeric traces only")]:::store
+  LFSR --> SCR
+  ZONES --> SCR
+  LFSR --> SPK
+  PHRASE --> TXT
+  SCR -. light reflects off skin .-> CAM
+  SPK -. sound propagates through room .-> MIC
+  TXT -. user types .-> KBD
+  CAM --> OPT --> SPA
+  MIC --> ACO
+  KBD --> TYP
+  OPT --> GATE
+  ACO --> GATE
+  TYP --> ADJ
+  SPA --> ADJ
+  GATE --> ADJ --> V
+  ADJ --> LOG
