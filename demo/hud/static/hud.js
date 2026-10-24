@@ -427,6 +427,26 @@ function onTelemetryInner(t) {
 }
 
 $("scanBtn").onclick = () => send({ type: "scan" });
+
+// The edge strips are the optical emitter. Windowed, they are a thin frame around a dark page and
+// light almost nothing (the 2026-10-24 night scans failed at 20-33% face coverage, all windowed).
+// On ASUS laptops plain F11 is a media key, so give the page its own way in, and say when it's out.
+function isFullscreen() {
+  return !!document.fullscreenElement || (Math.abs(window.innerHeight - screen.height) < 4 &&
+                                          Math.abs(window.innerWidth - screen.width) < 4);
+}
+function syncFullscreen() {
+  const fs = isFullscreen();
+  $("fsChip").hidden = fs;
+  $("fsBtn").textContent = fs ? "Exit fullscreen" : "Fullscreen";
+}
+$("fsBtn").onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch((e) => toast(`fullscreen refused: ${e.message}`));
+};
+document.addEventListener("fullscreenchange", syncFullscreen);
+window.addEventListener("resize", syncFullscreen);
+syncFullscreen();
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && $("verdict").classList.contains("on")) $("vClose").click();
 });

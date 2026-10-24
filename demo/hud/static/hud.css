@@ -216,3 +216,9 @@ button.scan { font-weight: 600; letter-spacing: .02em; }
 #injectBtn { color: var(--amber); border-color: rgba(216,169,110,.5); }
 .stage { background: #07091a; }
 .policy { color: var(--dim); }
+
+/* fullscreen: the emitter IS the page edges, so a windowed page is a measurement problem, not a style one */
+button.fs { font: 500 .78rem inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; padding: .35rem .8rem; cursor: pointer; margin-right: .5rem; }
+button.fs:hover { border-color: var(--holo); }
+.chip.warn { color: var(--amber); border-color: rgba(216,169,110,.55); }

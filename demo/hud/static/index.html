@@ -19,11 +19,13 @@
     <div class="mark"><b>PRAESENS</b><span>multimodal proof of human presence</span></div>
     <div class="status" id="status">Connecting to the sensor engine…</div>
     <div class="chips">
+      <span class="chip warn" id="fsChip" hidden>Not fullscreen � the edge light can't reach your face</span>
       <span class="chip synth" id="synthChip" hidden>Synthetic sensors — not a measurement</span>
       <span class="chip live" id="liveChip">offline</span>
       <span class="chip" id="fpsChip">— fps</span>
       <span class="chip" id="syncChip">clock —</span>
     </div>
+    <button class="fs" id="fsBtn" title="The page edges are the light source -- they must fill the screen">Fullscreen</button>
     <button class="scan" id="scanBtn" disabled>Start scan</button>
   </header>
 
