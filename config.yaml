@@ -263,7 +263,8 @@ pulse:
 hud:
   host: 127.0.0.1
   port: 8765
-  lanes: optical+typing+pressure   # what a SCAN runs; add +acoustic for the 4-lane session
+  lanes: optical+typing+acoustic+pressure   # what a SCAN runs. The acoustic probe only plays
+                                   # during a scan, never between scans (it is an audible tone)
   stream_fps: 15                   # telemetry + camera preview rate to the browser
   jpeg_quality: 70
   border_fraction: 0.18            # emitter strip width (fraction of each screen edge). The OpenCV emitter
@@ -271,3 +272,8 @@ hud:
                                    # live optical SNR is marginal on the demo laptop
   live_window_s: 8.0               # rolling window for the live optical score between scans
   verdict_hold_s: 12.0
+  max_scan_s: 60.0                 # refuse to start a scan longer than this. auto_chip_rate turns a
+                                   # low measured fps into a low chip rate and then stretches the
+                                   # session to keep auto_chip_rate_min_chips -- a 0.5 Hz chip rate
+                                   # means a 120 s scan, which is not a demo (seen live 2026-10-24)
+  inject_wpm: 50.0                 # typing speed for the HUD's "Inject typing" attack button

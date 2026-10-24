@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import json
 import math
+import platform
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -266,6 +268,9 @@ class HudEngine:
         self.mic_error = None
         self.keys = None
         self.keys_error = None
+        self._cameras = None
+        self._injecting = False
+        self.last_acoustic = None     # the acoustic lane only runs during a scan
         self.emitter: BrowserEmitter | None = None
         self.processor = None
         self.chip_rate_hz = float(raw_config.get("challenge", {}).get("chip_rate_hz", 2.0))
@@ -354,6 +359,73 @@ class HudEngine:
         self._start_keys(None)
         self._enter_idle()
 
+    def camera_sources(self) -> list:
+        """[{role, index, name}] for the UI. The OBS Virtual Camera's index is
+        whatever DirectShow happens to enumerate it at, so the button asks for
+        a ROLE and the engine resolves it by device name -- guessing "1" is how
+        a demo ends up switching to nothing."""
+        if self._cameras is not None:
+            return self._cameras
+        names: list = []
+        if platform.system() == "Windows":
+            try:
+                from pygrabber.dshow_graph import FilterGraph
+                names = FilterGraph().get_input_devices()
+            except Exception as e:
+                self.warnings.append(f"could not enumerate camera names ({e})")
+        out = []
+        for i, name in enumerate(names):
+            role = "obs" if ("obs" in name.lower() or "virtual" in name.lower()) else "webcam"
+            out.append({"role": role, "index": i, "name": name})
+        if not out:   # no pygrabber / not Windows: fall back to the configured index
+            out = [{"role": "webcam", "index": self.oconfig.camera_index, "name": "camera"}]
+        self._cameras = out
+        return out
+
+    def resolve_camera(self, target) -> tuple:
+        """target: a role ("webcam"/"obs") or an explicit index. Returns
+        (index, label) or (None, reason)."""
+        sources = self.camera_sources()
+        if isinstance(target, str) and not target.isdigit():
+            for c in sources:
+                if c["role"] == target:
+                    return c["index"], c["name"]
+            return None, f"no {target} camera found -- is OBS Virtual Camera started?"
+        idx = int(target)
+        for c in sources:
+            if c["index"] == idx:
+                return idx, c["name"]
+        return idx, f"camera {idx}"
+
+    def inject_typing(self) -> str:
+        """Type this session's phrase with pynput, as an attacker would. The OS
+        sees real key events, so the typing lane is satisfied; no finger hits
+        the keyboard, so the pressure lane should collapse. Real attack, not a
+        simulation -- the synthetic toggles are a different thing."""
+        if self.synthetic:
+            return "use the synthetic inject toggle in synthetic mode"
+        with self.lock:
+            scan = self.scan
+        phrase = scan["phrase"] if scan else None
+        if not phrase:
+            return "start a scan first -- there is no phrase to inject yet"
+        if self._injecting:
+            return "injection already running"
+
+        def run():
+            self._injecting = True
+            try:
+                sys.path.insert(0, str(REPO_ROOT / "scripts"))
+                import inject_keys
+                inject_keys.inject(phrase, wpm=float(self.hud.get("inject_wpm", 50.0)), delay_s=0.4)
+            except Exception as e:
+                self.warnings.append(f"keystroke injection failed: {e}")
+            finally:
+                self._injecting = False
+
+        threading.Thread(target=run, daemon=True).start()
+        return f"injecting {len(phrase)} keystrokes -- hands off the keyboard"
+
     def _prime_camera(self, cap, tries: int = 25) -> bool:
         """isOpened() is not proof of life: on Windows a second handle to a
         camera that is already open reports True and then never delivers a
@@ -387,8 +459,10 @@ class HudEngine:
         if self.synthetic:
             return "synthetic mode has no cameras"
         from praesens.camera import open_camera
-        index = int(index)
-        previous = self.oconfig.camera_index
+        resolved, label = self.resolve_camera(index)
+        if resolved is None:
+            return label
+        index, previous = int(resolved), self.oconfig.camera_index
 
         with self.lock:
             old, self.cap = self.cap, None      # capture_loop idles while cap is None
@@ -403,7 +477,7 @@ class HudEngine:
                 self.oconfig.camera_index = index
             if self.mode == "idle":
                 self._enter_idle()              # fresh processor: no history from the old camera
-            return f"switched to camera {index}"
+            return f"switched to {label}"
 
         new.release()
         back = open_camera(previous)
@@ -412,7 +486,7 @@ class HudEngine:
             with self.lock:
                 self.cap = back
                 self.oconfig.camera_index = previous
-            return f"camera {index} delivered no frames -- still on camera {previous}"
+            return f"{label} delivered no frames -- still on camera {previous}"
         back.release()
         self.warnings.append(f"camera {index} failed and camera {previous} could not be reopened")
         return f"camera {index} did not open, and camera {previous} could not be reopened"
@@ -423,14 +497,27 @@ class HudEngine:
 
     # -- modes --------------------------------------------------------------
     def measured_fps(self) -> float:
+        """NaN unless the frames are both plentiful AND recent: a frozen or
+        just-reopened camera otherwise reports whatever rate it last achieved,
+        and that number decides the chip rate for the next scan."""
         ts = self.frame_times[-40:]
-        return float((len(ts) - 1) / (ts[-1] - ts[0])) if len(ts) >= 5 and ts[-1] > ts[0] else float("nan")
+        if len(ts) < 5 or ts[-1] <= ts[0] or time.perf_counter() - ts[-1] > 2.0:
+            return float("nan")
+        return float((len(ts) - 1) / (ts[-1] - ts[0]))
 
     def _pick_chip_rate(self, base_duration_s: float) -> tuple[float, float]:
         o = self.raw.get("optical", {})
+        cfg_rate = float(self.raw.get("challenge", {}).get("chip_rate_hz", 2.0))
         if not o.get("auto_chip_rate", False):
             return self.chip_rate_hz, float(self.raw.get("challenge", {}).get("duration_s", base_duration_s))
         fps = self.measured_fps()
+        if not np.isfinite(fps):
+            # pick_auto_chip_rate maps a NaN fps onto its floor (0.5 Hz), and the session then
+            # stretches to min_chips/0.5 = 120 s to keep the chip count -- a two-minute scan
+            # chosen from a measurement that never happened (seen live, 2026-10-24).
+            self.warnings.append(f"camera frame rate not measurable at scan start -- using the "
+                                 f"configured chip rate {cfg_rate:.2f} Hz instead of the auto one")
+            return cfg_rate, base_duration_s
         return pick_auto_chip_rate(fps, divisor=o.get("auto_chip_rate_divisor", 6.0), min_hz=0.5, max_hz=5.0,
                                    min_chips=o.get("auto_chip_rate_min_chips", 60),
                                    base_duration_s=base_duration_s)
@@ -456,6 +543,15 @@ class HudEngine:
         self.publish(em.describe())
 
     def start_scan(self) -> str:
+        with self.lock:
+            if self.mode != "idle":
+                return f"busy ({self.mode})"
+        _rate, dur = self._pick_chip_rate(float(self.raw.get("challenge", {}).get("duration_s", 20.0)))
+        max_s = float(self.hud.get("max_scan_s", 60.0))
+        if dur > max_s:
+            fps = self.measured_fps()
+            return (f"camera is delivering {fps:.1f} fps, which needs a {dur:.0f}s scan "
+                    f"(cap {max_s:.0f}s) -- improve the light or the camera first")
         with self.lock:
             if self.mode != "idle":
                 return f"busy ({self.mode})"
@@ -623,6 +719,9 @@ class HudEngine:
         with open(out_path, "w") as f:
             json.dump(record, f, indent=2, default=lambda o: None)
 
+        self.last_acoustic = next(({"score": l.subscore, "lag_ms": l.lag_ms, "status": l.status,
+                                    "diagnostics": l.diagnostics, "passes": _passes(l), "t": time.perf_counter()}
+                                   for l in lane_results if l.lane_name == "acoustic" and not l.is_stub), None)
         self.result = {
             "t": time.perf_counter(), "session": session_id, "log": (str(out_path.relative_to(REPO_ROOT)) if out_path.is_relative_to(REPO_ROOT) else str(out_path)),
             "verdict": joint.verdict, "joint_score": _f(joint.joint_score), "reason": joint.reason_text,
@@ -865,6 +964,15 @@ class HudEngine:
                        "spectrum": _downsample(pu.spectrum, 70) if pu.spectrum is not None else []}
                       if pu is not None else {"status": "no_evidence", "reason": "acquiring skin signal"}),
             "pressure": {**self.live_pressure, "now": now},
+            "acoustic": {
+                "in_lanes": "acoustic" in self.lanes,
+                # the probe is a 20 s duplex tone: it only runs inside a scan, never live
+                "state": ("probing" if (mode == "scan" and "acoustic" in self.lanes)
+                          else "scoring" if mode == "scoring" and "acoustic" in self.lanes else "idle"),
+                "last": self.last_acoustic,
+                "carrier_hz": float(self.raw.get("acoustic", {}).get("carrier_hz", 4000.0)),
+            },
+            "cameras": self.camera_sources() if not self.synthetic else [],
             "scan": scan_info,
             "warnings": self.warnings[-4:],
             "sim": ({"attack_video": self.world.attack_video, "attack_keys": self.world.attack_keys,

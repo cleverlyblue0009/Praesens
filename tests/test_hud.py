@@ -6,6 +6,7 @@ these tests run the REAL lane code (OpticalFrameProcessor.finalize,
 analyse_keystroke_impacts, estimate_pulse, adjudicate_two_lane); each
 attack toggle breaks exactly one physical coupling."""
 import json
+import math
 import threading
 import time
 
@@ -174,6 +175,9 @@ def camera_engine(monkeypatch):
     monkeypatch.setattr(e, "_enter_idle", lambda: None)   # isolate camera handling
     e.cap = fake_open(0)
     e.oconfig.camera_index = 0
+    # fixed device list: resolution must not depend on what DirectShow reports on this machine
+    e._cameras = [{"role": "webcam", "index": 0, "name": "USB2.0 HD UVC WebCam"},
+                  {"role": "obs", "index": 1, "name": "OBS Virtual Camera"}]
     return e, opened
 
 
@@ -181,7 +185,7 @@ def test_switching_to_the_camera_already_in_use_keeps_delivering_frames(camera_e
     """The exact click that froze the preview: camera 0 -> camera 0."""
     e, _ = camera_engine
     msg = e.switch_camera(0)
-    assert msg == "switched to camera 0"
+    assert msg == "switched to USB2.0 HD UVC WebCam"
     assert e.cap.grab() is True, "preview frozen: the new handle never delivers a frame"
     assert e.oconfig.camera_index == 0
 
@@ -198,7 +202,7 @@ def test_switch_camera_releases_the_old_handle_before_opening_the_new_one(camera
 def test_switch_to_a_missing_camera_falls_back_to_the_working_one(camera_engine):
     e, _ = camera_engine
     msg = e.switch_camera(2)                     # no such device
-    assert "camera 2" in msg and "2" in msg
+    assert "2" in msg
     assert e.cap is not None and e.cap.grab() is True, "fell back to a dead capture"
     assert e.oconfig.camera_index == 0
 
@@ -247,3 +251,81 @@ def test_send_reports_success_on_a_live_socket():
     assert asyncio.run(go()) == (True, True)
     assert sent[0][0] == "str" and json.loads(sent[0][1]) == {"a": 1}
     assert sent[1] == ("bytes", b"xy")
+
+
+def test_camera_buttons_resolve_obs_by_name_not_by_a_guessed_index(camera_engine):
+    """The OBS Virtual Camera's index is whatever DirectShow enumerates it at,
+    so the UI asks for a role and the engine looks it up by name."""
+    e, _ = camera_engine
+    assert e.resolve_camera("obs") == (1, "OBS Virtual Camera")
+    assert e.resolve_camera("webcam") == (0, "USB2.0 HD UVC WebCam")
+    assert e.switch_camera("obs") == "switched to OBS Virtual Camera"
+    assert e.oconfig.camera_index == 1
+
+
+def test_asking_for_obs_when_it_is_not_running_says_so(camera_engine):
+    e, _ = camera_engine
+    e._cameras = [{"role": "webcam", "index": 0, "name": "USB2.0 HD UVC WebCam"}]
+    msg = e.switch_camera("obs")
+    assert "OBS" in msg or "obs" in msg
+    assert e.oconfig.camera_index == 0          # unchanged, and the live camera still works
+    assert e.cap.grab() is True
+
+
+def test_inject_typing_needs_a_scan_phrase_and_never_runs_in_synthetic(camera_engine):
+    """The button types THIS scan's phrase with pynput; with no scan running
+    there is nothing to inject, and synthetic mode has its own toggle."""
+    e, _ = camera_engine
+    assert "start a scan" in e.inject_typing()
+    e.synthetic = True
+    assert "synthetic" in e.inject_typing()
+
+
+# ---------------------------------------------------------------------------
+# Scan length. auto_chip_rate turns a low measured fps into a low chip rate and
+# then stretches the session to keep auto_chip_rate_min_chips. A frame rate
+# that could not be measured maps onto the 0.5 Hz FLOOR, which asked for a
+# 120 s scan from a measurement that never happened (seen live, 2026-10-24:
+# "106 s left" on screen, chip_rate_hz 0.5).
+# ---------------------------------------------------------------------------
+
+def _fps_engine(frame_times):
+    raw = load_config()
+    raw["optical"]["auto_chip_rate"] = True
+    raw["challenge"] = {"chip_rate_hz": 2.0, "duration_s": 20.0}
+    e = HudEngine(raw, synthetic=True)
+    e.frame_times = list(frame_times)
+    return e
+
+
+def test_unmeasurable_fps_does_not_produce_a_two_minute_scan():
+    e = _fps_engine([])                      # no frames at all
+    rate, dur = e._pick_chip_rate(20.0)
+    assert rate == 2.0 and dur == 20.0, f"fell back to {rate} Hz / {dur}s"
+    assert any("not measurable" in w for w in e.warnings)
+
+
+def test_stale_frames_do_not_count_as_a_frame_rate():
+    """A frozen camera keeps its last timestamps; without a recency check the
+    engine reports the rate it USED to achieve."""
+    old = time.perf_counter() - 30.0
+    e = _fps_engine([old + i / 15.0 for i in range(40)])
+    assert math.isnan(e.measured_fps())
+
+
+def test_live_frames_still_drive_the_chip_rate():
+    now = time.perf_counter()
+    e = _fps_engine([now - (39 - i) / 15.0 for i in range(40)])
+    assert 14.0 < e.measured_fps() < 16.0
+    rate, dur = e._pick_chip_rate(20.0)
+    assert 1.0 < rate < 2.0 and dur <= 60.0
+
+
+def test_a_scan_that_would_run_too_long_is_refused_with_a_reason():
+    e = _fps_engine([])
+    e.raw["optical"]["auto_chip_rate"] = True
+    e.hud["max_scan_s"] = 30.0
+    e._pick_chip_rate = lambda base: (0.5, 120.0)     # the pathological case, directly
+    msg = e.start_scan()
+    assert "120s scan" in msg or "120" in msg
+    assert e.mode == "idle"                            # and it did not arm

@@ -56,14 +56,13 @@
     <div class="note" id="stageNote">Look at the screen. Sensors are warming up.</div>
   </section>
 
-  <section class="col right" aria-label="Pulse and keystroke impact lanes">
-    <article class="lane" id="lanePulse">
-      <div class="lane-head"><h2>Pulse<small>skin colour, rPPG</small></h2><span class="state" id="pulState">waiting</span></div>
-      <canvas id="pulWave"></canvas>
+  <section class="col right" aria-label="Acoustic and keystroke impact lanes">
+    <article class="lane" id="laneAcoustic">
+      <div class="lane-head"><h2>Acoustic<small>probe through speaker and mic</small></h2><span class="state" id="acoState">waiting</span></div>
+      <canvas id="acoScope"></canvas>
       <div class="readouts">
-        <div class="big plasma" id="pulBpm">---</div>
-        <div class="kv">bpm<br>snr<b id="pulSnr">--.-</b> dB</div>
-        <canvas id="pulSpec" style="flex:1;height:2rem;min-width:5rem"></canvas>
+        <div class="big" id="acoScore">-.--</div>
+        <div class="kv">lag<b id="acoLag">---</b> ms<br><span id="acoWhy">runs during a scan</span></div>
       </div>
     </article>
     <article class="lane" id="lanePressure">
@@ -80,8 +79,11 @@
   <footer>
     <div class="fuse" id="fuse"></div>
     <div class="policy" id="policy">Accept needs every gated lane. Optical failing rejects; any other lane failing asks for a re-challenge.</div>
-    <div class="camsel" id="camSel">camera <button data-cam="0">0</button><button data-cam="1">1</button><button data-cam="2">2</button></div>
-    <div class="sim" id="sim">
+    <div class="camsel" id="camSel">source <button data-role="webcam">webcam</button><button data-role="obs">OBS virtual</button></div>
+    <div class="sim" id="attacks">
+      <button id="injectBtn" title="Type this scan's phrase with pynput: the OS sees real keys, no finger hits the keyboard">Inject typing</button>
+    </div>
+    <div class="sim" id="sim" hidden>
       <button data-sim="attack_video" aria-pressed="false">Inject video</button>
       <button data-sim="attack_keys" aria-pressed="false">Inject keystrokes</button>
       <button data-sim="face_present" aria-pressed="true">Face in view</button>

@@ -1,15 +1,9 @@
-@font-face { font-family: "Chakra Petch"; font-weight: 400; src: url(vendor/fonts/chakra-petch-latin-400-normal.woff2) format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-weight: 500; src: url(vendor/fonts/chakra-petch-latin-500-normal.woff2) format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-weight: 600; src: url(vendor/fonts/chakra-petch-latin-600-normal.woff2) format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-weight: 700; src: url(vendor/fonts/chakra-petch-latin-700-normal.woff2) format("woff2"); }
-@font-face { font-family: "DSEG7"; src: url(vendor/fonts/DSEG7Classic-Bold.woff2) format("woff2"); }
-@font-face { font-family: "DSEG14"; src: url(vendor/fonts/DSEG14Classic-Regular.woff2) format("woff2"); }
 
 :root {
   --void: #080a19;
   --void-2: #0c0f24;
-  --panel: rgba(18, 22, 52, 0.55);
-  --line: rgba(126, 196, 210, 0.14);
+  --panel: rgba(16, 19, 38, 0.45);
+  --line: rgba(160, 180, 205, 0.13);
   --holo: #7ec4d2;
   --plasma: #c489ae;
   --phosphor: #83c79d;
@@ -25,7 +19,8 @@
 * { box-sizing: border-box; }
 html { font-size: clamp(11px, .82vw, 16px); }
 html, body { margin: 0; height: 100%; background: #7f7f7f; overflow: hidden; }
-body { font-family: "Chakra Petch", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+body { font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif; color: var(--ink);
+  -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
 
 /* ---- emitter: the four screen-edge strips that light the face ---- */
 .emit { position: fixed; background: rgb(127,127,127); z-index: 0; }
@@ -76,7 +71,7 @@ header {
 .chip.synth { color: #fff; background: var(--alarm); border-color: var(--alarm); font-weight: 600; }
 
 button.scan { border-radius: 4px;
-  font: 600 1rem "Chakra Petch", sans-serif; letter-spacing: .14em; color: var(--void);
+  font: 600 .95rem inherit; letter-spacing: .06em; color: var(--void);
   background: var(--holo); border: 0; padding: .55rem 1.6rem; cursor: pointer;
   clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
   box-shadow: 0 0 16px rgba(126,196,210,.26);
@@ -107,13 +102,13 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .state.warn { color: var(--amber); }
 .lane canvas { width: 100%; height: 100%; display: block; min-height: 0; }
 .readouts { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
-.big { font-family: "DSEG7", monospace; font-size: 1.85rem; line-height: 1; color: var(--holo);
+.big { font-size: 1.7rem; font-weight: 300; line-height: 1; color: var(--holo);
   text-shadow: 0 0 9px rgba(126,196,210,.34); }
 .big.plasma { color: var(--plasma); text-shadow: 0 0 9px rgba(196,137,174,.34); }
 .big.phos { color: var(--phosphor); text-shadow: 0 0 9px rgba(131,199,157,.34); }
 .big .ghost { color: rgba(126,196,210,.07); text-shadow: none; position: absolute; }
 .kv { font-size: .74rem; color: var(--dim); line-height: 1.35; }
-.kv b { font-family: "DSEG7", monospace; font-weight: 400; color: var(--ink); font-size: .8rem; margin-left: .25rem; }
+.kv b { font-weight: 500; color: var(--ink); font-size: .8rem; margin-left: .25rem; }
 .why { font-size: .72rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- center: hologram ---- */
@@ -129,7 +124,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 #holo { z-index: 2; pointer-events: none; }
 .stage .tag, .stage .note, .prompt, .ring { z-index: 3; }
 .stage .tag { position: absolute; right: .7rem; top: .6rem; text-align: right; font-size: .74rem; color: var(--dim); }
-.stage .tag .big { font-family: "DSEG14", monospace; font-size: 1.3rem; display: block; margin-bottom: .25rem; }
+.stage .tag .big { font-size: 1.05rem; font-weight: 400; letter-spacing: .12em; display: block; margin-bottom: .25rem; }
 .stage .note { position: absolute; left: 0; right: 0; bottom: .8rem; text-align: center; color: var(--dim); font-size: .85rem; }
 
 .prompt { border-radius: 5px;
@@ -139,7 +134,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 }
 .prompt.on { display: block; }
 .prompt small { color: var(--dim); font-size: .78rem; }
-.phrase { font-family: "DSEG14", monospace; font-size: clamp(.8rem, 1.2vw, 1.3rem); letter-spacing: .04em;
+.phrase { font-size: clamp(.95rem, 1.3vw, 1.45rem); font-weight: 400; letter-spacing: .02em;
   margin-top: .35rem; color: rgba(230,236,255,.28); line-height: 1.5; }
 .phrase .done { color: var(--phosphor); text-shadow: 0 0 8px rgba(131,199,157,.4); }
 .phrase .next { color: var(--ink); text-shadow: 0 0 6px rgba(255,255,255,.3); }
@@ -157,11 +152,11 @@ footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; bor
 .policy { flex: 1; font-size: .74rem; color: var(--dim); }
 .sim { display: none; gap: .4rem; }
 .sim.on { display: flex; }
-.sim button { font: 500 .72rem "Chakra Petch", sans-serif; background: transparent; color: var(--amber);
+.sim button { font: 500 .74rem inherit; background: transparent; color: var(--amber);
   border: 1px solid rgba(255,181,71,.5); padding: .2rem .55rem; cursor: pointer; }
 .sim button[aria-pressed="true"] { background: var(--amber); color: var(--void); }
 .camsel { display: flex; gap: .3rem; align-items: center; font-size: .74rem; color: var(--dim); }
-.camsel button { font: 500 .72rem "Chakra Petch", sans-serif; background: transparent; color: var(--holo);
+.camsel button { font: 500 .74rem inherit; background: transparent; color: var(--holo);
   border: 1px solid var(--line); padding: .15rem .45rem; cursor: pointer; }
 
 /* ---- verdict ---- */
@@ -179,13 +174,13 @@ footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; bor
 .verdict table { border-collapse: collapse; width: 100%; font-size: .86rem; }
 .verdict td { padding: .32rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 .verdict td:first-child { width: 9rem; color: var(--dim); }
-.verdict td.n { font-family: "DSEG7", monospace; width: 6rem; white-space: nowrap; }
-.verdict td.n small { font-family: "Chakra Petch", sans-serif; color: var(--dim); }
+.verdict td.n { font-weight: 500; width: 6rem; white-space: nowrap; }
+.verdict td.n small { font-weight: 400; color: var(--dim); }
 .verdict td.ok { color: var(--phosphor); } .verdict td.bad { color: var(--alarm); } .verdict td.na { color: var(--amber); }
 .verdict td.diag { color: var(--dim); font-size: .76rem; }
 .verdict canvas { width: 100%; height: 6.5rem; }
 .verdict .foot { display: flex; justify-content: space-between; color: var(--dim); font-size: .76rem; }
-.verdict .foot button { font: 600 .8rem "Chakra Petch", sans-serif; color: var(--holo); background: transparent; border: 1px solid var(--holo); padding: .3rem .9rem; cursor: pointer; }
+.verdict .foot button { font: 600 .8rem inherit; color: var(--holo); background: transparent; border: 1px solid var(--holo); padding: .3rem .9rem; cursor: pointer; }
 
 .toast { border-radius: 4px; position: fixed; z-index: 9; left: 50%; bottom: calc(var(--bf-y) + 3.2rem); transform: translateX(-50%);
   background: var(--void); border: 1px solid var(--holo); color: var(--ink); padding: .4rem .9rem; font-size: .85rem;
@@ -201,3 +196,22 @@ footer { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; bor
   .col.left, .col.right { grid-template-rows: 12rem 12rem; }
   .stage { order: -1; grid-row: 2; }
 }
+
+
+/* ---- 2026-10-24: minimalist pass ---------------------------------------
+   Operator feedback: the LED/techno faces and heavy neon read as decoration
+   rather than instrumentation. One humanist sans, hairline rules, and colour
+   reserved for state (pass / fail / running) instead of chrome. */
+.lane { background: var(--panel); border: 1px solid var(--line); box-shadow: none; }
+.lane-head h2 { font-weight: 600; font-size: .92rem; letter-spacing: .01em; }
+.lane-head h2 small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
+.state { font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.mark b { letter-spacing: .18em; font-weight: 600; }
+.mark span { color: var(--dim); }
+.chip { border-color: var(--line); background: transparent; }
+button.scan { font-weight: 600; letter-spacing: .02em; }
+.camsel button.on { color: var(--ink); border-color: var(--holo); }
+.camsel button:disabled { opacity: .35; cursor: not-allowed; }
+#injectBtn { color: var(--amber); border-color: rgba(216,169,110,.5); }
+.stage { background: #07091a; }
+.policy { color: var(--dim); }

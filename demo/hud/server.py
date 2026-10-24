@@ -114,8 +114,11 @@ class HudServer:
         elif kind == "dismiss":
             e.dismiss()
         elif kind == "camera":
-            text = await asyncio.get_running_loop().run_in_executor(None, e.switch_camera, int(data.get("index", 0)))
+            target = data.get("role", data.get("index", 0))   # role ("webcam"/"obs") or explicit index
+            text = await asyncio.get_running_loop().run_in_executor(None, e.switch_camera, target)
             await self._send(ws, {"type": "toast", "text": text})
+        elif kind == "inject_typing":
+            await self._send(ws, {"type": "toast", "text": e.inject_typing()})
         elif kind == "sim":
             e.set_sim(str(data.get("key")), bool(data.get("value")))
 

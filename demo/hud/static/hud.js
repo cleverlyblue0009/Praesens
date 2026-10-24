@@ -9,6 +9,8 @@ const $ = (id) => document.getElementById(id);
 const C = { holo: "#7ec4d2", plasma: "#c489ae", phos: "#83c79d", amber: "#d8a96e", alarm: "#cf7680",
             dim: "#767ca0", ghost: "#282d55", ink: "#d9dfee" };
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// one font for canvas text, matching the stylesheet: a plain humanist sans, no LED/techno face
+const FONT = '"Segoe UI", Inter, system-ui, sans-serif';
 
 // ------------------------------------------------------------------ websocket + clock
 let ws = null, hello = null, T = null, lastResult = null;
@@ -157,7 +159,7 @@ function drawOptical(o) {
   ctx.strokeStyle = "rgba(92,242,255,.18)"; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
   ledTrace(ctx, o.emitted || [], w, h, C.plasma, { r: 1.3 * d });
   ledTrace(ctx, o.measured || [], w, h, C.holo, { r: 1.7 * d });
-  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.plasma; ctx.fillText("screen pattern", 6 * d, 13 * d);
+  ctx.font = `${11 * d}px ${FONT}`; ctx.fillStyle = C.plasma; ctx.fillText("screen pattern", 6 * d, 13 * d);
   ctx.fillStyle = C.holo; ctx.fillText("light off your face", 6 * d, 26 * d);
   $("optScore").textContent = fmt(o.score);
   $("optLag").textContent = o.lag_ms === null ? "---" : String(Math.round(o.lag_ms));
@@ -179,11 +181,11 @@ function drawTyping(t, p) {
     const rows = 7;
     for (let k = 0; k < rows; k++) led(ctx, x, h - 10 * d - k * ((h - 34 * d) / rows), 1.5 * d, C.phos, (1 - age) * (1 - k * 0.1));
   }
-  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
+  ctx.font = `${11 * d}px ${FONT}`; ctx.fillStyle = C.dim;
   ctx.fillText("key-down rhythm, last 6 s", 6 * d, 13 * d);
   const scan = t.scan;
   if (!(scan && t.mode === "scan") && !keys.length) {
-    ctx.font = `${13 * d}px Chakra Petch`; ctx.fillStyle = C.dim; ctx.textAlign = "center";
+    ctx.font = `${13 * d}px ${FONT}`; ctx.fillStyle = C.dim; ctx.textAlign = "center";
     ctx.fillText("A scan shows a fresh phrase to type.", w / 2, h / 2);
     ctx.fillText("Only key timing is kept, never the characters.", w / 2, h / 2 + 18 * d);
     ctx.textAlign = "left";
@@ -198,100 +200,50 @@ function drawTyping(t, p) {
   }
 }
 
-let beat = 0, lastBeatT = 0, bpmNow = null;
-function drawPulse(pu) {
-  const { ctx, w, h, d } = fit($("pulWave"));
-  dotGrid(ctx, w, h, 9 * d, "rgba(255,61,203,.07)");
-  if (pu.status === "ok") {
-    ledTrace(ctx, pu.wave || [], w, h, C.plasma, { r: 1.7 * d, range: 2.6 });
-    $("pulBpm").textContent = Math.round(pu.bpm).toString().padStart(3, "!");
-    $("pulSnr").textContent = fmt(pu.snr_db, 1, "--.-");
-    bpmNow = pu.bpm;
-    setState("pulState", (pu.subscore ?? 0) >= 0.3 ? "pulse found" : "weak", (pu.subscore ?? 0) >= 0.3 ? "ok" : "warn");
-  } else {
-    $("pulBpm").textContent = "---"; bpmNow = null;
-    ctx.font = `${12 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
-    ctx.fillText(pu.reason || "acquiring", 8 * d, h / 2);
-    setState("pulState", "acquiring", "idle");
+// ------------------------------------------------------------------ acoustic lane
+// The probe is a 20 s duplex tone, so this lane has nothing to show between scans --
+// it reports the state honestly instead of animating something that isn't measured.
+function drawAcoustic(a, mode) {
+  const { ctx, w, h, d } = fit($("acoScope"));
+  if (!a || !a.in_lanes) {
+    setState("acoState", "not in this run", "idle");
+    ctx.fillStyle = C.dim; ctx.font = `${11 * d}px ${FONT}`;
+    ctx.fillText("add +acoustic to --lanes", 8 * d, h / 2);
+    $("acoScore").textContent = "-.--"; $("acoLag").textContent = "---";
+    return;
   }
-  const sp = fit($("pulSpec"));
-  const s = pu.spectrum || [];
-  const bw = sp.w / Math.max(1, s.length);
-  s.forEach((v, i) => {
-    const bh = (v || 0) * sp.h;
-    sp.ctx.fillStyle = C.plasma; sp.ctx.globalAlpha = 0.35 + 0.65 * (v || 0);
-    sp.ctx.fillRect(i * bw, sp.h - bh, Math.max(1, bw - 1), bh);
-  });
-  sp.ctx.globalAlpha = 1;
-}
-
-function drawPressure(p, now) {
-  const { ctx, w, h, d } = fit($("preEnv"));
-  dotGrid(ctx, w, h, 9 * d);
-  const env = p.env || [];
-  const n = env.length, cw = w / Math.max(1, n);
-  const top = h * 0.74;
-  for (let i = 0; i < n; i++) {
-    const v = Math.max(0, Math.min(1, (env[i] || 0) / 40));
-    const segs = Math.round(v * 12);
-    for (let k = 0; k < segs; k++) {
-      ctx.fillStyle = k > 8 ? C.plasma : C.holo;
-      ctx.globalAlpha = 0.45 + 0.55 * (k / 12);
-      ctx.fillRect(i * cw, top - (k + 1) * (top / 13), Math.max(1, cw - 1), top / 13 - 1.5 * d);
+  if (a.state === "probing") {
+    setState("acoState", "probe playing", "warn");
+    $("acoWhy").textContent = `${Math.round(a.carrier_hz)} Hz through the speaker`;
+    const t = performance.now() / 1000;
+    ctx.strokeStyle = C.plasma; ctx.lineWidth = 1.4 * d; ctx.beginPath();
+    for (let x = 0; x < w; x++) {                 // a tone, drawn as a tone
+      const y = h / 2 + Math.sin(x * 0.22 + t * 6) * h * 0.3 * Math.exp(-Math.abs(x - w / 2) / (w * 0.9));
+      x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     }
+    ctx.stroke();
+    $("acoScore").textContent = "···"; $("acoLag").textContent = "---";
+    return;
   }
-  ctx.globalAlpha = 1;
-  // key-downs reported by the OS (plasma ticks) -- their impacts should follow at a fixed lag
-  for (const dt of p.recent_keys || []) {
-    if (dt < -3) continue;
-    const x = (1 + dt / 3) * w;
-    ctx.fillStyle = C.plasma; ctx.beginPath(); ctx.moveTo(x - 4 * d, 0); ctx.lineTo(x + 4 * d, 0); ctx.lineTo(x, 7 * d); ctx.fill();
+  const last = a.last;
+  if (!last) {
+    setState("acoState", "waiting", "idle");
+    ctx.fillStyle = C.dim; ctx.font = `${11 * d}px ${FONT}`;
+    ctx.fillText("runs during a scan", 8 * d, h / 2);
+    $("acoScore").textContent = "-.--"; $("acoLag").textContent = "---";
+    return;
   }
-  // per-key verdict row: did this keystroke have a physical strike behind it?
-  const keys = p.keys || [];
-  // one pip per recent keystroke: green = a strike was heard for it, red = none (height = strike force)
-  const base = h - 2 * d, pw = Math.min(9 * d, (w - 4 * d) / 26);
-  keys.forEach((k, i) => {
-    const col = k.matched ? C.phos : C.alarm;
-    const f = k.force_db === null ? 0.2 : Math.max(0.2, Math.min(1, k.force_db / 40));
-    const ph = f * (h - top - 6 * d);
-    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
-    ctx.fillRect(2 * d + i * (pw + 2 * d), base - ph, pw, ph);
-  });
-  ctx.shadowBlur = 0;
-  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
-  ctx.fillText("mic, last 3 s  â–¼ key-down", 6 * d, 20 * d);
-  $("preScore").textContent = fmt(p.score);
-  $("preLag").textContent = p.lag_ms === null || p.lag_ms === undefined ? "---" : String(Math.round(p.lag_ms));
-  $("preJit").textContent = fmt(p.jitter_ms, 1, "--.-");
-  if (p.status === "ok") {
-    const ok = p.score >= 0.5;
-    setState("preState", ok ? "strikes match" : "no strikes", ok ? "ok" : "bad");
-    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard Â· chance ${Math.round((p.chance || 0) * 100)}%`;
-  } else if (p.status === "stale") {
-    setState("preState", "last burst", "idle");
-    $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard in the last burst`;
-  } else {
-    setState("preState", "waiting", "idle");
-    $("preWhy").textContent = p.reason || "type anything to see strikes";
-  }
-}
-
-function drawFuse(t) {
-  const items = [];
-  const o = t.optical;
-  items.push(["Optical", o.score === null ? "" : o.score >= o.pass ? "ok" : "bad"]);
-  if (t.lanes.includes("typing")) {
-    const s = t.scan; let st = "";
-    if (s && t.mode === "scan") st = s.matched / Math.max(1, s.phrase.length) >= 0.7 ? "ok" : "warn";
-    items.push(["Typing", st]);
-  }
-  if (t.lanes.includes("acoustic")) items.push(["Acoustic", t.mode === "scan" ? "warn" : ""]);
-  if (t.lanes.includes("pressure")) {
-    const p = t.pressure; items.push(["Key impact", p.status === "ok" ? (p.score >= 0.5 ? "ok" : "bad") : ""]);
-  }
-  items.push(["Pulse (advisory)", t.pulse.status === "ok" ? "info" : ""]);
-  $("fuse").innerHTML = items.map(([n, s]) => `<span class="led ${s}"><i></i>${n}</span>`).join("");
+  const ok = last.status === "ok";
+  setState("acoState", ok ? (last.passes ? "coherent" : "weak") : last.status.replace("_", " "),
+           ok ? (last.passes ? "ok" : "bad") : "warn");
+  $("acoScore").textContent = ok && last.score !== null ? last.score.toFixed(2) : "-.--";
+  $("acoLag").textContent = last.lag_ms === null || last.lag_ms === undefined ? "---" : String(Math.round(last.lag_ms));
+  $("acoWhy").textContent = (last.diagnostics || "").split(",")[0] || "last scan";
+  // one bar: how far the measured score sits above the pass bar
+  const frac = Math.max(0, Math.min(1, (last.score ?? 0)));
+  ctx.fillStyle = "rgba(126,196,210,.10)"; ctx.fillRect(8 * d, h / 2 - 7 * d, w - 16 * d, 14 * d);
+  ctx.fillStyle = last.passes ? C.phos : C.alarm;
+  ctx.fillRect(8 * d, h / 2 - 7 * d, (w - 16 * d) * frac, 14 * d);
 }
 
 // ------------------------------------------------------------------ scan ring + prompt
@@ -319,7 +271,7 @@ function drawRing(t) {
       ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r * 0.99, cy + Math.sin(a) * r * 0.99);
       ctx.lineTo(cx + Math.cos(a) * r * 1.05, cy + Math.sin(a) * r * 1.05); ctx.stroke();
     }
-    ctx.font = `600 ${13 * d}px Chakra Petch`; ctx.fillStyle = C.plasma; ctx.textAlign = "center";
+    ctx.font = `600 ${13 * d}px ${FONT}`; ctx.fillStyle = C.plasma; ctx.textAlign = "center";
     const left = Math.max(0, s.duration - s.elapsed);
     ctx.fillText(s.elapsed < 0 ? "Get ready" : `${left.toFixed(0)} s left`, cx, cy - r * 1.05 - 10 * d);
     ctx.textAlign = "left";
@@ -342,7 +294,7 @@ function onResult(r) {
   v.className = `verdict on ${r.verdict}`;
   $("vWord").textContent = r.verdict === "RE-CHALLENGE" ? "RE-CHALLENGE" : r.verdict;
   $("vReason").textContent = r.reason || "";
-  const names = { optical: "Optical", typing: "Typing", acoustic: "Acoustic", pressure: "Key impact", pulse: "Pulse" };
+  const names = { optical: "Optical", typing: "Typing", acoustic: "Acoustic", pressure: "Key impact" };
   $("vLanes").innerHTML = (r.lanes || []).map((l) => {
     const verdict = l.status !== "ok" ? ["na", "No evidence"] : !l.gated ? ["na", "Advisory"] : l.passes ? ["ok", "Pass"] : ["bad", "Fail"];
     const lag = l.lag_ms === null || !l.passes ? "" : `${Math.round(l.lag_ms)}<small> ms</small>`;
@@ -374,11 +326,19 @@ function onTelemetry(t) {
     : t.face ? "Live. The edge light is today's challenge; your skin answers it." : "Face the screen to begin.";
   drawOptical(t.optical);
   drawTyping(t, t.pressure);
-  drawPulse(t.pulse);
+  drawAcoustic(t.acoustic, t.mode);
   if (t.lanes.includes("pressure")) drawPressure(t.pressure, t.now);
   drawFuse(t);
   updatePrompt(t);
+  $("sim").hidden = !t.synthetic;
+  $("attacks").hidden = !!t.synthetic;
   if (t.sim) for (const b of document.querySelectorAll("[data-sim]")) b.setAttribute("aria-pressed", String(!!t.sim[b.dataset.sim]));
+  if (t.cameras && t.cameras.length) for (const b of document.querySelectorAll("[data-role]")) {
+    const c = t.cameras.find((x) => x.role === b.dataset.role);
+    b.disabled = !c;
+    b.classList.toggle("on", !!c && c.index === t.camera);
+    if (c) b.title = `${c.name} (index ${c.index})`;
+  }
   if (t.landmarks) setFaceTarget(t.landmarks); else faceTarget = null;
   if (t.mode === "scan") setMood("scan");
   else if (t.mode !== "result") setMood("idle");   // "result" keeps the verdict colour on the face
@@ -392,8 +352,9 @@ document.addEventListener("keydown", (e) => {
 });
 for (const b of document.querySelectorAll("[data-sim]"))
   b.onclick = () => send({ type: "sim", key: b.dataset.sim, value: b.getAttribute("aria-pressed") !== "true" });
-for (const b of document.querySelectorAll("[data-cam]"))
-  b.onclick = () => send({ type: "camera", index: Number(b.dataset.cam) });
+for (const b of document.querySelectorAll("[data-role]"))
+  b.onclick = () => send({ type: "camera", role: b.dataset.role });
+$("injectBtn").onclick = () => send({ type: "inject_typing" });
 
 let toastTimer = null;
 function toast(text) {
@@ -596,12 +557,7 @@ function frame() {
   uniforms.uScan.value = scanY; scanRing.position.y = scanY;
   scanRing.scale.setScalar(Math.sqrt(Math.max(0.05, 1 - (scanY / 0.95) ** 2)));
   floor.rotation.y = -t * 0.1;
-  if (bpmNow && !reduceMotion) {
-    const period = 60 / bpmNow;
-    if (t - lastBeatT > period) lastBeatT = t;
-    beat = Math.exp(-(t - lastBeatT) * 7);
-  } else beat *= 0.9;
-  uniforms.uBeat.value = beat;
+  uniforms.uBeat.value = 0;   // the pulse lane is not shown: nothing on screen may imply it
   uniforms.uTime.value = t;
   renderer.render(scene, camera3);
   if (T) drawRing(T);
