@@ -339,7 +339,7 @@ function onTelemetry(t) {
     b.classList.toggle("on", !!c && c.index === t.camera);
     if (c) b.title = `${c.name} (index ${c.index})`;
   }
-  if (t.landmarks) setFaceTarget(t.landmarks); else faceTarget = null;
+  if (t.landmarks) setFaceTarget(t.landmarks);
   if (t.mode === "scan") setMood("scan");
   else if (t.mode !== "result") setMood("idle");   // "result" keeps the verdict colour on the face
   // the engine went back to live: close the verdict (unless it was replayed by hand via __hud)
@@ -498,7 +498,11 @@ function toNdc(px, py, out, i) {
 
 let rect = { W: 1, H: 1, x: 0, y: 0, w: 1, h: 1 };
 
+let lastFaceT = 0;
+const FACE_GRACE_S = 1.2;   // keep the mesh on the face across brief detection drops
+
 function setFaceTarget(lm) {
+  lastFaceT = performance.now() / 1000;
   // MediaPipe gives x,y normalised to the IMAGE (y down) and z as depth in x-scale units.
   // The preview is mirrored (scaleX(-1)), so x is flipped to match what the operator sees;
   // the result lands on the face pixel-for-pixel, which is the point of the overlay.
@@ -539,7 +543,11 @@ const clock = new THREE.Clock();
 function frame() {
   emitFrame();
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
-  haveFace = !!faceTarget;
+  // A dropped frame or a quick head turn makes MediaPipe miss a detection or two.
+  // Falling straight back to the idle mesh makes the overlay flicker off the face,
+  // so the last landmarks hold for FACE_GRACE_S before the mesh gives up.
+  haveFace = !!faceTarget && (performance.now() / 1000 - lastFaceT) < FACE_GRACE_S;
+  if (!haveFace) faceTarget = null;
   const tgt = faceTarget || canonTarget();
   if (tgt) {
     // snappier when locked to a face: the mesh has to sit ON the head, not trail it
