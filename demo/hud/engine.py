@@ -44,7 +44,7 @@ from praesens.optical import (
     OpticalConfig, OpticalFrameProcessor, moving_average_detrend, cross_correlate_lag_search,
     estimate_snr_db, resample_emitted, lock_camera,
 )
-from praesens.pressure import PressureConfig, analyse_keystroke_impacts, detect_impacts, pressure_record, \
+from praesens.pressure import PressureConfig, analyse_keystroke_impacts, analyse_from_duplex, detect_impacts, pressure_record, \
     _probe_notches, PressureResult
 from praesens.pulse import PulseConfig, estimate_pulse, skin_rgb, pulse_record
 from praesens.session import (
@@ -665,9 +665,8 @@ class HudEngine:
         if use_pressure:
             if acoustic_result is not None and acoustic_result.recording is not None:
                 aconfig = scan["aconfig"]
-                pressure_result = analyse_keystroke_impacts(
-                    acoustic_result.recording, acoustic_result.sample0_perf, aconfig.sample_rate_hz, events,
-                    self.pconfig, notch_freqs_hz=_probe_notches(aconfig.carrier_hz, aconfig.sample_rate_hz))
+                pressure_result = analyse_from_duplex(acoustic_result, events, self.pconfig,
+                                                      aconfig.carrier_hz, aconfig.sample_rate_hz)
             elif self.mic is not None:
                 audio, a0 = self.mic.audio_between(start - 0.5, end + 0.6)
                 pressure_result = analyse_keystroke_impacts(audio, a0, self.pconfig.sample_rate_hz, events,
@@ -854,21 +853,39 @@ class HudEngine:
         if abs(want - have) / have > 0.2:
             self._enter_idle()
 
+    def live_paused(self) -> bool:
+        """True while the acoustic probe is recording. Its PortAudio callback is
+        Python and shares the GIL with everything here; the live correlation work
+        made it drop buffers (xruns) in 6 of 9 HUD 4-lane scans, which breaks the
+        recording's sample clock and with it the pressure lane (2026-10-26). The
+        scored results are computed after the scan anyway -- live numbers during a
+        scan are cosmetic, the probe's clock is not."""
+        return self.mode in ("scan", "scoring") and "acoustic" in self.lanes
+
+    def analysis_tick(self, last_heavy: float) -> float:
+        """One pass of the live loop; returns the updated last_heavy time."""
+        if self.live_paused():
+            self.live_pressure = {"status": "shared", "reason": "keys recorded with the acoustic probe "
+                                                                 "-- scored when the scan ends"}
+            return last_heavy
+        if time.perf_counter() - last_heavy >= 1.0:
+            self._retune_live_challenge()
+        self._live_optical()
+        now = time.perf_counter()
+        if now - last_heavy >= 1.0:
+            # no live pulse: the lane is no longer on screen, and its POS step is a
+            # pure-Python loop -- the worst neighbour for an audio callback
+            self._live_pressure(heavy=True)
+            return now
+        self._live_pressure(heavy=False)
+        return last_heavy
+
     def analysis_loop(self) -> None:
         last_heavy = 0.0
         while not self.stop_event.is_set():
             time.sleep(0.33)
             try:
-                if time.perf_counter() - last_heavy >= 1.0:
-                    self._retune_live_challenge()
-                self._live_optical()
-                now = time.perf_counter()
-                if now - last_heavy >= 1.0:
-                    last_heavy = now
-                    self._live_pulse()
-                    self._live_pressure(heavy=True)
-                else:
-                    self._live_pressure(heavy=False)
+                last_heavy = self.analysis_tick(last_heavy)
             except Exception as e:
                 self.warnings.append(f"live analysis: {e}")
 
@@ -924,7 +941,14 @@ class HudEngine:
         now = time.perf_counter()
         out = dict(self.live_pressure)
         if mic is None:
-            self.live_pressure = {"status": "no_evidence", "reason": self.mic_error or "microphone busy"}
+            if self.mode in ("scan", "scoring") and "acoustic" in self.lanes and not self.mic_error:
+                # one microphone: the acoustic lane's duplex stream owns it for the scan, and the
+                # pressure lane is scored from THAT recording when the scan ends -- not idle, just
+                # not live (operators read "microphone busy" as "this lane is broken")
+                self.live_pressure = {"status": "shared", "reason": "keys recorded with the acoustic probe "
+                                                                     "-- scored when the scan ends"}
+            else:
+                self.live_pressure = {"status": "no_evidence", "reason": self.mic_error or "microphone busy"}
             return
         audio, a0 = mic.audio_between(now - 3.0, now)
         if a0 is not None and len(audio) > 2000:
@@ -981,7 +1005,8 @@ class HudEngine:
             "lanes": self.lanes, "camera": None if self.synthetic else self.oconfig.camera_index,
             "landmarks": (np.round(lm[:N_LANDMARKS, :3].astype(np.float64), 4).ravel().tolist()
                           if lm is not None else None),
-            "optical": {"score": _f(lo.score), "lag_ms": _f(lo.lag_ms, 0), "snr_db": _f(lo.snr_db, 1),
+            "optical": {"paused": self.live_paused(),
+                        "score": _f(lo.score), "lag_ms": _f(lo.lag_ms, 0), "snr_db": _f(lo.snr_db, 1),
                         "face_frac": _f(lo.face_frac, 2), "measured": lo.measured, "emitted": lo.emitted,
                         "pass": _f(self.fusion_config.reject_threshold)},
             "pulse": ({"status": pu.status, "bpm": _f(pu.bpm, 1), "snr_db": _f(pu.snr_db, 1),

@@ -155,6 +155,16 @@ function setState(id, text, cls) { const el = $(id); el.textContent = text; el.c
 // ------------------------------------------------------------------ lanes
 function drawOptical(o) {
   const { ctx, w, h, d } = fit($("optScope"));
+  if (o.paused) {
+    // live correlation is paused while the acoustic probe records (it made the audio drop
+    // buffers); the scored optical result is computed when the scan ends
+    setState("optState", "measuring", "warn");
+    ctx.fillStyle = C.dim; ctx.font = `${11 * d}px ${FONT}`;
+    ctx.fillText("light pattern being recorded", 8 * d, h / 2 - 6 * d);
+    ctx.fillText("scored when the scan ends", 8 * d, h / 2 + 10 * d);
+    $("optScore").textContent = "···";
+    return;
+  }
   dotGrid(ctx, w, h, 9 * d);
   ctx.strokeStyle = "rgba(92,242,255,.18)"; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
   ledTrace(ctx, o.emitted || [], w, h, C.plasma, { r: 1.3 * d });
@@ -289,6 +299,9 @@ function drawPressure(p, now) {
     const ok = p.score >= 0.5;
     setState("preState", ok ? "strikes match" : "no strikes", ok ? "ok" : "bad");
     $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard Â· chance ${Math.round((p.chance || 0) * 100)}%`;
+  } else if (p.status === "shared") {
+    setState("preState", "recording", "warn");
+    $("preWhy").textContent = p.reason;
   } else if (p.status === "stale") {
     setState("preState", "last burst", "idle");
     $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard in the last burst`;
@@ -312,7 +325,8 @@ function drawFuse(t) {
     items.push(["Acoustic", a.state === "probing" ? "warn" : a.last ? (a.last.passes ? "ok" : "bad") : ""]);
   }
   if (t.lanes.includes("pressure")) {
-    const p = t.pressure; items.push(["Key impact", p.status === "ok" ? (p.score >= 0.5 ? "ok" : "bad") : ""]);
+    const p = t.pressure;
+    items.push(["Key impact", p.status === "ok" ? (p.score >= 0.5 ? "ok" : "bad") : p.status === "shared" ? "warn" : ""]);
   }
   $("fuse").innerHTML = items.map(([n, s]) => `<span class="led ${s}"><i></i>${n}</span>`).join("");
 }

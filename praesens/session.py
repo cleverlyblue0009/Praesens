@@ -83,7 +83,7 @@ from praesens.typing import TypingConfig, KeystrokeCapture, keystroke_normality_
 from praesens.acoustic import AcousticConfig, run_acoustic_session, acoustic_confidence
 from praesens.pressure import (
     PressureConfig, MicRecorder, analyse_keystroke_impacts, pressure_confidence, pressure_record,
-    _probe_notches,
+    _probe_notches, analyse_from_duplex,
 )
 from praesens.pulse import PulseConfig, skin_rgb, estimate_pulse, pulse_record
 
@@ -558,9 +558,8 @@ def run_one_session(condition: str, meta: dict, raw_config: dict | None = None,
     pressure_result = None
     if pressure_enabled and typing_events is not None:
         if acoustic_result is not None and acoustic_result.recording is not None:
-            pressure_result = analyse_keystroke_impacts(
-                acoustic_result.recording, acoustic_result.sample0_perf, aconfig.sample_rate_hz,
-                typing_events, pconfig, notch_freqs_hz=_probe_notches(aconfig.carrier_hz, aconfig.sample_rate_hz))
+            pressure_result = analyse_from_duplex(acoustic_result, typing_events, pconfig,
+                                                  aconfig.carrier_hz, aconfig.sample_rate_hz)
         elif mic is not None:
             audio, t0 = mic.get_audio()
             pressure_result = analyse_keystroke_impacts(audio, t0, pconfig.sample_rate_hz, typing_events, pconfig)

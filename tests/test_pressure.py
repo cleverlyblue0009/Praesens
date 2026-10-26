@@ -231,3 +231,35 @@ def test_mic_recorder_ring_buffer_keeps_the_clock(monkeypatch):
     assert s0 == pytest.approx(54.0, abs=0.002)
     # sample0 = 50.001, so perf 54.0 is the last sample of block 7 and block 8 follows
     assert np.all(seg[2:400] == 8)
+
+
+# ---------------------------------------------------------------------------
+# Dropped audio buffers (xruns) in the shared duplex recording. HUD 4-lane scans
+# on the demo laptop (2026-10-26) dropped 1-2 buffers in 6 of 9 scans; the
+# recording stays contiguous, so every sample after the drop sits at the wrong
+# perf_counter instant and the key/impact alignment collapses (pressure 0.10 and
+# 0.29 on genuine typing, vs 0.93/1.00 for CLI scans with 0 xruns).
+# ---------------------------------------------------------------------------
+
+def _duplex(n_xruns):
+    from types import SimpleNamespace
+    audio, events = _recording()
+    return SimpleNamespace(recording=audio, sample0_perf=T0, n_xruns=n_xruns), events
+
+
+def test_duplex_recording_without_drops_scores_normally():
+    from praesens.pressure import analyse_from_duplex
+    ac, events = _duplex(0)
+    res = analyse_from_duplex(ac, events, PressureConfig(), carrier_hz=4000.0, fs=FS)
+    assert res.status == "ok" and res.score > 0.8
+
+
+def test_dropped_buffers_are_reported_as_unreliable_not_as_a_low_score():
+    """A broken sample clock is a measurement failure, not evidence about the
+    typist -- it must not read as 'subscore 0.10 below pass threshold'."""
+    from praesens.pressure import analyse_from_duplex
+    ac, events = _duplex(2)
+    res = analyse_from_duplex(ac, events, PressureConfig(), carrier_hz=4000.0, fs=FS)
+    assert res.status == "insufficient_signal"
+    assert res.score is None and res.lag_ms is None
+    assert "dropped 2 buffers" in res.diagnostics

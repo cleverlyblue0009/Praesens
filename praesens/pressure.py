@@ -429,6 +429,28 @@ def pressure_record(result: PressureResult | None) -> dict | None:
     }
 
 
+
+def analyse_from_duplex(acoustic_result, events: list, config: "PressureConfig", carrier_hz: float,
+                        fs: float) -> "PressureResult":
+    """Pressure scored off the acoustic lane's duplex recording (one microphone,
+    shared). If PortAudio dropped buffers during that recording, every sample after
+    the drop sits at the wrong perf_counter instant, so key-downs and impacts cannot
+    be aligned -- the result is reported as insufficient_signal, never as a low
+    score that blames the typist. Measured on the demo laptop (2026-10-26): HUD
+    4-lane scans with 1-2 xruns scored pressure 0.10/0.29 at an erratic lag, while
+    CLI scans with 0 xruns scored 0.93/1.00."""
+    res = analyse_keystroke_impacts(acoustic_result.recording, acoustic_result.sample0_perf, fs, events,
+                                    config, notch_freqs_hz=_probe_notches(carrier_hz, fs))
+    n = int(getattr(acoustic_result, "n_xruns", 0) or 0)
+    if n > 0 and res.status == "ok":
+        res.status = "insufficient_signal"
+        res.score = None
+        res.lag_ms = None
+        res.diagnostics = (f"audio dropped {n} buffer{'s' if n != 1 else ''} during the probe recording -- "
+                           f"key/impact timing unreliable; {res.diagnostics}")
+    return res
+
+
 if __name__ == "__main__":
     import argparse
     import yaml

@@ -402,3 +402,37 @@ def test_a_camera_that_blocks_forever_is_abandoned_not_waited_on(camera_engine):
     t0 = time.perf_counter()
     assert e._prime_with_timeout(BlockingCap(), timeout_s=0.5) is False
     assert time.perf_counter() - t0 < 2.0, "priming waited on a blocked camera"
+
+
+def test_live_analysis_stands_down_while_the_acoustic_probe_records(camera_engine):
+    """The probe's PortAudio callback shares the GIL with the live loop; live
+    correlation work during the recording made it drop buffers (2026-10-26)."""
+    e, _ = camera_engine
+    calls = []
+    e._live_optical = lambda: calls.append("optical")
+    e._live_pressure = lambda heavy: calls.append("pressure")
+    e._live_pulse = lambda: calls.append("pulse")
+    e._retune_live_challenge = lambda: None
+    e.lanes = ["optical", "typing", "acoustic", "pressure"]
+
+    e.mode = "scan"
+    e.analysis_tick(0.0)
+    assert calls == [], f"live work ran during the probe recording: {calls}"
+    assert e.live_pressure["status"] == "shared"
+
+    e.mode = "idle"
+    e.analysis_tick(0.0)
+    assert "optical" in calls and "pressure" in calls
+    assert "pulse" not in calls, "live pulse runs although the lane is not on screen"
+
+
+def test_without_acoustic_the_live_view_keeps_running_during_a_scan(camera_engine):
+    e, _ = camera_engine
+    calls = []
+    e._live_optical = lambda: calls.append("optical")
+    e._live_pressure = lambda heavy: calls.append("pressure")
+    e._retune_live_challenge = lambda: None
+    e.lanes = ["optical", "typing", "pressure"]
+    e.mode = "scan"
+    e.analysis_tick(0.0)
+    assert calls == ["optical", "pressure"]

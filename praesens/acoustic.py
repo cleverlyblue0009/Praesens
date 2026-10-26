@@ -452,6 +452,10 @@ class AcousticResult:
     # keystroke-impact lane (praesens/pressure.py)
     recording: np.ndarray | None = dataclasses.field(default=None, repr=False)
     sample0_perf: float | None = None
+    # buffers PortAudio dropped while recording. The recording itself stays contiguous, so after a
+    # drop every later sample sits at the wrong instant: harmless-ish for the segmented acoustic
+    # detector, fatal for anything that maps a sample index onto perf_counter (the pressure lane)
+    n_xruns: int = 0
 
 
 def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> AcousticResult:
@@ -494,7 +498,8 @@ def run_acoustic_session(challenge: Challenge, config: AcousticConfig) -> Acoust
 
     from praesens.pressure import fit_sample_clock  # local: pressure imports nothing from here
     rec_extra = {"recording": recorded,
-                 "sample0_perf": fit_sample_clock(getattr(player, "clock_anchors", []), config.sample_rate_hz)}
+                 "sample0_perf": fit_sample_clock(getattr(player, "clock_anchors", []), config.sample_rate_hz),
+                 "n_xruns": len(xruns)}
 
     det = detect_probe(recorded, challenge, config)
     offset = player.stream_offset_ms
