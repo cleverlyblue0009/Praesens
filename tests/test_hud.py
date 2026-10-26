@@ -436,3 +436,63 @@ def test_without_acoustic_the_live_view_keeps_running_during_a_scan(camera_engin
     e.mode = "scan"
     e.analysis_tick(0.0)
     assert calls == ["optical", "pressure"]
+
+
+def test_key_downs_stay_visible_while_the_probe_owns_the_microphone(camera_engine):
+    """During an acoustic scan the mic is the probe's, but key-downs come from the
+    keystroke listener -- the panel can show them at no cost to the audio callback."""
+    e, _ = camera_engine
+    now = time.perf_counter()
+
+    class Keys:
+        def get_events(self):
+            return [{"t_down": now - 1.0, "t_up": now - 0.9, "matched_expected": True},
+                    {"t_down": now - 0.4, "t_up": now - 0.3, "matched_expected": True}]
+
+    e.keys = Keys()
+    e.lanes = ["optical", "typing", "acoustic", "pressure"]
+    e.mode = "scan"
+    e.analysis_tick(0.0)
+    p = e.live_pressure
+    assert p["status"] == "shared"
+    assert len(p["recent_keys"]) == 2 and all(-1.5 < k < 0 for k in p["recent_keys"])
+
+
+def test_the_scan_per_key_outcome_holds_on_the_panel_while_the_verdict_is_up(camera_engine):
+    e, _ = camera_engine
+    calls = []
+    e._live_pressure = lambda heavy: calls.append("live")
+    e._live_optical = lambda: None
+    e._retune_live_challenge = lambda: None
+    e._scan_pressure_view = {"status": "scan", "score": 0.0, "keys": [{"matched": False, "force_db": None}] * 5}
+    e.mode = "result"
+    e.analysis_tick(0.0)
+    assert e.live_pressure["status"] == "scan" and len(e.live_pressure["keys"]) == 5
+    assert calls == [], "live mic analysis overwrote this scan's outcome while the verdict was up"
+
+
+def test_attack_button_starts_a_scan_and_injects_once_the_phrase_is_up(camera_engine, monkeypatch):
+    e, _ = camera_engine
+    injected = []
+    e.mode = "idle"
+
+    def fake_start():
+        e.mode = "scan"
+        e.scan = {"phrase": "red fox", "start_perf": time.perf_counter() - 2.0}
+        return "scan armed"
+
+    monkeypatch.setattr(e, "start_scan", fake_start)
+    monkeypatch.setattr(e, "inject_typing", lambda: injected.append(e.scan["phrase"]) or "injecting")
+    msg = e.attack_inject_typing()
+    assert "hands off" in msg
+    t0 = time.time()
+    while not injected and time.time() - t0 < 3:
+        time.sleep(0.05)
+    assert injected == ["red fox"]
+
+
+def test_attack_button_during_a_scan_injects_immediately(camera_engine, monkeypatch):
+    e, _ = camera_engine
+    e.mode = "scan"
+    monkeypatch.setattr(e, "inject_typing", lambda: "injecting 7 keystrokes")
+    assert e.attack_inject_typing() == "injecting 7 keystrokes"

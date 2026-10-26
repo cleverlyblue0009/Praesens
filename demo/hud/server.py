@@ -118,7 +118,7 @@ class HudServer:
             text = await asyncio.get_running_loop().run_in_executor(None, e.switch_camera, target)
             await self._send(ws, {"type": "toast", "text": text})
         elif kind == "inject_typing":
-            await self._send(ws, {"type": "toast", "text": e.inject_typing()})
+            await self._send(ws, {"type": "toast", "text": e.attack_inject_typing()})
         elif kind == "sim":
             e.set_sim(str(data.get("key")), bool(data.get("value")))
 

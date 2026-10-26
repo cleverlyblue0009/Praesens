@@ -290,8 +290,8 @@ function drawPressure(p, now) {
     ctx.fillRect(2 * d + i * (pw + 2 * d), base - ph, pw, ph);
   });
   ctx.shadowBlur = 0;
-  ctx.font = `${11 * d}px Chakra Petch`; ctx.fillStyle = C.dim;
-  ctx.fillText("mic, last 3 s  â–¼ key-down", 6 * d, 20 * d);
+  ctx.font = `${11 * d}px ${FONT}`; ctx.fillStyle = C.dim;
+  ctx.fillText(p.status === "scan" ? "this scan: one pip per key" : "mic, last 3 s  â–¼ key-down", 6 * d, 20 * d);
   $("preScore").textContent = fmt(p.score);
   $("preLag").textContent = p.lag_ms === null || p.lag_ms === undefined ? "---" : String(Math.round(p.lag_ms));
   $("preJit").textContent = fmt(p.jitter_ms, 1, "--.-");
@@ -301,7 +301,13 @@ function drawPressure(p, now) {
     $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard Â· chance ${Math.round((p.chance || 0) * 100)}%`;
   } else if (p.status === "shared") {
     setState("preState", "recording", "warn");
-    $("preWhy").textContent = p.reason;
+    $("preWhy").textContent = "keys shown live · strikes scored when the scan ends";
+  } else if (p.status === "scan") {
+    const ok = p.score !== null && p.score >= 0.5;
+    setState("preState", p.score === null ? "unreliable" : ok ? "strikes match" : "no strikes",
+             p.score === null ? "warn" : ok ? "ok" : "bad");
+    $("preWhy").textContent = p.score === null ? (p.reason || "").split(";")[0]
+      : `this scan: ${Math.round((p.hit || 0) * 100)}% of ${p.n_keys} keys heard · chance ${Math.round((p.chance || 0) * 100)}%`;
   } else if (p.status === "stale") {
     setState("preState", "last burst", "idle");
     $("preWhy").textContent = `${Math.round((p.hit || 0) * 100)}% of keys heard in the last burst`;
@@ -380,7 +386,7 @@ function onResult(r) {
   $("vWord").textContent = r.verdict === "RE-CHALLENGE" ? "RE-CHALLENGE" : r.verdict;
   $("vReason").textContent = r.reason || "";
   const names = { optical: "Optical", typing: "Typing", acoustic: "Acoustic", pressure: "Key impact" };
-  $("vLanes").innerHTML = (r.lanes || []).map((l) => {
+  $("vLanes").innerHTML = (r.lanes || []).filter((l) => l.name !== "pulse").map((l) => {
     const verdict = l.status !== "ok" ? ["na", "No evidence"] : !l.gated ? ["na", "Advisory"] : l.passes ? ["ok", "Pass"] : ["bad", "Fail"];
     const lag = l.lag_ms === null || !l.passes ? "" : `${Math.round(l.lag_ms)}<small> ms</small>`;
     return `<tr><td>${names[l.name] || l.name}</td><td class="${verdict[0]}">${verdict[1]}</td>

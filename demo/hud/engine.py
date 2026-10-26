@@ -271,6 +271,7 @@ class HudEngine:
         self._cameras = None
         self._injecting = False
         self._last_good_fps = float("nan")
+        self._scan_pressure_view = None
         self.last_acoustic = None     # the acoustic lane only runs during a scan
         self.emitter: BrowserEmitter | None = None
         self.processor = None
@@ -431,6 +432,35 @@ class HudEngine:
 
         threading.Thread(target=run, daemon=True).start()
         return f"injecting {len(phrase)} keystrokes -- hands off the keyboard"
+
+    def attack_inject_typing(self) -> str:
+        """The demo's keystroke-injection attack in one click. Idle: start a scan and
+        let pynput type its phrase ~1 s after the phrase appears (operator hands off).
+        During a scan: inject now. Expected verdict: typing passes, key impact fails,
+        RE-CHALLENGE."""
+        if self.synthetic:
+            return "use the synthetic inject toggle in synthetic mode"
+        if self.mode == "scan":
+            return self.inject_typing()
+        if self.mode != "idle":
+            return f"busy ({self.mode})"
+        armed = self.start_scan()
+        if armed != "scan armed":
+            return armed
+
+        def wait_then_inject():
+            deadline = time.perf_counter() + 15.0
+            while time.perf_counter() < deadline and not self.stop_event.is_set():
+                with self.lock:
+                    scan, mode = self.scan, self.mode
+                if scan and mode == "scan" and time.perf_counter() >= scan["start_perf"] + 1.0:
+                    self.inject_typing()
+                    return
+                time.sleep(0.05)
+            self.warnings.append("attack scan: the scan never started, nothing injected")
+
+        threading.Thread(target=wait_then_inject, daemon=True).start()
+        return "attack scan started -- the script types the phrase; keep your hands off the keyboard"
 
     def _prime_camera(self, cap, tries: int = 25) -> bool:
         """isOpened() is not proof of life: on Windows a second handle to a
@@ -675,6 +705,17 @@ class HudEngine:
                 pressure_result = PressureResult(status="no_evidence",
                                                  diagnostics=f"no microphone ({self.mic_error or 'unavailable'})")
         pressure_lane = pressure_lane_result(pressure_result) if pressure_result is not None else None
+        self._scan_pressure_view = None
+        if pressure_result is not None:
+            pr = pressure_result
+            self._scan_pressure_view = {
+                "status": "scan", "score": _f(pr.score), "lag_ms": _f(pr.lag_ms, 0),
+                "jitter_ms": _f(pr.lag_jitter_ms, 1), "hit": _f(pr.hit_fraction), "chance": _f(pr.chance_fraction),
+                "n_keys": pr.n_keys, "reason": pr.diagnostics,
+                # one pip per key of THIS scan: matched (a strike was heard) + strike force. No characters.
+                "keys": [{"matched": bool(k.get("matched")), "force_db": k.get("force_db")}
+                         for k in (pr.per_key or [])][-40:],
+            }
 
         skin = scan["skin"]
         pulse_est = estimate_pulse([t for t, _ in skin], [c for _, c in skin],
@@ -865,8 +906,19 @@ class HudEngine:
     def analysis_tick(self, last_heavy: float) -> float:
         """One pass of the live loop; returns the updated last_heavy time."""
         if self.live_paused():
-            self.live_pressure = {"status": "shared", "reason": "keys recorded with the acoustic probe "
-                                                                 "-- scored when the scan ends"}
+            now = time.perf_counter()
+            keys = self.keys
+            evs = keys.get_events() if keys is not None else []
+            self.live_pressure = {"status": "shared",
+                                  "reason": "keys recorded with the acoustic probe -- scored when the scan ends",
+                                  # key-downs come from the keystroke listener, not the microphone: no audio
+                                  # work, so showing them costs the probe's callback nothing
+                                  "recent_keys": [round(ev["t_down"] - now, 3) for ev in evs
+                                                  if ev["t_down"] >= now - 6.0]}
+            return last_heavy
+        if self.mode == "result" and self._scan_pressure_view is not None:
+            # hold this scan's per-key outcome on the panel while the verdict is up
+            self.live_pressure = self._scan_pressure_view
             return last_heavy
         if time.perf_counter() - last_heavy >= 1.0:
             self._retune_live_challenge()

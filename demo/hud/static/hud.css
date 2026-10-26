@@ -222,3 +222,10 @@ button.fs { font: 500 .78rem inherit; color: var(--ink); background: transparent
   border-radius: 4px; padding: .35rem .8rem; cursor: pointer; margin-right: .5rem; }
 button.fs:hover { border-color: var(--holo); }
 .chip.warn { color: var(--amber); border-color: rgba(216,169,110,.55); }
+
+/* attack controls: real attacks on real sensors (the synthetic toggles live in .sim) */
+.attacks { display: flex; gap: .4rem; }
+.attacks[hidden] { display: none; }
+.attacks button { font: 500 .78rem inherit; background: transparent; color: var(--amber);
+  border: 1px solid rgba(216,169,110,.55); border-radius: 4px; padding: .3rem .75rem; cursor: pointer; }
+.attacks button:hover { background: rgba(216,169,110,.12); }
