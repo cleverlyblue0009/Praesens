@@ -496,3 +496,52 @@ def test_attack_button_during_a_scan_injects_immediately(camera_engine, monkeypa
     e.mode = "scan"
     monkeypatch.setattr(e, "inject_typing", lambda: "injecting 7 keystrokes")
     assert e.attack_inject_typing() == "injecting 7 keystrokes"
+
+
+# ---------------------------------------------------------------------------
+# Camera switching races (2026-10-26). The capture thread runs process_frame
+# OUTSIDE the engine lock; _enter_idle closed that same processor from another
+# thread on a camera switch -> MediaPipe "access violation reading 0x10".
+# ---------------------------------------------------------------------------
+
+def test_a_processor_is_never_closed_while_a_frame_is_inside_it(camera_engine):
+    e, _ = camera_engine
+    events = []
+
+    class SlowProc:
+        def process_frame(self, *a):
+            events.append("frame-start"); time.sleep(0.3); events.append("frame-end")
+        def close(self):
+            events.append("close")
+
+    proc = SlowProc()
+
+    def capture():
+        with e._proc_lock:
+            proc.process_frame()
+
+    th = threading.Thread(target=capture)
+    th.start()
+    time.sleep(0.05)                       # the frame is mid-flight
+    with e._proc_lock:                     # exactly what _enter_idle now does before close()
+        proc.close()
+    th.join()
+    assert events == ["frame-start", "frame-end", "close"], events
+
+
+def test_switching_camera_forgets_the_old_cameras_frame_rate(camera_engine):
+    """The old camera's timestamps plus the switch gap read as 3-5 fps, and the
+    next scan's chip rate was picked from that."""
+    e, _ = camera_engine
+    now = time.perf_counter()
+    e.frame_times = [now - (39 - i) / 15.0 for i in range(40)]
+    e._last_good_fps = 15.0
+    e.switch_camera("obs")
+    assert e.frame_times == [] and math.isnan(e._last_good_fps)
+
+
+def test_implausibly_low_rates_are_not_remembered_as_the_last_good_fps():
+    now = time.perf_counter()
+    e = _fps_engine([now - (39 - i) / 3.0 for i in range(40)])   # 3 fps: a reading taken mid-switch
+    e._pick_chip_rate(20.0)
+    assert math.isnan(e._last_good_fps)

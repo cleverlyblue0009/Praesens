@@ -245,6 +245,11 @@ class HudEngine:
         self.pconfig_live = PressureConfig(**{**self.pconfig.__dict__, "n_decoys": 6, "lag_step_ms": 4.0})
 
         self.lock = threading.RLock()
+        # Held while a frame is being processed AND while a processor is closed. The capture
+        # thread takes its processor reference under self.lock but runs process_frame outside
+        # it; closing that processor concurrently (camera switch -> _enter_idle) freed the
+        # MediaPipe graph mid-call: "access violation reading 0x10" (2026-10-26).
+        self._proc_lock = threading.Lock()
         self.stop_event = threading.Event()
         self.listeners = []          # callables(msg_dict) -- the web layer registers one
         self.mode = "idle"
@@ -521,6 +526,10 @@ class HudEngine:
             with self.lock:
                 self.cap = new
                 self.oconfig.camera_index = index
+                # the old camera's timestamps plus the switch gap read as 3-5 fps, and the chip
+                # rate for the next scan was picked from that (2026-10-26)
+                self.frame_times = []
+                self._last_good_fps = float("nan")
             if self.mode == "idle":
                 self._enter_idle()              # fresh processor: no history from the old camera
             return f"switched to {label}"
@@ -557,8 +566,8 @@ class HudEngine:
         if not o.get("auto_chip_rate", False):
             return self.chip_rate_hz, float(self.raw.get("challenge", {}).get("duration_s", base_duration_s))
         fps = self.measured_fps()
-        if np.isfinite(fps):
-            self._last_good_fps = fps
+        if np.isfinite(fps) and fps >= float(self.hud.get("min_plausible_fps", 8.0)):
+            self._last_good_fps = fps       # never remember a reading taken mid-switch
         else:
             # pick_auto_chip_rate maps a NaN fps onto its floor (0.5 Hz), and the session then
             # stretches to min_chips/0.5 = 120 s to keep the chip count -- a two-minute scan
@@ -595,7 +604,8 @@ class HudEngine:
             self.scan = None
             self.status_line = "live -- press SCAN to verify"
         if old is not None:
-            old.close()
+            with self._proc_lock:
+                old.close()
         self.publish(em.describe())
 
     def start_scan(self) -> str:
@@ -755,7 +765,10 @@ class HudEngine:
             "insufficient_signal": opt.insufficient_signal, "adaptive_boost_applied": opt.adaptive_boost_applied,
             "exposure_locked": opt.exposure_locked, "n_frames": opt.n_frames, "n_face_detected": opt.n_face_detected,
             "measured_fps": opt.measured_fps, "warnings": opt.warnings,
-            "meta": {"synthetic": self.synthetic, **({"sim_attack_video": self.world.attack_video,
+            "meta": {"synthetic": self.synthetic,
+                     "camera_index": None if self.synthetic else self.oconfig.camera_index,
+                     "camera_name": None if self.synthetic else self.resolve_camera(self.oconfig.camera_index)[1],
+                     **({"sim_attack_video": self.world.attack_video,
                                                        "sim_attack_keys": self.world.attack_keys}
                                                       if self.world is not None else {})},
             "trace_emitted": opt.trace_emitted, "trace_measured": opt.trace_measured, "timestamps": opt.timestamps,
@@ -805,7 +818,8 @@ class HudEngine:
             self.mode = "result"
             self.status_line = f"{joint.verdict}: {joint.reason_text}"
         self.publish({"type": "result", "result": self.result})
-        proc.close()
+        with self._proc_lock:
+            proc.close()
 
         if use_acoustic:
             self._start_mic()
@@ -852,7 +866,8 @@ class HudEngine:
                 proc.ingest(t, lum, face_ok, lm)
             else:
                 try:
-                    msg = proc.process_frame(frame, t, start_perf, challenge, em)
+                    with self._proc_lock:
+                        msg = proc.process_frame(frame, t, start_perf, challenge, em)
                 except Exception as e:  # e.g. a processor closed mid-swap
                     self.warnings.append(f"frame processing: {e}")
                     continue
