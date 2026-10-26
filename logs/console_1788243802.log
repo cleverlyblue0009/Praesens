@@ -1,0 +1,6 @@
+object address  : 000001945497EEF0
+object refcount : 2
+object type     : 00007FF8FB81CB00
+object type name: OSError
+object repr     : OSError(9, 'The handle is invalid', None, 6, None)
+lost sys.stderr
